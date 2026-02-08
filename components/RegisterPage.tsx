@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
-import { ArrowLeft, Building, User, Check, ChevronRight, MessageSquare, Briefcase, Zap, Shield, BarChart3, Loader2 } from 'lucide-react';
-import { registerUser, RegisterData } from '@/src/services';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { ArrowLeft, Building, User, Check, ChevronRight, MessageSquare, Briefcase, Zap, Shield, BarChart3, Loader2, AlertCircle, ChevronDown } from 'lucide-react';
+import { registerUser, checkEmailExists, checkPhoneExists, RegisterData } from '@/src/services';
 
 interface RegisterPageProps {
     onLoginRequest: () => void;
@@ -9,33 +9,62 @@ interface RegisterPageProps {
 
 const RegisterPage: React.FC<RegisterPageProps> = ({ onLoginRequest, onBack }) => {
     const [step, setStep] = useState(1);
-    const totalSteps = 5;
+    const totalSteps = 4;
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [emailError, setEmailError] = useState<string | null>(null);
+    const [phoneError, setPhoneError] = useState<string | null>(null);
+    const [isCheckingEmail, setIsCheckingEmail] = useState(false);
+    const [isCheckingPhone, setIsCheckingPhone] = useState(false);
+
+    // Country codes
+    const countryCodes = [
+        { code: '+244', country: 'Angola', flag: '🇦🇴' },
+        { code: '+351', country: 'Portugal', flag: '🇵🇹' },
+        { code: '+55', country: 'Brasil', flag: '🇧🇷' },
+        { code: '+258', country: 'Moçambique', flag: '🇲🇿' },
+    ];
+    const [selectedCountryCode, setSelectedCountryCode] = useState(countryCodes[0]);
+
+    // Debounce timers
+    const emailDebounceRef = useRef<NodeJS.Timeout | null>(null);
+    const phoneDebounceRef = useRef<NodeJS.Timeout | null>(null);
 
     // Form state
     const [formData, setFormData] = useState({
-        // Step 1
-        accountType: null as 'company' | 'freelancer' | null,
-        // Step 2
+        // Default account type
+        accountType: 'freelancer' as 'company' | 'freelancer',
+        // Step 1 (Personal Data)
         firstName: '',
         lastName: '',
         email: '',
+        confirmEmail: '',
         phone: '',
         password: '',
         confirmPassword: '',
         channels: [] as string[],
-        // Step 3
+        whatsappNumber: '',
+        telegramUsername: '',
+        // Step 2 (Company Data)
         companyName: '',
         taxId: '',
         sector: 'Tecnologia',
         employeeRange: '1-5 pessoas',
-        // Step 5
+        // Step 4 (Modules)
         activeModules: ['ocr', 'whatsapp', 'audit', 'analytics'] as string[],
     });
 
     const updateFormData = (field: string, value: any) => {
         setFormData(prev => ({ ...prev, [field]: value }));
+        // Clear errors when user types
+        if (field === 'email') {
+            setEmailError(null);
+            debouncedEmailCheck(value);
+        }
+        if (field === 'phone') {
+            setPhoneError(null);
+            debouncedPhoneCheck(value);
+        }
     };
 
     const toggleChannel = (channel: string) => {
@@ -56,21 +85,151 @@ const RegisterPage: React.FC<RegisterPageProps> = ({ onLoginRequest, onBack }) =
         }));
     };
 
-    const nextStep = () => setStep(prev => Math.min(prev + 1, totalSteps + 1));
     const prevStep = () => setStep(prev => Math.max(prev - 1, 1));
 
+    // Validate email format
+    const isValidEmail = (email: string): boolean => {
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        return emailRegex.test(email);
+    };
+
+    // Debounced email check - triggers 500ms after user stops typing
+    const debouncedEmailCheck = useCallback((email: string) => {
+        // Clear previous timer
+        if (emailDebounceRef.current) {
+            clearTimeout(emailDebounceRef.current);
+        }
+
+        // Don't check if invalid format
+        if (!isValidEmail(email)) return;
+
+        emailDebounceRef.current = setTimeout(async () => {
+            setIsCheckingEmail(true);
+            try {
+                const exists = await checkEmailExists(email);
+                if (exists) {
+                    setEmailError('Este email já está registado. Tente fazer login.');
+                }
+            } catch (err) {
+                console.error('Email check error:', err);
+            }
+            setIsCheckingEmail(false);
+        }, 500);
+    }, []);
+
+    // Debounced phone check - triggers 500ms after user stops typing
+    const debouncedPhoneCheck = useCallback((phone: string) => {
+        // Clear previous timer
+        if (phoneDebounceRef.current) {
+            clearTimeout(phoneDebounceRef.current);
+        }
+
+        // Don't check if too short
+        if (phone.length < 9) return;
+
+        const fullPhone = selectedCountryCode.code + phone;
+
+        phoneDebounceRef.current = setTimeout(async () => {
+            setIsCheckingPhone(true);
+            try {
+                const exists = await checkPhoneExists(fullPhone);
+                if (exists) {
+                    setPhoneError('Este número já está registado. Tente fazer login.');
+                }
+            } catch (err) {
+                console.error('Phone check error:', err);
+            }
+            setIsCheckingPhone(false);
+        }, 500);
+    }, [selectedCountryCode.code]);
+
+    // Cleanup debounce on unmount
+    useEffect(() => {
+        return () => {
+            if (emailDebounceRef.current) clearTimeout(emailDebounceRef.current);
+            if (phoneDebounceRef.current) clearTimeout(phoneDebounceRef.current);
+        };
+    }, []);
+
+    // Handle next step with validation
+    const handleNextStep = async () => {
+        setError(null);
+        setEmailError(null);
+        setPhoneError(null);
+
+        // Step 1 validation: personal data (was Step 2)
+        if (step === 1) {
+            // Validate required fields
+            if (!formData.firstName.trim()) {
+                setError('Por favor, preencha o nome');
+                return;
+            }
+            if (!formData.lastName.trim()) {
+                setError('Por favor, preencha o apelido');
+                return;
+            }
+            if (!formData.email.trim()) {
+                setEmailError('Por favor, preencha o email');
+                return;
+            }
+            if (!isValidEmail(formData.email)) {
+                setEmailError('Por favor, insira um email válido');
+                return;
+            }
+            if (formData.email !== formData.confirmEmail) {
+                setEmailError('Os emails não coincidem');
+                return;
+            }
+            if (!formData.phone.trim()) {
+                setPhoneError('Por favor, preencha o telemóvel');
+                return;
+            }
+            if (!formData.password || formData.password.length < 6) {
+                setError('A senha deve ter pelo menos 6 caracteres');
+                return;
+            }
+            if (formData.password !== formData.confirmPassword) {
+                setError('As senhas não coincidem');
+                return;
+            }
+
+            // Check if email and phone already exist in database
+            setIsLoading(true);
+            try {
+                const [emailExists, phoneExists] = await Promise.all([
+                    checkEmailExists(formData.email),
+                    checkPhoneExists(selectedCountryCode.code + formData.phone)
+                ]);
+
+                if (emailExists) {
+                    setEmailError('Este email já está registado. Tente fazer login.');
+                }
+                if (phoneExists) {
+                    setPhoneError('Este número já está registado. Tente fazer login.');
+                }
+                if (emailExists || phoneExists) {
+                    setIsLoading(false);
+                    return;
+                }
+            } catch (err) {
+                console.error('Validation check error:', err);
+                // Continue if check fails - will be caught at registration
+            }
+            setIsLoading(false);
+        }
+
+        // Step 2 validation: company data (was Step 3)
+        if (step === 2) {
+            if (!formData.companyName.trim()) {
+                setError('Por favor, preencha o nome da empresa/marca');
+                return;
+            }
+        }
+
+        setStep(prev => Math.min(prev + 1, totalSteps + 1));
+    };
+
     const handleFinalSubmit = async () => {
-        // Validate passwords match
-        if (formData.password !== formData.confirmPassword) {
-            setError('As senhas não coincidem');
-            return;
-        }
-
-        if (formData.password.length < 6) {
-            setError('A senha deve ter pelo menos 6 caracteres');
-            return;
-        }
-
         setIsLoading(true);
         setError(null);
 
@@ -87,6 +246,10 @@ const RegisterPage: React.FC<RegisterPageProps> = ({ onLoginRequest, onBack }) =
             sector: formData.sector,
             employeeRange: formData.employeeRange,
             activeModules: formData.activeModules,
+
+            // New channel data
+            whatsappNumber: formData.whatsappNumber,
+            telegramUsername: formData.telegramUsername,
         };
 
         const result = await registerUser(registerData);
@@ -94,19 +257,19 @@ const RegisterPage: React.FC<RegisterPageProps> = ({ onLoginRequest, onBack }) =
         setIsLoading(false);
 
         if (result.success) {
-            nextStep(); // Go to success screen
+            setStep(totalSteps + 1); // Go to success screen
         } else {
             setError(result.error || 'Erro ao criar conta');
         }
     };
 
     // --- Step 1: Account Type ---
-    const Step1 = () => (
+    const renderStep1 = () => (
         <div className="space-y-6 animate-in fade-in slide-in-from-right-8 duration-500">
             <h3 className="text-2xl font-bold text-slate-800 text-center">Qual o seu perfil?</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <button
-                    onClick={() => { updateFormData('accountType', 'company'); nextStep(); }}
+                    onClick={() => { updateFormData('accountType', 'company'); setStep(2); }}
                     className={`p-8 rounded-[2rem] border-2 transition-all flex flex-col items-center gap-4 group ${formData.accountType === 'company' ? 'border-[#73c6df] bg-[#73c6df]/5 shadow-lg' : 'border-slate-100 bg-white hover:border-[#73c6df]/30 hover:shadow-md'}`}
                 >
                     <div className={`w-20 h-20 rounded-full flex items-center justify-center transition-colors ${formData.accountType === 'company' ? 'bg-[#73c6df] text-white' : 'bg-slate-100 text-slate-400 group-hover:text-[#73c6df]'}`}>
@@ -118,7 +281,7 @@ const RegisterPage: React.FC<RegisterPageProps> = ({ onLoginRequest, onBack }) =
                     </div>
                 </button>
                 <button
-                    onClick={() => { updateFormData('accountType', 'freelancer'); nextStep(); }}
+                    onClick={() => { updateFormData('accountType', 'freelancer'); setStep(2); }}
                     className={`p-8 rounded-[2rem] border-2 transition-all flex flex-col items-center gap-4 group ${formData.accountType === 'freelancer' ? 'border-[#8bd7bf] bg-[#8bd7bf]/5 shadow-lg' : 'border-slate-100 bg-white hover:border-[#8bd7bf]/30 hover:shadow-md'}`}
                 >
                     <div className={`w-20 h-20 rounded-full flex items-center justify-center transition-colors ${formData.accountType === 'freelancer' ? 'bg-[#8bd7bf] text-white' : 'bg-slate-100 text-slate-400 group-hover:text-[#8bd7bf]'}`}>
@@ -134,7 +297,7 @@ const RegisterPage: React.FC<RegisterPageProps> = ({ onLoginRequest, onBack }) =
     );
 
     // --- Step 2: Manager Data ---
-    const Step2 = () => (
+    const renderStep2 = () => (
         <div className="space-y-5 animate-in fade-in slide-in-from-right-8 duration-500">
             <div className="grid grid-cols-2 gap-4">
                 <div>
@@ -158,21 +321,78 @@ const RegisterPage: React.FC<RegisterPageProps> = ({ onLoginRequest, onBack }) =
             </div>
             <div>
                 <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Email</label>
+                <div className="relative">
+                    {isCheckingEmail && (
+                        <div className="absolute right-4 top-1/2 -translate-y-1/2 z-10">
+                            <Loader2 className="h-4 w-4 animate-spin text-slate-400" />
+                        </div>
+                    )}
+                    <input
+                        type="email"
+                        value={formData.email}
+                        onChange={(e) => updateFormData('email', e.target.value)}
+                        className={`w-full px-4 py-3 bg-slate-50 border rounded-xl text-slate-800 focus:ring-2 focus:ring-[#73c6df] focus:outline-none transition-all focus:bg-white ${emailError ? 'border-red-400 bg-red-50' : 'border-slate-200'}`}
+                    />
+                </div>
+                {emailError && (
+                    <div className="flex items-center gap-2 mt-2 text-red-500 text-sm font-medium">
+                        <AlertCircle size={14} />
+                        {emailError}
+                    </div>
+                )}
+            </div>
+            <div>
+                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Confirmar Email</label>
                 <input
                     type="email"
-                    value={formData.email}
-                    onChange={(e) => updateFormData('email', e.target.value)}
+                    value={formData.confirmEmail}
+                    onChange={(e) => updateFormData('confirmEmail', e.target.value)}
                     className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 focus:ring-2 focus:ring-[#73c6df] focus:outline-none transition-all focus:bg-white"
                 />
             </div>
             <div>
                 <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Telemóvel</label>
-                <input
-                    type="tel"
-                    value={formData.phone}
-                    onChange={(e) => updateFormData('phone', e.target.value)}
-                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 focus:ring-2 focus:ring-[#73c6df] focus:outline-none transition-all focus:bg-white"
-                />
+                <div className="flex gap-2">
+                    {/* Country Code Dropdown */}
+                    <div className="relative">
+                        <select
+                            value={selectedCountryCode.code}
+                            onChange={(e) => {
+                                const country = countryCodes.find(c => c.code === e.target.value);
+                                if (country) setSelectedCountryCode(country);
+                            }}
+                            className="appearance-none w-[120px] px-3 py-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 focus:ring-2 focus:ring-[#73c6df] focus:outline-none transition-all focus:bg-white cursor-pointer pr-8"
+                        >
+                            {countryCodes.map(country => (
+                                <option key={country.code} value={country.code}>
+                                    {country.flag} {country.code}
+                                </option>
+                            ))}
+                        </select>
+                        <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
+                    </div>
+                    {/* Phone Input */}
+                    <div className="relative flex-1">
+                        {isCheckingPhone && (
+                            <div className="absolute right-4 top-1/2 -translate-y-1/2">
+                                <Loader2 className="h-4 w-4 animate-spin text-slate-400" />
+                            </div>
+                        )}
+                        <input
+                            type="tel"
+                            value={formData.phone}
+                            onChange={(e) => updateFormData('phone', e.target.value)}
+                            placeholder="912 345 678"
+                            className={`w-full px-4 py-3 bg-slate-50 border rounded-xl text-slate-800 focus:ring-2 focus:ring-[#73c6df] focus:outline-none transition-all focus:bg-white ${phoneError ? 'border-red-400 bg-red-50' : 'border-slate-200'}`}
+                        />
+                    </div>
+                </div>
+                {phoneError && (
+                    <div className="flex items-center gap-2 mt-2 text-red-500 text-sm font-medium">
+                        <AlertCircle size={14} />
+                        {phoneError}
+                    </div>
+                )}
             </div>
             <div className="grid grid-cols-2 gap-4">
                 <div>
@@ -197,32 +417,85 @@ const RegisterPage: React.FC<RegisterPageProps> = ({ onLoginRequest, onBack }) =
 
             <div className="pt-6 border-t border-slate-100">
                 <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3">Canais de Integração</label>
-                <div className="flex gap-4">
-                    <label className="flex items-center gap-3 cursor-pointer p-4 rounded-2xl border border-slate-200 bg-white hover:border-[#73c6df] transition-all flex-1 shadow-sm">
-                        <input
-                            type="checkbox"
-                            checked={formData.channels.includes('whatsapp')}
-                            onChange={() => toggleChannel('whatsapp')}
-                            className="w-4 h-4 rounded text-[#73c6df] border-slate-300 focus:ring-[#73c6df]"
-                        />
-                        <span className="text-sm font-bold text-slate-700">WhatsApp</span>
-                    </label>
-                    <label className="flex items-center gap-3 cursor-pointer p-4 rounded-2xl border border-slate-200 bg-white hover:border-[#73c6df] transition-all flex-1 shadow-sm">
-                        <input
-                            type="checkbox"
-                            checked={formData.channels.includes('telegram')}
-                            onChange={() => toggleChannel('telegram')}
-                            className="w-4 h-4 rounded text-[#73c6df] border-slate-300 focus:ring-[#73c6df]"
-                        />
-                        <span className="text-sm font-bold text-slate-700">Telegram</span>
-                    </label>
+                <div className="space-y-4">
+                    {/* WhatsApp */}
+                    <div className={`p-4 rounded-2xl border transition-all ${formData.channels.includes('whatsapp') ? 'border-[#25D366] bg-[#25D366]/5' : 'border-slate-200 bg-white hover:border-[#25D366]/50'}`}>
+                        <label className="flex items-center gap-3 cursor-pointer">
+                            <input
+                                type="checkbox"
+                                checked={formData.channels.includes('whatsapp')}
+                                onChange={() => toggleChannel('whatsapp')}
+                                className="w-4 h-4 rounded text-[#25D366] border-slate-300 focus:ring-[#25D366]"
+                            />
+                            <span className="text-sm font-bold text-slate-700">WhatsApp</span>
+                        </label>
+                        {formData.channels.includes('whatsapp') && (
+                            <div className="mt-3 animate-in fade-in slide-in-from-top-2 duration-300">
+                                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Número WhatsApp</label>
+                                <div className="flex gap-2">
+                                    <div className="relative">
+                                        <select
+                                            value={selectedCountryCode.code}
+                                            onChange={(e) => {
+                                                const country = countryCodes.find(c => c.code === e.target.value);
+                                                if (country) setSelectedCountryCode(country);
+                                            }}
+                                            className="appearance-none w-[100px] px-2 py-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 text-sm focus:ring-2 focus:ring-[#25D366] focus:outline-none cursor-pointer pr-6"
+                                        >
+                                            {countryCodes.map(country => (
+                                                <option key={country.code} value={country.code}>
+                                                    {country.flag} {country.code}
+                                                </option>
+                                            ))}
+                                        </select>
+                                        <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 h-3 w-3 text-slate-400 pointer-events-none" />
+                                    </div>
+                                    <input
+                                        type="tel"
+                                        value={formData.whatsappNumber}
+                                        onChange={(e) => updateFormData('whatsappNumber', e.target.value)}
+                                        placeholder="912 345 678"
+                                        className="flex-1 px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 text-sm focus:ring-2 focus:ring-[#25D366] focus:outline-none"
+                                    />
+                                </div>
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Telegram */}
+                    <div className={`p-4 rounded-2xl border transition-all ${formData.channels.includes('telegram') ? 'border-[#0088cc] bg-[#0088cc]/5' : 'border-slate-200 bg-white hover:border-[#0088cc]/50'}`}>
+                        <label className="flex items-center gap-3 cursor-pointer">
+                            <input
+                                type="checkbox"
+                                checked={formData.channels.includes('telegram')}
+                                onChange={() => toggleChannel('telegram')}
+                                className="w-4 h-4 rounded text-[#0088cc] border-slate-300 focus:ring-[#0088cc]"
+                            />
+                            <span className="text-sm font-bold text-slate-700">Telegram</span>
+                        </label>
+                        {formData.channels.includes('telegram') && (
+                            <div className="mt-3 animate-in fade-in slide-in-from-top-2 duration-300">
+                                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Username Telegram</label>
+                                <div className="relative">
+                                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm">@</span>
+                                    <input
+                                        type="text"
+                                        value={formData.telegramUsername}
+                                        onChange={(e) => updateFormData('telegramUsername', e.target.value)}
+                                        placeholder="username"
+                                        className="w-full pl-7 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 text-sm focus:ring-2 focus:ring-[#0088cc] focus:outline-none"
+                                    />
+                                </div>
+                            </div>
+                        )}
+                    </div>
                 </div>
             </div>
         </div>
     );
 
     // --- Step 3: Company Data ---
-    const Step3 = () => (
+    const renderStep3 = () => (
         <div className="space-y-5 animate-in fade-in slide-in-from-right-8 duration-500">
             <div className="text-center mb-6">
                 <h3 className="text-xl font-bold text-slate-800">Dados do Negócio</h3>
@@ -297,7 +570,7 @@ const RegisterPage: React.FC<RegisterPageProps> = ({ onLoginRequest, onBack }) =
     );
 
     // --- Step 4: Team ---
-    const Step4 = () => (
+    const renderStep4 = () => (
         <div className="space-y-6 text-center animate-in fade-in slide-in-from-right-8 duration-500">
             <div className="w-20 h-20 bg-[#73c6df]/10 text-[#73c6df] rounded-full flex items-center justify-center mx-auto shadow-sm">
                 <Briefcase size={32} />
@@ -320,7 +593,7 @@ const RegisterPage: React.FC<RegisterPageProps> = ({ onLoginRequest, onBack }) =
     );
 
     // --- Step 5: Modules ---
-    const Step5 = () => (
+    const renderStep5 = () => (
         <div className="space-y-6 animate-in fade-in slide-in-from-right-8 duration-500">
             <div className="text-center mb-6">
                 <h4 className="text-xl font-bold text-slate-800">Personalize seu Painel</h4>
@@ -388,7 +661,7 @@ const RegisterPage: React.FC<RegisterPageProps> = ({ onLoginRequest, onBack }) =
                         <button onClick={prevStep} className="text-slate-400 hover:text-slate-800 transition-colors"><ArrowLeft size={24} /></button>
                     )}
                     <div className="flex gap-2">
-                        {[1, 2, 3, 4, 5].map(i => (
+                        {[1, 2, 3, 4].map(i => (
                             <div key={i} className={`h-1.5 rounded-full transition-all duration-500 ${i <= step ? 'w-8 bg-[#73c6df]' : 'w-2 bg-slate-200'}`}></div>
                         ))}
                     </div>
@@ -401,40 +674,42 @@ const RegisterPage: React.FC<RegisterPageProps> = ({ onLoginRequest, onBack }) =
 
                 {/* Error message */}
                 {error && (
-                    <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-xl text-red-600 text-sm font-medium">
+                    <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-xl text-red-600 text-sm font-medium flex items-center gap-2">
+                        <AlertCircle size={16} />
                         {error}
                     </div>
                 )}
 
                 <div className="flex-1 flex flex-col justify-center">
-                    {step === 1 && <Step1 />}
-                    {step === 2 && <Step2 />}
-                    {step === 3 && <Step3 />}
-                    {step === 4 && <Step4 />}
-                    {step === 5 && <Step5 />}
+                    {step === 1 && renderStep2()}
+                    {step === 2 && renderStep3()}
+                    {step === 3 && renderStep4()}
+                    {step === 4 && renderStep5()}
                 </div>
 
-                {step > 1 && (
-                    <div className="pt-8 mt-6 border-t border-slate-100 flex justify-between items-center">
+                <div className="pt-8 mt-6 border-t border-slate-100 flex justify-between items-center">
+                    {step > 1 ? (
                         <button onClick={prevStep} className="px-6 py-3 text-slate-500 font-bold hover:text-slate-800 transition-colors">Voltar</button>
-                        <button
-                            onClick={step === totalSteps ? handleFinalSubmit : nextStep}
-                            disabled={isLoading}
-                            className="px-10 py-4 bg-gradient-to-r from-[#73c6df] to-[#8bd7bf] text-white rounded-2xl font-bold hover:brightness-110 transition-all flex items-center gap-2 shadow-xl hover:shadow-[#73c6df]/30 hover:-translate-y-1 disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                            {isLoading ? (
-                                <>
-                                    <Loader2 size={18} className="animate-spin" />
-                                    Criando...
-                                </>
-                            ) : (
-                                <>
-                                    {step === totalSteps ? 'Finalizar' : 'Próximo'} <ChevronRight size={18} />
-                                </>
-                            )}
-                        </button>
-                    </div>
-                )}
+                    ) : (
+                        <div></div>
+                    )}
+                    <button
+                        onClick={step === totalSteps ? handleFinalSubmit : handleNextStep}
+                        disabled={isLoading}
+                        className="px-10 py-4 bg-gradient-to-r from-[#73c6df] to-[#8bd7bf] text-white rounded-2xl font-bold hover:brightness-110 transition-all flex items-center gap-2 shadow-xl hover:shadow-[#73c6df]/30 hover:-translate-y-1 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                        {isLoading ? (
+                            <>
+                                <Loader2 size={18} className="animate-spin" />
+                                A verificar...
+                            </>
+                        ) : (
+                            <>
+                                {step === totalSteps ? 'Finalizar' : 'Próximo'} <ChevronRight size={18} />
+                            </>
+                        )}
+                    </button>
+                </div>
             </div>
         </div>
     );

@@ -26,6 +26,10 @@ export interface RegisterData {
 
     // Step 5 - Modules
     activeModules: string[];
+
+    // Optional Channel Data
+    whatsappNumber?: string;
+    telegramUsername?: string;
 }
 
 export interface LoginData {
@@ -104,6 +108,8 @@ export async function registerUser(data: RegisterData): Promise<AuthResult> {
                 email: data.email,
                 mobile_number: data.phone,
                 preferred_channels: data.channels,
+                whatsapp_id: data.whatsappNumber,
+                telegram_id: data.telegramUsername,
                 user_role: 'admin', // Creator is admin
                 password: 'managed_by_supabase_auth', // Placeholder for n8n compatibility
             });
@@ -187,14 +193,42 @@ export async function getCurrentUserProfile() {
 }
 
 /**
- * Check if email already exists
+ * Check if email already exists (uses RPC to bypass RLS)
  */
 export async function checkEmailExists(email: string): Promise<boolean> {
-    const { data } = await supabase
-        .from('users')
-        .select('id')
-        .eq('email', email)
-        .single();
+    try {
+        const { data, error } = await supabase
+            .rpc('check_email_exists', { check_email: email });
 
-    return !!data;
+        if (error) {
+            console.error('Email check error:', error);
+            // Return false on error - will be caught at registration
+            return false;
+        }
+
+        return data === true;
+    } catch (err) {
+        console.error('Email check failed:', err);
+        return false;
+    }
+}
+
+/**
+ * Check if phone number already exists (uses RPC to bypass RLS)
+ */
+export async function checkPhoneExists(phone: string): Promise<boolean> {
+    try {
+        const { data, error } = await supabase
+            .rpc('check_phone_exists', { check_phone: phone });
+
+        if (error) {
+            console.error('Phone check error:', error);
+            return false;
+        }
+
+        return data === true;
+    } catch (err) {
+        console.error('Phone check failed:', err);
+        return false;
+    }
 }
