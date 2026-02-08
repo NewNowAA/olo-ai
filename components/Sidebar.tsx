@@ -18,9 +18,10 @@ interface SidebarProps {
   toggleSidebar: () => void;
   currentPage: 'dashboard' | 'billing' | 'ai' | 'goals' | 'builder' | 'settings' | 'help';
   onNavigate: (page: 'dashboard' | 'billing' | 'ai' | 'goals' | 'builder' | 'settings' | 'help') => void;
+  onLogout: () => void;
 }
 
-const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, toggleSidebar, currentPage, onNavigate }) => {
+const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, toggleSidebar, currentPage, onNavigate, onLogout }) => {
   const navItems = [
     { id: 'dashboard', icon: LayoutDashboard, label: 'Painel' },
     { id: 'billing', icon: Receipt, label: 'Faturamento' },
@@ -45,7 +46,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, toggleSidebar, currentPa
           </div>
           {!isCollapsed && (
             <span className="font-extrabold text-xl tracking-tight text-slate-700">
-              Lumea AI
+              faturAI
             </span>
           )}
         </div>
@@ -141,7 +142,9 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, toggleSidebar, currentPa
               <p className="text-sm font-bold text-slate-800 truncate">Alex Morgan</p>
               <div className="flex items-center justify-between">
                  <p className="text-[10px] uppercase font-bold text-[#73c6df] tracking-wider">Pro</p>
-                 <LogOut size={12} className="text-slate-400 hover:text-rose-500" />
+                 <button onClick={onLogout} title="Sair">
+                    <LogOut size={12} className="text-slate-400 hover:text-rose-500" />
+                 </button>
               </div>
             </div>
           )}

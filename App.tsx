@@ -8,8 +8,16 @@ import Goals from './components/Goals';
 import InvoiceBuilder from './components/InvoiceBuilder';
 import Settings from './components/Settings';
 import HelpSupport from './components/HelpSupport';
+import LandingPage from './components/LandingPage';
+import LoginPage from './components/LoginPage';
+import RegisterPage from './components/RegisterPage';
 
 const App: React.FC = () => {
+  // Auth State
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [authView, setAuthView] = useState<'landing' | 'login' | 'register'>('landing');
+
+  // App State
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [currentPage, setCurrentPage] = useState<'dashboard' | 'billing' | 'ai' | 'goals' | 'builder' | 'settings' | 'help'>('dashboard');
   
@@ -28,6 +36,49 @@ const App: React.FC = () => {
     }
   }, [darkMode]);
 
+  // Auth Handlers
+  const handleLogin = () => {
+    setIsAuthenticated(true);
+    setAuthView('landing'); // Reset for when they logout
+    setCurrentPage('dashboard');
+  };
+
+  const handleLogout = () => {
+    setIsAuthenticated(false);
+    setAuthView('landing');
+  };
+
+  // --- Render Authentication Flows ---
+
+  if (!isAuthenticated) {
+    if (authView === 'login') {
+      return (
+        <LoginPage 
+          onLogin={handleLogin} 
+          onBack={() => setAuthView('landing')} 
+          onRegister={() => setAuthView('register')}
+        />
+      );
+    }
+    if (authView === 'register') {
+      return (
+        <RegisterPage 
+          onLoginRequest={() => setAuthView('login')} 
+          onBack={() => setAuthView('landing')} 
+        />
+      );
+    }
+    // Default Landing Page
+    return (
+      <LandingPage 
+        onLogin={() => setAuthView('login')} 
+        onRegister={() => setAuthView('register')} 
+      />
+    );
+  }
+
+  // --- Render Main Application (Dashboard) ---
+
   return (
     <div className={`flex min-h-screen transition-colors duration-300 ${darkMode ? 'dark bg-slate-900' : 'bg-[#f8fafc]'}`}>
       <Sidebar 
@@ -35,6 +86,7 @@ const App: React.FC = () => {
         toggleSidebar={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
         currentPage={currentPage}
         onNavigate={(page) => setCurrentPage(page)}
+        onLogout={handleLogout}
       />
       <main className="flex-1 overflow-y-auto h-screen relative scroll-smooth no-scrollbar dark:text-slate-100">
         {/* Background Ambient Blurs for depth - Adjusted for Dark Mode */}
