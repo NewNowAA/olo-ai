@@ -1,20 +1,77 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
-</div>
+# faturAI - Invoice Management App
 
-# Run and deploy your AI Studio app
+> Plataforma inteligente de gestão de faturas com IA integrada.
 
-This contains everything you need to run your app locally.
+## 🚀 Quick Start
 
-View your app in AI Studio: https://ai.studio/apps/drive/1KcoNuQQZ2PqFKVGxJqhZ6g7XxF6xu_rJ
+**Prerequisites:** Node.js 18+
 
-## Run Locally
+```bash
+# Install dependencies
+npm install
 
-**Prerequisites:**  Node.js
+# Configure environment
+cp .env.example .env
+# Edit .env and add your GEMINI_API_KEY
 
+# Run development server
+npm run dev
+```
 
-1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
+App will be available at `http://localhost:3000`
+
+---
+
+## 📁 Project Structure
+
+```
+├── src/
+│   ├── components/
+│   │   ├── common/          # Reusable components (Button, Card, Modal, etc.)
+│   │   ├── layout/          # Layout components (Header, Sidebar)
+│   │   └── features/        # Feature-specific components
+│   ├── hooks/               # Custom React hooks
+│   ├── services/            # API services (Gemini AI)
+│   ├── types/               # TypeScript types
+│   ├── utils/               # Utility functions
+│   ├── constants/           # App constants
+│   └── config/              # Configuration files
+├── components/              # Legacy components (migrate to src/)
+├── .env                     # Environment variables (not in git)
+├── .env.example             # Environment template
+└── DEPENDENCIES.md          # Package tracking
+```
+
+---
+
+## 🔐 Environment Variables
+
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `GEMINI_API_KEY` | Yes | Google Gemini API key for AI features |
+| `VITE_APP_NAME` | No | App name (default: faturAI) |
+| `VITE_APP_ENVIRONMENT` | No | Environment (development/production) |
+
+---
+
+## 📦 Scripts
+
+| Command | Description |
+|---------|-------------|
+| `npm run dev` | Start development server |
+| `npm run build` | Build for production |
+| `npm run preview` | Preview production build |
+
+---
+
+## 🛠️ Tech Stack
+
+- **React 19** - UI Framework
+- **Vite** - Build tool
+- **TypeScript** - Type safety
+- **Tailwind CSS** - Styling
+- **Lucide React** - Icons
+- **Recharts** - Charts
+- **Google Gemini** - AI Integration
+
+See [DEPENDENCIES.md](./DEPENDENCIES.md) for full package list.

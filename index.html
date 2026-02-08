@@ -1,51 +1,71 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Lumea Financial</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
-    <style>
-      :root {
-        --color-teal-primary: #73c6df;
-        --color-mint-secondary: #8bd7bf;
-      }
-      body {
-        font-family: 'Plus Jakarta Sans', sans-serif;
-        background-color: #f8fafc;
-      }
-      .custom-gradient {
-        background: linear-gradient(135deg, #73c6df 0%, #8bd7bf 100%);
-      }
-      .custom-text-gradient {
-        background: linear-gradient(135deg, #73c6df 0%, #2dd4bf 100%);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-      }
-      /* Hide scrollbar for clean UI */
-      .no-scrollbar::-webkit-scrollbar {
-        display: none;
-      }
-      .no-scrollbar {
-        -ms-overflow-style: none;
-        scrollbar-width: none;
+
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Lumea Financial</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap"
+    rel="stylesheet">
+  <style>
+    :root {
+      --color-teal-primary: #73c6df;
+      --color-mint-secondary: #8bd7bf;
+    }
+
+    body {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      background-color: #f8fafc;
+    }
+
+    .custom-gradient {
+      background: linear-gradient(135deg, #73c6df 0%, #8bd7bf 100%);
+    }
+
+    .custom-text-gradient {
+      background: linear-gradient(135deg, #73c6df 0%, #2dd4bf 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    /* Hide scrollbar for clean UI */
+    .no-scrollbar::-webkit-scrollbar {
+      display: none;
+    }
+
+    .no-scrollbar {
+      -ms-overflow-style: none;
+      scrollbar-width: none;
+    }
+
+    /* Floating Animation for Background Blobs */
+    @keyframes float {
+      0% {
+        transform: translate(0px, 0px) scale(1);
       }
 
-      /* Floating Animation for Background Blobs */
-      @keyframes float {
-        0% { transform: translate(0px, 0px) scale(1); }
-        33% { transform: translate(30px, -50px) scale(1.1); }
-        66% { transform: translate(-20px, 20px) scale(0.9); }
-        100% { transform: translate(0px, 0px) scale(1); }
+      33% {
+        transform: translate(30px, -50px) scale(1.1);
       }
-      .animate-float {
-        animation: float 15s ease-in-out infinite;
+
+      66% {
+        transform: translate(-20px, 20px) scale(0.9);
       }
-      .animate-float-delayed {
-        animation: float 18s ease-in-out infinite reverse;
+
+      100% {
+        transform: translate(0px, 0px) scale(1);
       }
-    </style>
+    }
+
+    .animate-float {
+      animation: float 15s ease-in-out infinite;
+    }
+
+    .animate-float-delayed {
+      animation: float 18s ease-in-out infinite reverse;
+    }
+  </style>
   <script type="importmap">
 {
   "imports": {
@@ -54,12 +74,16 @@
     "lucide-react": "https://esm.sh/lucide-react@^0.563.0",
     "recharts": "https://esm.sh/recharts@^3.7.0",
     "react-dom/": "https://esm.sh/react-dom@^19.2.4/",
-    "@google/genai": "https://esm.sh/@google/genai@^1.40.0"
+    "@google/genai": "https://esm.sh/@google/genai@^1.40.0",
+    "@supabase/supabase-js": "https://esm.sh/@supabase/supabase-js@^2"
   }
 }
 </script>
 </head>
-  <body>
-    <div id="root"></div>
-  </body>
+
+<body>
+  <div id="root"></div>
+  <script type="module" src="/index.tsx"></script>
+</body>
+
 </html>

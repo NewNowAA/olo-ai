@@ -1,0 +1,33 @@
+/* ===========================================
+   Global Styles
+   Import this in your main entry point
+   =========================================== */
+
+/* Import Design Tokens */
+@import './design-tokens.css';
+
+/* Base Styles */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+html {
+    scroll-behavior: smooth;
+}
+
+body {
+    font-family: var(--font-family);
+    background-color: var(--bg-light);
+    color: var(--color-slate-800);
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+}
+
+/* Dark Mode */
+.dark body {
+    background-color: var(--bg-dark);
+    color: var(--color-slate-100);
+}
