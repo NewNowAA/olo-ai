@@ -98,6 +98,16 @@ const App: React.FC = () => {
 
   // --- Render Authentication Flows ---
 
+  // Priority: If registering, keep showing RegisterPage (even if auto-signed in) until user explicitly leaves
+  if (authView === 'register') {
+    return (
+      <RegisterPage
+        onLoginRequest={() => setAuthView('login')}
+        onBack={() => setAuthView('landing')}
+      />
+    );
+  }
+
   if (!isAuthenticated) {
     if (authView === 'login') {
       return (
@@ -118,15 +128,8 @@ const App: React.FC = () => {
         />
       );
     }
-    if (authView === 'register') {
-      return (
-        <RegisterPage
-          onLoginRequest={() => setAuthView('login')}
-          onBack={() => setAuthView('landing')}
-        />
-      );
-    }
-    // Default Landing Page
+
+    // Default to Landing if not authenticated and no specific view
     return (
       <LandingPage
         onLogin={() => setAuthView('login')}
