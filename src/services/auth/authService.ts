@@ -83,13 +83,6 @@ export async function registerUser(data: RegisterData): Promise<AuthResult> {
                 account_type: data.accountType,
                 active_modules: data.activeModules,
                 onboarding_status: 'completed',
-                // Bind personal contact data to organization
-                first_name: data.firstName,
-                last_name: data.lastName,
-                mobile_number: data.phone,
-                chat_number: data.whatsappNumber || data.phone, // Default chat number to whatsapp or phone
-                whatsapp_id: data.whatsappNumber,
-                telegram_id: data.telegramUsername,
             })
             .select('id')
             .single();
@@ -103,10 +96,10 @@ export async function registerUser(data: RegisterData): Promise<AuthResult> {
 
         const orgId = orgData.id;
 
-        // 3. Create user profile in public.users table
+        // 3. Create user profile in public.users table (Use upsert to handle potential triggers)
         const { error: userError } = await supabase
             .from('users')
-            .insert({
+            .upsert({
                 id: authUserId, // Use same ID as auth user
                 org_id: orgId,
                 first_name: data.firstName,
@@ -117,6 +110,7 @@ export async function registerUser(data: RegisterData): Promise<AuthResult> {
                 preferred_channels: data.channels,
                 whatsapp_id: data.whatsappNumber,
                 telegram_id: data.telegramUsername,
+                chat_number: data.whatsappNumber || data.phone, // Bind chat_number here
                 user_role: 'admin', // Creator is admin
                 password: 'managed_by_supabase_auth', // Placeholder for n8n compatibility
             });
