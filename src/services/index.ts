@@ -12,3 +12,6 @@ export { supabase } from './supabase';
 
 // Auth Services
 export * from './auth';
+
+// Invoice Services
+export * from './invoice/invoiceService';

@@ -61,6 +61,40 @@ export const geminiService = {
 
         return this.generateContent(goalsData, systemInstruction);
     },
+
+    /**
+     * Generate daily financial analysis
+     */
+    async generateDailyAnalysis(invoices: any[]): Promise<string> {
+        // Simplify data for token limit
+        const simpleInvoices = invoices.map(inv => ({
+            date: inv.date,
+            type: inv.type,
+            amount: inv.amount,
+            category: inv.category,
+            client: inv.client
+        }));
+
+        const prompt = `
+            Analise estes dados de faturas recentes e crie um "Resumo Diário de Inteligência Financeira".
+            Dados: ${JSON.stringify(simpleInvoices)}
+
+            Estrutura da resposta (Use Markdown):
+            ### 📊 Pulso Financeiro
+            [Resumo curto sobre o saldo e volume recente]
+
+            ### 🔎 Destaques
+            - **Receitas:** [Tendência ou maior entrada]
+            - **Despesas:** [Onde se gastou mais]
+
+            ### 💡 Sugestão do Dia
+            [Uma dica acionável baseada nos dados]
+        `;
+
+        const systemInstruction = "Você é um consultor financeiro CFO de elite. Seja extremamente conciso, direto e motivador.";
+
+        return this.generateContent(prompt, systemInstruction);
+    },
 };
 
 export default geminiService;
