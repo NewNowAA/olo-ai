@@ -87,9 +87,10 @@ const RegisterPage: React.FC<RegisterPageProps> = ({ onLoginRequest, onBack }) =
 
     const prevStep = () => setStep(prev => Math.max(prev - 1, 1));
 
-    // Validate email format
+    // Validate email format with stricter regex
     const isValidEmail = (email: string): boolean => {
-        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        // Stricter regex ensuring domain part and no whitespace
+        const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
         return emailRegex.test(email);
     };
 

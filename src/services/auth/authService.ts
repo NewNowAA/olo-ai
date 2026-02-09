@@ -83,6 +83,13 @@ export async function registerUser(data: RegisterData): Promise<AuthResult> {
                 account_type: data.accountType,
                 active_modules: data.activeModules,
                 onboarding_status: 'completed',
+                // Bind personal contact data to organization
+                first_name: data.firstName,
+                last_name: data.lastName,
+                mobile_number: data.phone,
+                chat_number: data.whatsappNumber || data.phone, // Default chat number to whatsapp or phone
+                whatsapp_id: data.whatsappNumber,
+                telegram_id: data.telegramUsername,
             })
             .select('id')
             .single();
@@ -120,18 +127,39 @@ export async function registerUser(data: RegisterData): Promise<AuthResult> {
             return { success: false, error: 'Falha ao criar perfil: ' + userError.message };
         }
 
+        // 4. Sign out immediately to prevent auto-login and ensure email confirmation
+        await supabase.auth.signOut();
+
         return {
             success: true,
             userId: authUserId,
             orgId: orgId
         };
-
     } catch (error) {
         console.error('Registration error:', error);
         return {
             success: false,
             error: error instanceof Error ? error.message : 'Erro desconhecido'
         };
+    }
+}
+
+/**
+ * Send password reset email
+ */
+export async function resetPasswordForEmail(email: string): Promise<{ success: boolean; error?: string }> {
+    try {
+        const { error } = await supabase.auth.resetPasswordForEmail(email, {
+            redirectTo: window.location.origin + '/update-password', // or handled by App state
+        });
+
+        if (error) {
+            return { success: false, error: error.message };
+        }
+
+        return { success: true };
+    } catch (error) {
+        return { success: false, error: 'Erro ao enviar email de recuperação' };
     }
 }
 

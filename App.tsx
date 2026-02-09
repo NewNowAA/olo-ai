@@ -11,13 +11,14 @@ import HelpSupport from './components/HelpSupport';
 import LandingPage from './components/LandingPage';
 import LoginPage from './components/LoginPage';
 import RegisterPage from './components/RegisterPage';
-import { supabase, getCurrentUser } from '@/src/services';
+import ForgotPasswordPage from './components/ForgotPasswordPage';
+import { supabase, getCurrentUser, logoutUser } from '@/src/services';
 
 const App: React.FC = () => {
   // Auth State
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoading, setIsLoading] = useState(true); // Check auth on mount
-  const [authView, setAuthView] = useState<'landing' | 'login' | 'register'>('landing');
+  const [authView, setAuthView] = useState<'landing' | 'login' | 'register' | 'forgot-password'>('landing');
 
   // App State
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
@@ -48,8 +49,8 @@ const App: React.FC = () => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       setIsAuthenticated(!!session?.user);
       if (event === 'SIGNED_OUT') {
-        setAuthView('landing');
         setCurrentPage('dashboard');
+        // Do NOT force landing view here, to allow RegisterPage (Thank You) to remain visible
       }
     });
 
@@ -70,6 +71,10 @@ const App: React.FC = () => {
     setIsAuthenticated(true);
     setAuthView('landing');
     setCurrentPage('dashboard');
+  };
+
+  const handleForgotPassword = () => {
+    setAuthView('forgot-password');
   };
 
   const handleLogout = async () => {
@@ -98,8 +103,18 @@ const App: React.FC = () => {
       return (
         <LoginPage
           onLogin={handleLogin}
-          onBack={() => setAuthView('landing')}
           onRegister={() => setAuthView('register')}
+          onBack={() => setAuthView('landing')}
+          onForgotPassword={handleForgotPassword}
+        />
+      );
+    }
+
+    if (authView === 'forgot-password') {
+      return (
+        <ForgotPasswordPage
+          onLogin={() => setAuthView('login')}
+          onBack={() => setAuthView('login')}
         />
       );
     }

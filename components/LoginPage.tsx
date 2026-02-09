@@ -6,9 +6,10 @@ interface LoginPageProps {
     onLogin: () => void;
     onRegister: () => void;
     onBack: () => void;
+    onForgotPassword: () => void;
 }
 
-const LoginPage: React.FC<LoginPageProps> = ({ onLogin, onRegister, onBack }) => {
+const LoginPage: React.FC<LoginPageProps> = ({ onLogin, onRegister, onBack, onForgotPassword }) => {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [isLoading, setIsLoading] = useState(false);
@@ -85,7 +86,7 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin, onRegister, onBack }) =>
                     <div>
                         <div className="flex justify-between mb-2">
                             <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest">Palavra-passe</label>
-                            <a href="#" className="text-xs text-[#2e8ba6] hover:underline font-bold">Esqueceu-se?</a>
+                            <button type="button" onClick={onForgotPassword} className="text-xs text-[#2e8ba6] hover:underline font-bold">Esqueceu-se?</button>
                         </div>
                         <div className="relative">
                             <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
