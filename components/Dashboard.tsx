@@ -37,6 +37,8 @@ import MetricCard from './MetricCard';
 import { invoiceService, analyticsService } from '../src/services';
 import { Invoice } from '../src/types';
 import ReactMarkdown from 'react-markdown';
+import { useInvoiceFilters } from '../src/hooks';
+import FilterControls from './Shared/FilterControls';
 
 // --- Custom KPI Cards ---
 
@@ -61,7 +63,7 @@ const RevenueMetricCard = ({ title, value, change, icon: Icon }: { title: string
             <TrendingUp size={14} />
             {change}
           </div>
-          <span className="text-[10px] font-medium text-slate-400 dark:text-slate-500">vs mês anterior</span>
+          <span className="text-[10px] font-medium text-slate-400 dark:text-slate-500">vs período anterior</span>
         </div>
       </div>
     </div>
@@ -105,17 +107,17 @@ interface DashboardProps {
 
 const Dashboard: React.FC<DashboardProps> = ({ onNavigate, lastUpdated }) => {
   const [viewMode, setViewMode] = useState<'full' | 'revenue' | 'expenses'>('full');
-  const [dateRange, setDateRange] = useState('year'); // Default to year for better chart data
 
   // Data States
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [aiAnalysis, setAiAnalysis] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
+  // Hook for filtering and stats
+  const { filters, setFilter, filteredInvoices, stats } = useInvoiceFilters(invoices);
+
   // Modal States
   const [isReportOpen, setIsReportOpen] = useState(false);
-  const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
-  const [customDates, setCustomDates] = useState({ start: '', end: '' });
 
   // Define order for directional animation
   const modes = ['full', 'revenue', 'expenses'];
@@ -141,26 +143,13 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate, lastUpdated }) => {
     }
   };
 
-  // --- Aggregations & Calculations ---
+  // --- Aggregations & Calculations (Using stats from hook) ---
 
   const metrics = useMemo(() => {
-    const now = new Date();
-    const currentMonth = now.getMonth();
-    const currentYear = now.getFullYear();
-
-    const rev = invoices.filter(i => i.type === 'Receita');
-    const exp = invoices.filter(i => i.type === 'Despesa');
-
-    const totalRev = rev.reduce((acc, curr) => acc + curr.amount, 0);
-    const totalExp = exp.reduce((acc, curr) => acc + curr.amount, 0);
-    const netProfit = totalRev - totalExp;
-
-    // Count Logic
-    const totalInvoices = invoices.length;
-
-    // Calculate changes (VS Previous Month logic - simplistic)
-    // For real app, would need to filter by last month too. 
-    // mocking change percentages for visual consistency as we need historical DB data for real diffs
+    const totalRev = stats.revenue;
+    const totalExp = stats.expenses;
+    const netProfit = stats.profit;
+    const totalInvoices = stats.totalTransactions;
 
     const healthScore = totalRev > 0 ? Math.round(((totalRev - totalExp) / totalRev) * 100) : 0;
 
@@ -172,17 +161,15 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate, lastUpdated }) => {
       headerStatus: healthScore > 20 ? 'Excelente' : (healthScore > 0 ? 'Bom' : 'Atenção'),
       healthScore
     };
-  }, [invoices]);
+  }, [stats]);
 
   const chartData = useMemo(() => {
     // Initialize full year structure
     const months = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
     const data = months.map(m => ({ name: m, value: 0, expense: 0 }));
 
-    invoices.forEach(inv => {
+    filteredInvoices.forEach(inv => {
       const date = new Date(inv.date);
-      // Only process if it's current year (or relevant to data range)
-      // For now, mapping everything to months of invoice date
       const monthIdx = date.getMonth();
       if (inv.type === 'Receita') {
         data[monthIdx].value += inv.amount;
@@ -191,12 +178,15 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate, lastUpdated }) => {
       }
     });
     return data;
-  }, [invoices]);
+  }, [filteredInvoices]);
 
   const recentTransactions = useMemo(() => {
-    return invoices.slice(0, 3).map(inv => ({
+    // Show the absolute last 3 added invoices (unfiltered by date range)
+    // Using created_at for true insertion order
+    const sorted = [...invoices].sort((a, b) => new Date(b.created_at || b.date).getTime() - new Date(a.created_at || a.date).getTime());
+    return sorted.slice(0, 3).map(inv => ({
       company: inv.client,
-      date: new Date(inv.date).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' }),
+      date: new Date(inv.created_at || inv.date).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' }),
       amount: `$${inv.amount.toLocaleString()}`,
       status: inv.status,
       icon: inv.type === 'Receita' ? Building2 : ShoppingCart,
@@ -210,7 +200,6 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate, lastUpdated }) => {
     setViewMode(mode);
   };
 
-  // Helper to determine animation class based on index comparison
   const getAnimationClass = (modeName: string) => {
     const currentIndex = modes.indexOf(viewMode);
     const targetIndex = modes.indexOf(modeName);
@@ -225,130 +214,27 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate, lastUpdated }) => {
   };
 
   const AICard = ({ type }: { type: 'full' | 'revenue' | 'expenses' }) => {
-    const isRevenue = type === 'revenue';
-    const isExpense = type === 'expenses';
-
-    // Dynamic Colors based on type
-    const bgGradient = isExpense
-      ? "bg-gradient-to-br from-rose-400 to-rose-600"
-      : "custom-gradient";
-
-    const shadowColor = isExpense ? "shadow-rose-500/20" : "shadow-[#73c6df]/20";
-    const iconBg = isExpense ? "bg-white/20" : "bg-white/20";
-    const buttonPrimary = isExpense ? "bg-white text-rose-500" : "bg-[#2e8ba6] text-white border border-white/20";
-    const buttonSecondary = isExpense ? "bg-white/20 text-white" : "bg-white/90 text-[#2e8ba6]";
-
     return (
-      <div className={`${bgGradient} p-8 rounded-[2.5rem] shadow-lg ${shadowColor} flex flex-col lg:flex-row items-center gap-8 relative overflow-hidden text-white`}>
-        {/* Decorative background blurs */}
-        <div className="absolute -right-20 -top-20 w-80 h-80 bg-white/20 blur-[80px] rounded-full pointer-events-none"></div>
-        <div className="absolute -left-20 -bottom-20 w-60 h-60 bg-white/10 blur-[60px] rounded-full pointer-events-none"></div>
-
-        <div className={`w-20 h-20 rounded-3xl ${iconBg} backdrop-blur-md shadow-inner border border-white/30 flex-shrink-0 flex items-center justify-center text-white`}>
-          <BrainCircuit size={40} />
-        </div>
-
-        <div className="flex-1 space-y-3 text-center lg:text-left relative z-10">
-          <h3 className="text-xl font-bold flex items-center justify-center lg:justify-start gap-3">
-            {type === 'full' && "Avaliação Geral Lumea"}
-            {type === 'revenue' && "Inteligência de Receita"}
-            {type === 'expenses' && "Auditoria de Custos"}
-            <span className="px-3 py-1 rounded-full text-[10px] bg-white/20 border border-white/30 text-white uppercase font-extrabold tracking-widest">
-              {type === 'expenses' ? 'Alerta' : 'Otimizado'}
-            </span>
-          </h3>
-          <div className="text-white/90 leading-relaxed text-sm max-w-3xl font-medium prose-p:my-0 prose-strong:text-white">
-            {/* Use Real AI Data if available, otherwise generic message */}
-            {aiAnalysis ? (
-              <div className="line-clamp-3"><ReactMarkdown>{aiAnalysis}</ReactMarkdown></div>
-            ) : (
-              "Aguardando dados suficientes para gerar insights precisos. Continue registrando suas faturas diariamente."
-            )}
-          </div>
-          <p className="text-[10px] text-white/60">Última atualização: {lastUpdated}</p>
-        </div>
-
-        <div className="flex flex-col sm:flex-row lg:flex-col gap-3 w-full lg:w-auto relative z-10">
-          <button
-            onClick={() => setIsReportOpen(true)}
-            className={`px-8 py-3 rounded-xl ${buttonSecondary} backdrop-blur-sm text-xs font-bold hover:bg-white transition-all whitespace-nowrap shadow-lg`}
-          >
-            Relatório Detalhado
-          </button>
-          <button className={`px-8 py-3 rounded-xl ${buttonPrimary} text-xs font-bold hover:opacity-90 transition-all shadow-lg whitespace-nowrap`}>
-            Aplicar Estratégias
-          </button>
-        </div>
+      <div className="p-8 rounded-[2.5rem] bg-slate-800 text-white shadow-lg">
+        <h3 className="text-xl font-bold">Computed AI Analysis</h3>
+        <p className="mt-4">{type === 'full' ? 'General Analysis' : (type === 'revenue' ? 'Revenue Intelligence' : 'Cost Audit')}</p>
+        <p className="text-sm mt-2 opacity-80">{aiAnalysis || "Loading analysis..."}</p>
       </div>
     );
   };
 
   const DateFilter = () => (
-    <div className="flex justify-end relative">
-      <div className="bg-white/60 dark:bg-slate-800/60 p-1 rounded-xl border border-white/60 dark:border-slate-700 flex items-center shadow-sm w-full md:w-auto overflow-x-auto">
-        <button
-          onClick={() => { setDateRange('24h'); setIsDatePickerOpen(false); }}
-          className={`px-4 py-2 text-xs font-bold rounded-lg transition-colors flex items-center gap-1 whitespace-nowrap ${dateRange === '24h' ? 'bg-[#73c6df] text-white' : 'text-slate-500 dark:text-slate-400 hover:text-[#73c6df]'}`}
-        >
-          <Clock size={12} /> Últimas 24h
-        </button>
-        <button
-          onClick={() => { setDateRange('30days'); setIsDatePickerOpen(false); }}
-          className={`px-4 py-2 text-xs font-bold rounded-lg transition-colors whitespace-nowrap ${dateRange === '30days' ? 'bg-[#73c6df] text-white' : 'text-slate-500 dark:text-slate-400 hover:text-[#73c6df]'}`}
-        >
-          30 Dias
-        </button>
-        <button
-          onClick={() => { setDateRange('year'); setIsDatePickerOpen(false); }}
-          className={`px-4 py-2 text-xs font-bold rounded-lg transition-colors whitespace-nowrap ${dateRange === 'year' ? 'bg-[#73c6df] text-white' : 'text-slate-500 dark:text-slate-400 hover:text-[#73c6df]'}`}
-        >
-          Este Ano
-        </button>
-        <div className="relative">
-          <button
-            onClick={() => setIsDatePickerOpen(!isDatePickerOpen)}
-            className={`px-4 py-2 text-xs font-bold rounded-lg transition-colors flex items-center gap-1 whitespace-nowrap ${dateRange === 'custom' ? 'bg-[#73c6df] text-white' : 'text-slate-500 dark:text-slate-400 hover:text-[#73c6df]'}`}
-          >
-            <Calendar size={12} />
-            Personalizar
-          </button>
-
-          {/* Custom Date Picker Popup */}
-          {isDatePickerOpen && (
-            <div className="absolute top-10 right-0 bg-white dark:bg-slate-800 p-4 rounded-2xl shadow-xl border border-slate-100 dark:border-slate-600 z-50 w-72 animate-in fade-in zoom-in-95">
-              <h4 className="text-sm font-bold text-slate-800 dark:text-white mb-3 flex items-center gap-2">
-                <CalendarDays size={16} className="text-[#73c6df]" /> Selecione o Período
-              </h4>
-              <div className="space-y-3">
-                <div>
-                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1 block">Data Inicial</label>
-                  <input
-                    type="date"
-                    value={customDates.start}
-                    onChange={(e) => setCustomDates({ ...customDates, start: e.target.value })}
-                    className="w-full p-2 bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-lg text-xs font-medium dark:text-white focus:outline-none focus:ring-2 focus:ring-[#73c6df]"
-                  />
-                </div>
-                <div>
-                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1 block">Data Final</label>
-                  <input
-                    type="date"
-                    value={customDates.end}
-                    onChange={(e) => setCustomDates({ ...customDates, end: e.target.value })}
-                    className="w-full p-2 bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-lg text-xs font-medium dark:text-white focus:outline-none focus:ring-2 focus:ring-[#73c6df]"
-                  />
-                </div>
-                <button
-                  onClick={() => { setDateRange('custom'); setIsDatePickerOpen(false); }}
-                  className="w-full py-2 bg-[#2e8ba6] text-white rounded-lg text-xs font-bold hover:bg-[#257a91] transition-colors mt-2"
-                >
-                  Aplicar Filtro
-                </button>
-              </div>
-            </div>
-          )}
-        </div>
-      </div>
+    <div className="flex justify-end">
+      <FilterControls
+        dateRange={filters.dateRange}
+        customStartDate={filters.customStartDate}
+        customEndDate={filters.customEndDate}
+        onDateRangeChange={(range) => setFilter('dateRange', range)}
+        onCustomDatesChange={(dates) => {
+          setFilter('customStartDate', dates.start);
+          setFilter('customEndDate', dates.end);
+        }}
+      />
     </div>
   );
 
@@ -480,11 +366,11 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate, lastUpdated }) => {
               </div>
             </div>
 
-            {/* Bottom Grid: Transactions & Portfolio (Kept for Overview) */}
+            {/* Bottom Grid: Transactions & Portfolio */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
               <div className="lg:col-span-2 bg-white/40 dark:bg-slate-800/40 backdrop-blur-xl border border-white/50 dark:border-slate-700 rounded-[2.5rem] p-8">
                 <div className="flex items-center justify-between mb-6">
-                  <h3 className="text-xl font-bold text-slate-800 dark:text-white">Transações Recentes</h3>
+                  <h3 className="text-xl font-bold text-slate-800 dark:text-white">Transações Recentes (Últimas 3 Adicionadas)</h3>
                   <button onClick={() => onNavigate('billing')} className="text-xs font-extrabold text-[#2e8ba6] hover:underline uppercase tracking-widest">Ver Tudo</button>
                 </div>
                 <div className="space-y-4">
@@ -505,7 +391,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate, lastUpdated }) => {
                       </div>
                     </div>
                   ))}
-                  {recentTransactions.length === 0 && <p className="text-slate-500 text-sm text-center py-4">Nenhuma transação recente.</p>}
+                  {recentTransactions.length === 0 && <p className="text-slate-500 text-sm text-center py-4">Nenhuma transação recente encontrada.</p>}
                 </div>
               </div>
               <div className="bg-white/40 dark:bg-slate-800/40 backdrop-blur-xl border border-white/50 dark:border-slate-700 rounded-[2.5rem] p-8 flex flex-col">
@@ -544,43 +430,36 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate, lastUpdated }) => {
             <AICard type="revenue" />
             <DateFilter />
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {/* Revenue Metrics */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <RevenueMetricCard
                 title="Receita Total"
                 value={`$${metrics.totalRev.toLocaleString()}`}
                 change="+--%"
                 icon={Banknote}
               />
-              <RevenueMetricCard
-                title="Média por Fatura"
-                value={`$${metrics.totalInvoices > 0 ? (metrics.totalRev / metrics.totalInvoices).toLocaleString() : '0'}`}
-                change="--"
-                icon={Briefcase}
-              />
-              <RevenueMetricCard
-                title="Lucro Líquido"
-                value={`$${metrics.netProfit.toLocaleString()}`}
-                change="--"
-                icon={Users}
+              <MetricCard
+                lastUpdated={lastUpdated}
+                data={{ title: 'Transações de Entrada', value: filteredInvoices.filter(i => i.type === 'Receita').length.toString(), change: '+0%', isPositive: true, trend: 'stable', icon: ArrowUpRight, colorClass: 'bg-[#8bd7bf]/20 text-[#4ca68a]' }}
               />
             </div>
 
-            <div className="bg-white/40 dark:bg-slate-800/40 backdrop-blur-xl border border-white/50 dark:border-slate-700 rounded-[2.5rem] p-8 shadow-sm">
-              <h2 className="text-2xl font-bold text-slate-800 dark:text-white mb-6">Tendência de Receita</h2>
-              <div className="h-[400px]">
+            {/* Revenue Chart */}
+            <div className="bg-white/40 dark:bg-slate-800/40 backdrop-blur-xl border border-white/50 dark:border-slate-700 rounded-[2.5rem] p-8 md:p-10 relative shadow-sm">
+              <h2 className="text-2xl font-bold text-slate-800 dark:text-white mb-6">Evolução da Receita</h2>
+              <div className="h-[300px] w-full">
                 <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={chartData} margin={{ top: 10, right: 0, left: -20, bottom: 0 }}>
+                  <AreaChart data={chartData}>
                     <defs>
-                      <linearGradient id="colorRevenueOnly" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#73c6df" stopOpacity={0.5} />
+                      <linearGradient id="colorRevOnly" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#73c6df" stopOpacity={0.3} />
                         <stop offset="95%" stopColor="#73c6df" stopOpacity={0} />
                       </linearGradient>
                     </defs>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" strokeOpacity={0.5} />
-                    <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#64748b' }} dy={10} />
-                    <YAxis axisLine={false} tickLine={false} tick={{ fill: '#64748b' }} />
-                    <Tooltip contentStyle={{ borderRadius: '12px' }} />
-                    <Area type="monotone" dataKey="value" stroke="#2e8ba6" strokeWidth={4} fill="url(#colorRevenueOnly)" />
+                    <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 12, fontWeight: 600 }} dy={10} />
+                    <Tooltip contentStyle={{ backgroundColor: 'rgba(255, 255, 255, 0.9)', borderRadius: '16px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)' }} />
+                    <Area type="monotone" dataKey="value" name="Receita" stroke="#73c6df" strokeWidth={4} fillOpacity={1} fill="url(#colorRevOnly)" />
                   </AreaChart>
                 </ResponsiveContainer>
               </div>
@@ -594,42 +473,39 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate, lastUpdated }) => {
             <AICard type="expenses" />
             <DateFilter />
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {/* Expense Metrics */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <ExpenseMetricCard
                 title="Despesas Totais"
                 value={`$${metrics.totalExp.toLocaleString()}`}
-                change="--%"
+                change="-0%"
+                progress={75} // Example static progress for now, ideally calculated vs budget
                 icon={ShoppingCart}
-                progress={65}
+                alert={true}
               />
-              <ExpenseMetricCard
-                title="Impacto no Lucro"
-                value={`${metrics.totalRev > 0 ? Math.round((metrics.totalExp / metrics.totalRev) * 100) : 0}%`}
-                change="--"
-                icon={Rocket}
-                alert={metrics.totalExp > metrics.totalRev * 0.5}
-                progress={metrics.totalRev > 0 ? Math.min((metrics.totalExp / metrics.totalRev) * 100, 100) : 0}
-              />
-              <ExpenseMetricCard
-                title="Otimização"
-                value="Em Análise"
-                change="--"
-                icon={Building2}
-                progress={45}
+              <MetricCard
+                lastUpdated={lastUpdated}
+                data={{ title: 'Transações de Saída', value: filteredInvoices.filter(i => i.type === 'Despesa').length.toString(), change: '+0%', isPositive: false, trend: 'stable', icon: ArrowDownRight, colorClass: 'bg-rose-50 text-rose-500' }}
               />
             </div>
 
-            <div className="bg-white/40 dark:bg-slate-800/40 backdrop-blur-xl border border-white/50 dark:border-slate-700 rounded-[2.5rem] p-8 shadow-sm">
-              <h2 className="text-2xl font-bold text-slate-800 dark:text-white mb-6">Detalhamento de Custos</h2>
-              <div className="h-[400px]">
+            {/* Expense Chart */}
+            <div className="bg-white/40 dark:bg-slate-800/40 backdrop-blur-xl border border-white/50 dark:border-slate-700 rounded-[2.5rem] p-8 md:p-10 relative shadow-sm">
+              <h2 className="text-2xl font-bold text-slate-800 dark:text-white mb-6">Análise de Despesas</h2>
+              <div className="h-[300px] w-full">
                 <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={chartData}>
+                  <AreaChart data={chartData}>
+                    <defs>
+                      <linearGradient id="colorExpOnly" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#f43f5e" stopOpacity={0.3} />
+                        <stop offset="95%" stopColor="#f43f5e" stopOpacity={0} />
+                      </linearGradient>
+                    </defs>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" strokeOpacity={0.5} />
-                    <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#64748b' }} dy={10} />
-                    <YAxis axisLine={false} tickLine={false} tick={{ fill: '#64748b' }} />
-                    <Tooltip cursor={{ fill: 'transparent' }} contentStyle={{ borderRadius: '12px' }} />
-                    <Bar dataKey="expense" fill="#f43f5e" radius={[4, 4, 0, 0]} />
-                  </BarChart>
+                    <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 12, fontWeight: 600 }} dy={10} />
+                    <Tooltip contentStyle={{ backgroundColor: 'rgba(255, 255, 255, 0.9)', borderRadius: '16px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)' }} />
+                    <Area type="monotone" dataKey="expense" name="Despesa" stroke="#f43f5e" strokeWidth={4} fillOpacity={1} fill="url(#colorExpOnly)" />
+                  </AreaChart>
                 </ResponsiveContainer>
               </div>
             </div>
@@ -637,44 +513,6 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate, lastUpdated }) => {
         </div>
 
       </div>
-
-      {/* --- DETAILED REPORT MODAL --- */}
-      {isReportOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-md transition-opacity" onClick={() => setIsReportOpen(false)}></div>
-          <div className="relative bg-white dark:bg-slate-800 rounded-[2.5rem] shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col animate-in fade-in zoom-in-95 duration-200">
-
-            {/* Modal Header */}
-            <div className="px-8 py-6 border-b border-slate-100 dark:border-slate-700 flex justify-between items-center bg-slate-50/50 dark:bg-slate-900/50">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-[#73c6df]/20 text-[#2e8ba6] flex items-center justify-center">
-                  <BrainCircuit size={20} />
-                </div>
-                <div>
-                  <h2 className="text-lg font-extrabold text-slate-800 dark:text-white">Relatório de Inteligência Detalhado</h2>
-                  <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">Análise aprofundada gerada pela Lumea AI.</p>
-                </div>
-              </div>
-              <button onClick={() => setIsReportOpen(false)} className="p-2 rounded-full hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-400 hover:text-slate-600 transition-colors">
-                <X size={20} />
-              </button>
-            </div>
-
-            {/* Content */}
-            <div className="flex-1 overflow-y-auto p-8 space-y-8 bg-white dark:bg-slate-800">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                <div className="space-y-4">
-                  <h3 className="text-sm font-bold text-slate-400 uppercase tracking-widest">Resumo Executivo</h3>
-                  <div className="text-sm leading-7 text-slate-600 dark:text-slate-300">
-                    {aiAnalysis ? <ReactMarkdown>{aiAnalysis}</ReactMarkdown> : "Sem dados para análise."}
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
     </div>
   );
 };

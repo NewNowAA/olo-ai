@@ -31,4 +31,5 @@ export interface Invoice {
     items?: InvoiceItem[];
     thumbnail?: string;
     fileUrl?: string;
+    created_at?: string;
 }

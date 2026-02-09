@@ -41,25 +41,22 @@ import {
 } from 'lucide-react';
 import { Invoice, InvoiceStatus, InvoiceItem, InvoiceType, ExpenseType, ReviewStatus } from '../src/types';
 import { invoiceService, analyticsService } from '../src/services';
+import { useInvoiceFilters } from '../src/hooks';
+import FilterControls from './Shared/FilterControls';
 
 const Billing: React.FC = () => {
     // --- State ---
+    // Data States
     const [invoices, setInvoices] = useState<Invoice[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [isSaving, setIsSaving] = useState(false);
     const [selectedInvoices, setSelectedInvoices] = useState<string[]>([]);
     const [viewMode, setViewMode] = useState<'list' | 'grid'>('list');
 
-    // Filters & Sorting
-    const [filterType, setFilterType] = useState<'Todos' | 'Receita' | 'Despesa'>('Todos');
-    const [searchText, setSearchText] = useState('');
-    const [supplierFilter, setSupplierFilter] = useState('');
-    const [subcategoryFilter, setSubcategoryFilter] = useState('');
-    const [dateStart, setDateStart] = useState('');
-    const [dateEnd, setDateEnd] = useState('');
+    // Hook for centralized filtering and stats
+    const { filters, setFilter, filteredInvoices, stats } = useInvoiceFilters(invoices);
 
-    const [sortField, setSortField] = useState<keyof Invoice>('date');
-    const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
+    const [selectedInvoiceForAnalysis, setSelectedInvoiceForAnalysis] = useState<Invoice | null>(null);
 
     // AI Analysis
     const [aiAnalysis, setAiAnalysis] = useState<string | null>(null);
@@ -114,50 +111,13 @@ const Billing: React.FC = () => {
         }
     };
 
-    // --- Derived Data & Filter Logic ---
-    const filteredInvoices = useMemo(() => {
-        let result = invoices.filter(inv => {
-            if (filterType !== 'Todos' && inv.type !== filterType) return false;
-            const searchTarget = (inv.invoiceNumber || inv.id).toLowerCase();
-            if (searchText && !inv.client.toLowerCase().includes(searchText.toLowerCase()) && !searchTarget.includes(searchText.toLowerCase())) return false;
-            if (subcategoryFilter && !inv.subcategory?.toLowerCase().includes(subcategoryFilter.toLowerCase())) return false;
-            if (dateStart && inv.date < dateStart) return false;
-            if (dateEnd && inv.date > dateEnd) return false;
-            return true;
-        });
-
-        result.sort((a, b) => {
-            let valA = a[sortField];
-            let valB = b[sortField];
-            if (valA === undefined || valA === null) valA = '';
-            if (valB === undefined || valB === null) valB = '';
-            if (typeof valA === 'string') valA = valA.toLowerCase();
-            if (typeof valB === 'string') valB = valB.toLowerCase();
-            if (valA < valB) return sortOrder === 'asc' ? -1 : 1;
-            if (valA > valB) return sortOrder === 'asc' ? 1 : -1;
-            return 0;
-        });
-        return result;
-    }, [invoices, filterType, searchText, supplierFilter, subcategoryFilter, dateStart, dateEnd, sortField, sortOrder]);
-
-    const stats = useMemo(() => {
-        const rev = filteredInvoices.filter(i => i.type === 'Receita');
-        const exp = filteredInvoices.filter(i => i.type === 'Despesa');
-        return {
-            revenueVolume: rev.reduce((acc, curr) => acc + curr.amount, 0),
-            expenseVolume: exp.reduce((acc, curr) => acc + curr.amount, 0),
-            revCount: rev.length,
-            expCount: exp.length
-        };
-    }, [filteredInvoices]);
-
     // --- Handlers ---
     const handleSort = (field: keyof Invoice) => {
-        if (sortField === field) {
-            setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
+        if (filters.sortField === field) {
+            setFilter('sortOrder', filters.sortOrder === 'asc' ? 'desc' : 'asc');
         } else {
-            setSortField(field);
-            setSortOrder('desc');
+            setFilter('sortField', field);
+            setFilter('sortOrder', 'desc');
         }
     };
 
@@ -188,6 +148,14 @@ const Billing: React.FC = () => {
         setCustomCategory('');
         setModalStep('choice');
         setIsModalOpen(true);
+    };
+
+    const openAnalysisModal = (invoice: Invoice) => {
+        setSelectedInvoiceForAnalysis(invoice);
+    };
+
+    const closeAnalysisModal = () => {
+        setSelectedInvoiceForAnalysis(null);
     };
 
     const openEditModal = (invoice: Invoice) => {
@@ -338,30 +306,30 @@ const Billing: React.FC = () => {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <InfoCard
                     title="Receita Total"
-                    value={`$${stats.revenueVolume.toLocaleString()}`}
-                    count={stats.revCount}
+                    value={`$${stats.revenue.toLocaleString()}`}
+                    count={filteredInvoices.filter(i => i.type === 'Receita').length}
                     icon={Banknote}
                     type="Receita"
                 />
                 <InfoCard
                     title="Despesa Total"
-                    value={`$${stats.expenseVolume.toLocaleString()}`}
-                    count={stats.expCount}
+                    value={`$${stats.expenses.toLocaleString()}`}
+                    count={filteredInvoices.filter(i => i.type === 'Despesa').length}
                     icon={ShoppingCart}
                     type="Despesa"
                 />
             </div>
 
             {/* Advanced Filters Toolbar */}
-            <div className="bg-white/60 dark:bg-slate-800/60 backdrop-blur-xl border border-white/60 dark:border-slate-700 p-4 rounded-[1.5rem] flex flex-col xl:flex-row gap-4 items-start xl:items-center shadow-sm">
+            <div className="bg-white/60 dark:bg-slate-800/60 backdrop-blur-xl border border-white/60 dark:border-slate-700 p-4 rounded-[1.5rem] flex flex-col xl:flex-row gap-4 items-start xl:items-center shadow-sm relative z-20">
 
                 {/* Type Tabs */}
                 <div className="flex p-1 bg-white dark:bg-slate-700 rounded-xl border border-slate-200 dark:border-slate-600 shrink-0">
                     {['Todos', 'Receita', 'Despesa'].map((type) => (
                         <button
                             key={type}
-                            onClick={() => setFilterType(type as any)}
-                            className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${filterType === type ? 'bg-[#73c6df] text-white shadow-sm' : 'text-slate-500 dark:text-slate-300 hover:text-[#73c6df]'}`}
+                            onClick={() => setFilter('filterType', type as any)}
+                            className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${filters.filterType === type ? 'bg-[#73c6df] text-white shadow-sm' : 'text-slate-500 dark:text-slate-300 hover:text-[#73c6df]'}`}
                         >
                             {type}
                         </button>
@@ -371,13 +339,13 @@ const Billing: React.FC = () => {
                 <div className="w-px h-8 bg-slate-200 dark:bg-slate-700 hidden xl:block"></div>
 
                 {/* Filter Inputs Group */}
-                <div className="flex flex-wrap gap-3 items-center flex-1 w-full">
+                <div className="flex flex-wrap gap-3 items-center flex-1 w-full relative">
                     {/* Search */}
                     <div className="relative group shrink-0 w-40">
                         <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
                         <input
-                            value={searchText}
-                            onChange={(e) => setSearchText(e.target.value)}
+                            value={filters.searchText}
+                            onChange={(e) => setFilter('searchText', e.target.value)}
                             type="text"
                             placeholder="Buscar..."
                             className="w-full pl-9 pr-3 py-2 bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-lg text-xs font-medium focus:outline-none focus:ring-2 focus:ring-[#73c6df]/30 dark:text-white"
@@ -388,30 +356,25 @@ const Billing: React.FC = () => {
                     <div className="relative group shrink-0 w-40">
                         <Filter size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
                         <input
-                            value={subcategoryFilter}
-                            onChange={(e) => setSubcategoryFilter(e.target.value)}
+                            value={filters.subcategoryFilter}
+                            onChange={(e) => setFilter('subcategoryFilter', e.target.value)}
                             type="text"
                             placeholder="Subcategoria..."
                             className="w-full pl-9 pr-3 py-2 bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-lg text-xs font-medium focus:outline-none focus:ring-2 focus:ring-[#73c6df]/30 dark:text-white"
                         />
                     </div>
 
-                    {/* Date Range */}
-                    <div className="flex items-center gap-2 bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-lg px-2 py-1">
-                        <input
-                            type="date"
-                            value={dateStart}
-                            onChange={e => setDateStart(e.target.value)}
-                            className="bg-transparent text-xs text-slate-600 dark:text-slate-200 focus:outline-none w-24"
-                        />
-                        <span className="text-slate-400">-</span>
-                        <input
-                            type="date"
-                            value={dateEnd}
-                            onChange={e => setDateEnd(e.target.value)}
-                            className="bg-transparent text-xs text-slate-600 dark:text-slate-200 focus:outline-none w-24"
-                        />
-                    </div>
+                    {/* Date Range Picker Integration */}
+                    <FilterControls
+                        dateRange={filters.dateRange}
+                        customStartDate={filters.customStartDate}
+                        customEndDate={filters.customEndDate}
+                        onDateRangeChange={(range) => setFilter('dateRange', range)}
+                        onCustomDatesChange={(dates) => {
+                            setFilter('customStartDate', dates.start);
+                            setFilter('customEndDate', dates.end);
+                        }}
+                    />
                 </div>
 
                 {/* View Toggle */}
@@ -448,8 +411,8 @@ const Billing: React.FC = () => {
                             </thead>
                             <tbody className="text-sm">
                                 {filteredInvoices.map((inv) => (
-                                    <tr key={inv.id} className={`group transition-all hover:scale-[1.002] ${selectedInvoices.includes(inv.id) ? 'bg-[#f0f9ff]' : 'bg-slate-50 dark:bg-slate-700/30 hover:bg-white dark:hover:bg-slate-700'} border border-transparent`}>
-                                        <td className="py-4 pl-4 rounded-l-2xl border-y border-l border-slate-100 dark:border-slate-700 bg-inherit">
+                                    <tr key={inv.id} onClick={() => openAnalysisModal(inv)} className={`group transition-all hover:scale-[1.002] ${selectedInvoices.includes(inv.id) ? 'bg-[#f0f9ff]' : 'bg-slate-50 dark:bg-slate-700/30 hover:bg-white dark:hover:bg-slate-700'} border border-transparent cursor-pointer`}>
+                                        <td className="py-4 pl-4 rounded-l-2xl border-y border-l border-slate-100 dark:border-slate-700 bg-inherit" onClick={(e) => e.stopPropagation()}>
                                             <input type="checkbox" checked={selectedInvoices.includes(inv.id)} onChange={() => toggleSelect(inv.id)} className="w-4 h-4 rounded border-slate-300 text-[#73c6df] focus:ring-[#73c6df]" />
                                         </td>
                                         <td className="py-4 border-y border-slate-100 dark:border-slate-700 text-slate-600 dark:text-slate-400 font-medium bg-inherit">
@@ -543,8 +506,8 @@ const Billing: React.FC = () => {
 
             {/* --- INVOICE MODAL --- */}
             {isModalOpen && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-                    <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-md" onClick={closeModal}></div>
+                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+                    <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-md" onClick={closeModal}></div>
                     <div className="relative bg-white dark:bg-slate-800 rounded-[2.5rem] shadow-2xl w-full max-w-5xl overflow-hidden flex flex-col max-h-[90vh] animate-in zoom-in-95 duration-200">
 
                         <div className="px-8 py-6 border-b border-slate-100 dark:border-slate-700 flex justify-between items-center bg-slate-50/50 dark:bg-slate-900/50">
@@ -577,7 +540,11 @@ const Billing: React.FC = () => {
                                         <div className="bg-white dark:bg-slate-800 rounded-2xl border-2 border-dashed border-slate-300 dark:border-slate-600 h-80 flex flex-col items-center justify-center relative overflow-hidden group">
                                             {uploadedImage ? (
                                                 <>
-                                                    <img src={uploadedImage} alt="Preview" className="w-full h-full object-contain" />
+                                                    {uploadedImage.toLowerCase().endsWith('.pdf') || uploadedImage.startsWith('blob:') && selectedFile?.type === 'application/pdf' ? (
+                                                        <iframe src={uploadedImage} className="w-full h-full" title="Preview"></iframe>
+                                                    ) : (
+                                                        <img src={uploadedImage} alt="Preview" className="w-full h-full object-contain" />
+                                                    )}
                                                     <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
                                                         <label className="cursor-pointer px-4 py-2 bg-white rounded-lg font-bold text-sm shadow-lg hover:scale-105 transition-transform">
                                                             Trocar Imagem
@@ -716,9 +683,65 @@ const Billing: React.FC = () => {
                 </div>
             )}
 
+            {/* --- ANALYSIS MODAL --- */}
+            {selectedInvoiceForAnalysis && (
+                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+                    <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-md" onClick={closeAnalysisModal}></div>
+                    <div className="relative bg-white dark:bg-slate-800 rounded-[2.5rem] shadow-2xl w-full max-w-lg overflow-hidden animate-in zoom-in-95 duration-200">
+                        <div className="p-8 relative">
+                            <button onClick={closeAnalysisModal} className="absolute top-6 right-6 p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-700"><X size={20} /></button>
+
+                            <div className="mb-6">
+                                <span className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase ${selectedInvoiceForAnalysis.type === 'Receita' ? 'bg-[#f0fdf4] text-[#15803d]' : 'bg-rose-50 text-rose-500'}`}>{selectedInvoiceForAnalysis.type}</span>
+                                <h2 className="text-2xl font-black text-slate-800 dark:text-white mt-3 line-clamp-1" title={selectedInvoiceForAnalysis.client}>{selectedInvoiceForAnalysis.client}</h2>
+                                <p className="text-slate-500 text-sm font-medium">{new Date(selectedInvoiceForAnalysis.date).toLocaleDateString('pt-BR', { dateStyle: 'full' })}</p>
+                            </div>
+
+                            <div className="space-y-6">
+                                <div className="p-6 bg-slate-50 dark:bg-slate-700/50 rounded-3xl border border-slate-100 dark:border-slate-600 block text-center">
+                                    <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Valor Total</p>
+                                    <p className="text-4xl font-black text-slate-800 dark:text-white">${selectedInvoiceForAnalysis.amount.toLocaleString()}</p>
+                                </div>
+
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div className="p-5 bg-[#73c6df]/10 rounded-2xl border border-[#73c6df]/20">
+                                        <p className="text-[10px] font-bold text-[#2e8ba6] uppercase mb-1">Items</p>
+                                        <p className="text-xl font-bold text-slate-800 dark:text-white">{selectedInvoiceForAnalysis.items?.length || 0}</p>
+                                    </div>
+                                    <div className="p-5 bg-indigo-50 dark:bg-indigo-900/20 rounded-2xl border border-indigo-100 dark:border-indigo-800">
+                                        <p className="text-[10px] font-bold text-indigo-500 uppercase mb-1">Categoria</p>
+                                        <p className="text-lg font-bold text-slate-800 dark:text-white line-clamp-1">{selectedInvoiceForAnalysis.category}</p>
+                                    </div>
+                                </div>
+
+                                {selectedInvoiceForAnalysis.items && selectedInvoiceForAnalysis.items.length > 0 && (
+                                    <div>
+                                        <h4 className="text-sm font-bold text-slate-700 dark:text-slate-300 mb-3">Item Mais Relevante</h4>
+                                        <div className="flex items-center justify-between p-4 rounded-xl bg-white dark:bg-slate-700 border border-slate-100 dark:border-slate-600 shadow-sm">
+                                            <div>
+                                                <p className="font-bold text-slate-800 dark:text-white">{selectedInvoiceForAnalysis.items.sort((a, b) => (b.price * b.quantity) - (a.price * a.quantity))[0].name}</p>
+                                                <p className="text-xs text-slate-500">{selectedInvoiceForAnalysis.items.sort((a, b) => (b.price * b.quantity) - (a.price * a.quantity))[0].quantity}x unid.</p>
+                                            </div>
+                                            <p className="font-bold text-slate-800 dark:text-white">${(selectedInvoiceForAnalysis.items.sort((a, b) => (b.price * b.quantity) - (a.price * a.quantity))[0].price * selectedInvoiceForAnalysis.items.sort((a, b) => (b.price * b.quantity) - (a.price * a.quantity))[0].quantity).toLocaleString()}</p>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+
+                            <div className="mt-8 flex gap-3">
+                                <button onClick={() => { closeAnalysisModal(); openEditModal(selectedInvoiceForAnalysis); }} className="flex-1 py-3 bg-slate-800 text-white rounded-xl font-bold text-sm hover:bg-slate-700 shadow-lg flex items-center justify-center gap-2">
+                                    <Edit3 size={16} /> Editar Completo
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+
             <style>{`
                 .label-text { @apply text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest; }
-                .input-field { @apply px-4 py-3 bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#73c6df]/30 dark:text-white transition-all; }
+                .input-field { @apply px-4 py-3 bg-slate-100 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#73c6df]/30 dark:text-white transition-all font-medium; }
                 .custom-gradient { @apply bg-gradient-to-br from-[#73c6df] to-[#2e8ba6]; }
             `}</style>
         </div>

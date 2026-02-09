@@ -1,23 +1,12 @@
+
 import React, { useState } from 'react';
-import { Target, TrendingUp, CheckCircle2, Plus, Flag, Trophy, Clock, X, Bot, Sparkles, Loader2, Users, User, BarChart as BarChartIcon, PieChart as PieChartIcon, BrainCircuit } from 'lucide-react';
+import { Target, TrendingUp, CheckCircle2, Plus, Flag, Trophy, Clock, X, Bot, Sparkles, Loader2, Users, User, BarChart as BarChartIcon, PieChart as PieChartIcon, BrainCircuit, Pencil, Trash2 } from 'lucide-react';
 import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, Tooltip } from 'recharts';
 import { geminiService } from '@/src/services';
+import { goalsService, Goal } from '@/src/services/goalsService';
 
 interface GoalsProps {
     lastUpdated: string;
-}
-
-interface Goal {
-    id: string;
-    title: string;
-    targetAmount: string;
-    currentAmount: string;
-    progress: number;
-    deadline: string;
-    type: 'Individual' | 'Conjunta';
-    kpi: string;
-    status: 'Em andamento' | 'Concluído' | 'Atrasado' | 'Quase lá';
-    color: string;
 }
 
 const Goals: React.FC<GoalsProps> = ({ lastUpdated }) => {
@@ -26,12 +15,8 @@ const Goals: React.FC<GoalsProps> = ({ lastUpdated }) => {
     const [aiAdvice, setAiAdvice] = useState<string | null>(null);
     const [chartType, setChartType] = useState<'pie' | 'bar'>('pie');
 
-    // Mock Goals Data
-    const [goals, setGoals] = useState<Goal[]>([
-        { id: '1', title: 'Reduzir Churn para < 2%', targetAmount: '2%', currentAmount: '3.5%', progress: 65, deadline: '2023-12-31', type: 'Individual', kpi: 'Churn Rate', status: 'Em andamento', color: 'bg-[#73c6df]' },
-        { id: '2', title: 'Lançar Módulo de IA v2.0', targetAmount: '100%', currentAmount: '90%', progress: 90, deadline: '2023-11-15', type: 'Conjunta', kpi: 'Product Dev', status: 'Quase lá', color: 'bg-[#8bd7bf]' },
-        { id: '3', title: 'Contratar CTO', targetAmount: '1', currentAmount: '1', progress: 100, deadline: '2023-10-01', type: 'Individual', kpi: 'HR', status: 'Concluído', color: 'bg-emerald-400' },
-    ]);
+    const [goals, setGoals] = useState<Goal[]>([]);
+    const [loading, setLoading] = useState(true);
 
     const [newGoal, setNewGoal] = useState<Partial<Goal>>({
         type: 'Individual',
@@ -39,40 +24,98 @@ const Goals: React.FC<GoalsProps> = ({ lastUpdated }) => {
         color: 'bg-[#73c6df]'
     });
 
+    // Fetch goals on mount
+    React.useEffect(() => {
+        loadGoals();
+    }, [lastUpdated]);
+
+    const loadGoals = async () => {
+        try {
+            const data = await goalsService.getGoals();
+            setGoals(data);
+        } catch (error) {
+            console.error("Failed to load goals", error);
+        } finally {
+            setLoading(false);
+        }
+    };
+
     const pieData = [
-        { name: 'Completed', value: goals.filter(g => g.progress === 100).length },
-        { name: 'Remaining', value: goals.filter(g => g.progress < 100).length },
+        { name: 'Completed', value: goals.filter(g => (g.progress || 0) >= 100).length },
+        { name: 'Remaining', value: goals.filter(g => (g.progress || 0) < 100).length },
     ];
 
-    const barData = goals.map(g => ({ name: g.title.substring(0, 10) + '...', progress: g.progress }));
+    const barData = goals.map(g => ({ name: g.title.substring(0, 10) + '...', progress: g.progress || 0 }));
 
     const COLORS = ['#73c6df', '#e2e8f0'];
-    const overallProgress = Math.round(goals.reduce((acc, curr) => acc + curr.progress, 0) / goals.length);
+    const overallProgress = goals.length > 0 ? Math.round(goals.reduce((acc, curr) => acc + (curr.progress || 0), 0) / goals.length) : 0;
 
-    const handleCreateGoal = () => {
-        // Mock creation
-        const g: Goal = {
-            id: Date.now().toString(),
-            title: newGoal.title || 'Nova Meta',
-            targetAmount: newGoal.targetAmount || '0',
-            currentAmount: '0',
-            progress: 0,
-            deadline: newGoal.deadline || '2024-01-01',
-            type: newGoal.type as any,
-            kpi: newGoal.kpi || 'Geral',
-            status: 'Em andamento',
-            color: 'bg-[#73c6df]'
-        };
-        setGoals([...goals, g]);
-        setIsModalOpen(false);
+    const handleSaveGoal = async () => {
+        if (!newGoal.title || !newGoal.target_value || !newGoal.deadline) return;
+
+        try {
+            if (newGoal.id) {
+                // Update existing
+                await goalsService.updateGoal(newGoal.id, {
+                    title: newGoal.title,
+                    target_value: Number(newGoal.target_value),
+                    deadline: newGoal.deadline,
+                    type: newGoal.type as any,
+                    kpi: newGoal.kpi || 'Geral'
+                });
+            } else {
+                // Create new
+                await goalsService.createGoal({
+                    title: newGoal.title,
+                    target_value: Number(newGoal.target_value),
+                    deadline: newGoal.deadline,
+                    type: newGoal.type as any,
+                    kpi: newGoal.kpi || 'Geral'
+                });
+            }
+            await loadGoals();
+            setIsModalOpen(false);
+            setNewGoal({ type: 'Individual', kpi: 'Receita', color: 'bg-[#73c6df]' });
+        } catch (error) {
+            console.error("Error saving goal", error);
+        }
+    };
+
+    const handleDeleteGoal = async (id: string, e: React.MouseEvent) => {
+        e.stopPropagation();
+        if (!confirm('Tem certeza que deseja excluir esta meta?')) return;
+        try {
+            await goalsService.deleteGoal(id);
+            await loadGoals();
+        } catch (error) {
+            console.error("Error deleting goal", error);
+        }
+    };
+
+    const handleEditGoal = (goal: Goal, e: React.MouseEvent) => {
+        e.stopPropagation();
+        setNewGoal({
+            id: goal.id,
+            title: goal.title,
+            target_value: goal.target_value,
+            deadline: goal.deadline,
+            type: goal.type,
+            kpi: goal.kpi,
+            color: goal.color
+        });
+        setIsModalOpen(true);
+    };
+
+    const openNewGoalModal = () => {
         setNewGoal({ type: 'Individual', kpi: 'Receita', color: 'bg-[#73c6df]' });
+        setIsModalOpen(true);
     };
 
     const generateAIAnalysis = async () => {
         setAnalyzing(true);
         try {
             const goalsList = goals.map(g => `- ${g.title} (${g.progress}% completo, Prazo: ${g.deadline})`).join('\n');
-            const prompt = `Analise essas metas corporativas e dê um feedback curto e estratégico de 2 frases sobre como acelerar o progresso:\n${goalsList}`;
+            const prompt = `Analise essas metas corporativas e dê um feedback curto e estratégico de 2 frases sobre como acelerar o progresso: \n${goalsList}`;
 
             const advice = await geminiService.analyzeGoals(prompt);
             setAiAdvice(advice);
@@ -101,7 +144,7 @@ const Goals: React.FC<GoalsProps> = ({ lastUpdated }) => {
                         {analyzing ? 'Analisando...' : 'Análise IA'}
                     </button>
                     <button
-                        onClick={() => setIsModalOpen(true)}
+                        onClick={openNewGoalModal}
                         className="px-5 py-2.5 rounded-xl bg-[#2e8ba6] text-white font-bold text-sm hover:bg-[#257a91] transition-all shadow-lg shadow-[#73c6df]/20 flex items-center gap-2"
                     >
                         <Plus size={18} /> Nova Meta
@@ -109,10 +152,9 @@ const Goals: React.FC<GoalsProps> = ({ lastUpdated }) => {
                 </div>
             </div>
 
-            {/* AI Advice Section (Styled like Dashboard) */}
+            {/* AI Advice Section */}
             {aiAdvice && (
                 <div className="custom-gradient p-8 rounded-[2rem] shadow-lg shadow-[#73c6df]/20 flex flex-col lg:flex-row items-center gap-8 relative overflow-hidden text-white animate-in fade-in slide-in-from-top-4">
-                    {/* Decorative background blurs */}
                     <div className="absolute -right-20 -top-20 w-80 h-80 bg-white/20 blur-[80px] rounded-full pointer-events-none"></div>
 
                     <div className="w-16 h-16 rounded-3xl bg-white/20 backdrop-blur-md shadow-inner border border-white/30 flex-shrink-0 flex items-center justify-center text-white">
@@ -132,38 +174,48 @@ const Goals: React.FC<GoalsProps> = ({ lastUpdated }) => {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 {/* Main Goal Card */}
                 <div className="md:col-span-2 bg-white/40 dark:bg-slate-800/40 backdrop-blur-xl border border-white/50 dark:border-slate-700 p-8 rounded-[2.5rem] relative overflow-hidden flex flex-col justify-between group">
-                    <div className="flex justify-between items-start mb-6">
-                        <div>
-                            <div className="flex items-center gap-2 mb-2">
-                                <span className="px-3 py-1 bg-[#8bd7bf]/20 text-[#4ca68a] rounded-full text-[10px] font-bold uppercase tracking-widest">Meta Anual</span>
-                                <span className="text-slate-400 dark:text-slate-500 text-xs font-bold flex items-center gap-1"><Clock size={12} /> 32 dias restantes</span>
+                    {goals.length > 0 ? (
+                        <>
+                            <div className="flex justify-between items-start mb-6">
+                                <div>
+                                    <div className="flex items-center gap-2 mb-2">
+                                        <span className="px-3 py-1 bg-[#8bd7bf]/20 text-[#4ca68a] rounded-full text-[10px] font-bold uppercase tracking-widest">Meta Principal</span>
+                                        <span className="text-slate-400 dark:text-slate-500 text-xs font-bold flex items-center gap-1"><Clock size={12} /> {goals[0].deadline}</span>
+                                    </div>
+                                    <h2 className="text-2xl font-extrabold text-slate-800 dark:text-white">{goals[0].title}</h2>
+                                    <p className="text-slate-500 dark:text-slate-400 mt-1 max-w-lg">Foco principal da organização no momento.</p>
+                                </div>
+                                <div className="w-16 h-16 bg-white dark:bg-slate-700 rounded-2xl shadow-sm flex items-center justify-center text-[#73c6df] group-hover:scale-110 transition-transform">
+                                    <Trophy size={32} />
+                                </div>
                             </div>
-                            <h2 className="text-2xl font-extrabold text-slate-800 dark:text-white">Atingir $1.2M em Receita Recorrente (ARR)</h2>
-                            <p className="text-slate-500 dark:text-slate-400 mt-1 max-w-lg">Meta principal para garantir a rodada de investimento Série A.</p>
-                        </div>
-                        <div className="w-16 h-16 bg-white dark:bg-slate-700 rounded-2xl shadow-sm flex items-center justify-center text-[#73c6df] group-hover:scale-110 transition-transform">
-                            <Trophy size={32} />
-                        </div>
-                    </div>
 
-                    <div className="space-y-4">
-                        <div className="flex justify-between items-end">
-                            <span className="text-4xl font-extrabold text-slate-800 dark:text-white">$980k</span>
-                            <span className="text-sm font-bold text-slate-500 dark:text-slate-400">Alvo: $1.2M</span>
-                        </div>
-                        <div className="w-full h-4 bg-white/60 dark:bg-slate-700/60 rounded-full overflow-hidden border border-white/50 dark:border-slate-600">
-                            <div className="h-full bg-gradient-to-r from-[#73c6df] to-[#8bd7bf] w-[82%] rounded-full shadow-sm relative">
-                                <div className="absolute right-0 top-0 bottom-0 w-1 bg-white/40 animate-pulse"></div>
+                            <div className="space-y-4">
+                                <div className="flex justify-between items-end">
+                                    <span className="text-4xl font-extrabold text-slate-800 dark:text-white">${goals[0].current_value}</span>
+                                    <span className="text-sm font-bold text-slate-500 dark:text-slate-400">Alvo: ${goals[0].target_value}</span>
+                                </div>
+                                <div className="w-full h-4 bg-white/60 dark:bg-slate-700/60 rounded-full overflow-hidden border border-white/50 dark:border-slate-600">
+                                    <div className="h-full bg-gradient-to-r from-[#73c6df] to-[#8bd7bf] rounded-full shadow-sm relative transition-all duration-1000" style={{ width: `${goals[0].progress}%` }}>
+                                        <div className="absolute right-0 top-0 bottom-0 w-1 bg-white/40 animate-pulse"></div>
+                                    </div>
+                                </div>
+                                <div className="flex justify-between text-xs font-bold text-slate-500 dark:text-slate-400">
+                                    <span>Progresso atual</span>
+                                    <div className="flex flex-col items-end">
+                                        <span>{goals[0].progress}% Concluído</span>
+                                        <span className="text-[9px] opacity-70 mt-0.5">Atualizado: {lastUpdated}</span>
+                                    </div>
+                                </div>
                             </div>
+                        </>
+                    ) : (
+                        <div className="flex flex-col items-center justify-center h-full text-center">
+                            <Flag size={48} className="text-slate-300 mb-4" />
+                            <h3 className="text-xl font-bold text-slate-700 dark:text-slate-300">Sem metas definidas</h3>
+                            <p className="text-slate-500 dark:text-slate-400 mt-2">Crie sua primeira meta para começar a acompanhar o progresso.</p>
                         </div>
-                        <div className="flex justify-between text-xs font-bold text-slate-500 dark:text-slate-400">
-                            <span>Progresso atual</span>
-                            <div className="flex flex-col items-end">
-                                <span>82% Concluído</span>
-                                <span className="text-[9px] opacity-70 mt-0.5">Atualizado: {lastUpdated}</span>
-                            </div>
-                        </div>
-                    </div>
+                    )}
                 </div>
 
                 {/* Progress Chart Card */}
@@ -228,11 +280,15 @@ const Goals: React.FC<GoalsProps> = ({ lastUpdated }) => {
             {/* Goals Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {goals.map((goal) => (
-                    <div key={goal.id} className="bg-white/40 dark:bg-slate-800/40 backdrop-blur-md border border-white/50 dark:border-slate-700 rounded-[2rem] p-6 hover:bg-white/60 dark:hover:bg-slate-700/60 transition-all group">
+                    <div
+                        key={goal.id}
+                        className="bg-white/40 dark:bg-slate-800/40 backdrop-blur-md border border-white/50 dark:border-slate-700 rounded-[2rem] p-6 hover:bg-white/60 dark:hover:bg-slate-700/60 transition-all group relative cursor-pointer"
+                        onClick={(e) => handleEditGoal(goal, e)}
+                    >
                         <div className="flex justify-between items-start mb-4">
                             <div className="flex gap-2">
                                 <div className="p-2 bg-white dark:bg-slate-700 rounded-xl text-slate-500 dark:text-slate-300 shadow-sm">
-                                    {goal.progress === 100 ? <CheckCircle2 size={20} className="text-emerald-500" /> : <Target size={20} />}
+                                    {goal.progress >= 100 ? <CheckCircle2 size={20} className="text-emerald-500" /> : <Target size={20} />}
                                 </div>
                                 {goal.type === 'Conjunta' && (
                                     <div className="p-2 bg-slate-100 dark:bg-slate-700 rounded-xl text-slate-500 dark:text-slate-300 shadow-sm" title="Meta Conjunta">
@@ -240,14 +296,22 @@ const Goals: React.FC<GoalsProps> = ({ lastUpdated }) => {
                                     </div>
                                 )}
                             </div>
-                            <span className={`text-[10px] font-bold px-2 py-1 rounded-full uppercase tracking-widest ${goal.progress === 100 ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400' : 'bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400'}`}>
-                                {goal.status}
-                            </span>
+                            <div className="flex items-center gap-2">
+                                <span className={`text-[10px] font-bold px-2 py-1 rounded-full uppercase tracking-widest ${goal.progress >= 100 ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400' : 'bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400'}`}>
+                                    {goal.status}
+                                </span>
+                                <button
+                                    onClick={(e) => handleDeleteGoal(goal.id, e)}
+                                    className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
+                                >
+                                    <X size={14} />
+                                </button>
+                            </div>
                         </div>
                         <h3 className="font-bold text-slate-800 dark:text-white mb-1 pr-4">{goal.title}</h3>
                         <div className="flex justify-between items-center mb-4">
                             <p className="text-xs text-slate-400 font-medium flex items-center gap-1">KPI: {goal.kpi}</p>
-                            <p className="text-[9px] text-slate-400">Ref: {lastUpdated}</p>
+                            <p className="text-[9px] text-slate-400">Prazo: {goal.deadline}</p>
                         </div>
 
                         <div className="flex items-center gap-3">
@@ -259,13 +323,13 @@ const Goals: React.FC<GoalsProps> = ({ lastUpdated }) => {
                     </div>
                 ))}
 
-                <button onClick={() => setIsModalOpen(true)} className="border-2 border-dashed border-slate-300 dark:border-slate-700 rounded-[2rem] p-6 flex flex-col items-center justify-center text-slate-400 dark:text-slate-500 hover:border-[#73c6df] hover:text-[#73c6df] hover:bg-[#73c6df]/5 transition-all gap-3 min-h-[180px]">
+                <button onClick={openNewGoalModal} className="border-2 border-dashed border-slate-300 dark:border-slate-700 rounded-[2rem] p-6 flex flex-col items-center justify-center text-slate-400 dark:text-slate-500 hover:border-[#73c6df] hover:text-[#73c6df] hover:bg-[#73c6df]/5 transition-all gap-3 min-h-[180px]">
                     <Plus size={32} />
                     <span className="font-bold text-sm">Adicionar Novo Objetivo</span>
                 </button>
             </div>
 
-            {/* --- New Goal Modal --- */}
+            {/* --- New/Edit Goal Modal --- */}
             {isModalOpen && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
                     <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-md transition-opacity" onClick={() => setIsModalOpen(false)}></div>
@@ -273,7 +337,7 @@ const Goals: React.FC<GoalsProps> = ({ lastUpdated }) => {
                     <div className="relative bg-white dark:bg-slate-800 rounded-[2rem] shadow-2xl w-full max-w-lg overflow-hidden animate-in fade-in zoom-in-95 duration-200">
                         <div className="px-8 py-6 border-b border-slate-100 dark:border-slate-700 flex justify-between items-center bg-slate-50/50 dark:bg-slate-900/50">
                             <div>
-                                <h2 className="text-xl font-extrabold text-slate-800 dark:text-white">Criar Nova Meta</h2>
+                                <h2 className="text-xl font-extrabold text-slate-800 dark:text-white">{newGoal.id ? 'Editar Meta' : 'Criar Nova Meta'}</h2>
                                 <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">Defina os parâmetros para o sucesso.</p>
                             </div>
                             <button onClick={() => setIsModalOpen(false)} className="p-2 rounded-full hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-400 hover:text-slate-600"><X size={20} /></button>
@@ -304,6 +368,7 @@ const Goals: React.FC<GoalsProps> = ({ lastUpdated }) => {
                                         <option value="Leads">Novos Leads</option>
                                         <option value="NPS">NPS</option>
                                         <option value="Cashflow">Fluxo de Caixa</option>
+                                        <option value="Geral">Outro</option>
                                     </select>
                                 </div>
                                 <div>
@@ -329,11 +394,11 @@ const Goals: React.FC<GoalsProps> = ({ lastUpdated }) => {
                                 <div>
                                     <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest mb-2">Valor Alvo</label>
                                     <input
-                                        type="text"
+                                        type="number"
                                         className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#73c6df]/30 font-medium dark:text-white"
-                                        placeholder="Ex: $50k ou 10%"
-                                        value={newGoal.targetAmount || ''}
-                                        onChange={(e) => setNewGoal({ ...newGoal, targetAmount: e.target.value })}
+                                        placeholder="Ex: 50000"
+                                        value={newGoal.target_value || ''}
+                                        onChange={(e) => setNewGoal({ ...newGoal, target_value: Number(e.target.value) })}
                                     />
                                 </div>
                                 <div>
@@ -360,10 +425,10 @@ const Goals: React.FC<GoalsProps> = ({ lastUpdated }) => {
                             </div>
 
                             <button
-                                onClick={handleCreateGoal}
+                                onClick={handleSaveGoal}
                                 className="w-full py-4 rounded-xl bg-[#2e8ba6] text-white font-bold hover:bg-[#257a91] shadow-lg flex items-center justify-center gap-2 mt-2"
                             >
-                                <Flag size={18} /> Definir Meta
+                                <Flag size={18} /> {newGoal.id ? 'Salvar Alterações' : 'Definir Meta'}
                             </button>
                         </div>
                     </div>

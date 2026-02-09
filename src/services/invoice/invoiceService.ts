@@ -15,6 +15,7 @@ const mapInvoice = (dbInvoice: any): Invoice => ({
     expense_type: dbInvoice.expense_type,
     review_status: dbInvoice.review_status,
     invoiceNumber: dbInvoice.invoice_number,
+    created_at: dbInvoice.created_at,
     // Add fileUrl if present in DB
     items: dbInvoice.invoice_products?.map((p: any) => ({
         name: p.description,
