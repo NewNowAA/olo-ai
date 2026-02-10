@@ -8,16 +8,16 @@ export interface Goal {
     deadline: string;
     type: 'Individual' | 'Conjunta';
     kpi: string;
-    status: 'Em andamento' | 'Concluído' | 'Atrasado' | 'Quase lá';
+    status: 'active' | 'completed' | 'archived';
     color: string;
+    start_date?: string; // Optional for backward compatibility, but UI will enforce
+    category?: string; // Optional filter
     progress?: number; // Calculated field
 }
 
 export const goalsService = {
     async getGoals() {
-        // Fetch goals for the current user
-        // If type is 'Conjunta', we might want to see others later, but for now RLS limits to own rows or simple check.
-        // We will fetch all goals the user has access to.
+        // Fetch specific columns or all
         const { data, error } = await supabase
             .from('goals')
             .select('*')
@@ -28,9 +28,10 @@ export const goalsService = {
             throw error;
         }
 
-        // Calculate progress
+        // Calculate progress and ensure status is set
         return (data || []).map((goal: any) => ({
             ...goal,
+            status: goal.status || 'active', // Default to active if null
             progress: Math.min(100, Math.round((goal.current_value / goal.target_value) * 100))
         })) as Goal[];
     },
@@ -46,7 +47,9 @@ export const goalsService = {
                 ...goal,
                 user_id: user.id,
                 current_value: 0,
-                status: 'Em andamento',
+                status: 'active',
+                start_date: goal.start_date || new Date().toISOString().split('T')[0], // Default to today
+                category: goal.category || null,
                 color: 'bg-[#73c6df]' // Default color
             }])
             .select()
@@ -73,6 +76,21 @@ export const goalsService = {
             throw error;
         }
 
+        return data;
+    },
+
+    async updateGoalStatus(id: string, status: 'active' | 'completed' | 'archived') {
+        const { data, error } = await supabase
+            .from('goals')
+            .update({ status })
+            .eq('id', id)
+            .select()
+            .single();
+
+        if (error) {
+            console.error('Error updating goal status:', error);
+            throw error;
+        }
         return data;
     },
 

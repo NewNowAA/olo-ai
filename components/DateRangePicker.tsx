@@ -12,6 +12,16 @@ const DateRangePicker: React.FC<DateRangePickerProps> = ({ startDate, endDate, o
     const [currentMonth, setCurrentMonth] = useState(startDate || new Date());
     const [hoverDate, setHoverDate] = useState<Date | null>(null);
 
+    // Internal state to hold selection before confirming
+    const [tempStart, setTempStart] = useState<Date | null>(startDate);
+    const [tempEnd, setTempEnd] = useState<Date | null>(endDate);
+
+    // Sync internal state if props change (optional, but good for re-opening)
+    useEffect(() => {
+        setTempStart(startDate);
+        setTempEnd(endDate);
+    }, [startDate, endDate]);
+
     // Helper to get days in month
     const getDaysInMonth = (date: Date) => {
         const year = date.getFullYear();
@@ -32,35 +42,37 @@ const DateRangePicker: React.FC<DateRangePickerProps> = ({ startDate, endDate, o
     };
 
     const handleDateClick = (date: Date) => {
-        if (!startDate || (startDate && endDate)) {
+        if (!tempStart || (tempStart && tempEnd)) {
             // Start new selection (clearing previous range or starting fresh)
-            onChange({ start: date, end: null });
-        } else if (startDate && !endDate) {
+            setTempStart(date);
+            setTempEnd(null);
+        } else if (tempStart && !tempEnd) {
             // Completing the range
-            if (date < startDate) {
+            if (date < tempStart) {
                 // If clicked date is before start date, make it the new start date
-                onChange({ start: date, end: null });
+                setTempStart(date);
+                setTempEnd(null);
             } else {
                 // Set end date
-                onChange({ start: startDate, end: date });
+                setTempEnd(date);
             }
         }
     };
 
     const isSelected = (date: Date) => {
-        if (!startDate) return false;
-        if (date.toDateString() === startDate.toDateString()) return true;
-        if (endDate && date.toDateString() === endDate.toDateString()) return true;
+        if (!tempStart) return false;
+        if (date.toDateString() === tempStart.toDateString()) return true;
+        if (tempEnd && date.toDateString() === tempEnd.toDateString()) return true;
         return false;
     };
 
     const isInRange = (date: Date) => {
-        if (!startDate || !date) return false;
-        const targetEnd = endDate || hoverDate;
+        if (!tempStart || !date) return false;
+        const targetEnd = tempEnd || hoverDate;
         if (!targetEnd) return false;
 
         // Check if date is strictly between start and targetEnd
-        return date > startDate && date < targetEnd;
+        return date > tempStart && date < targetEnd;
     };
 
     const nextMonth = () => {
@@ -74,6 +86,13 @@ const DateRangePicker: React.FC<DateRangePickerProps> = ({ startDate, endDate, o
     const formatDate = (date: Date | null) => {
         if (!date) return '--/--/----';
         return date.toLocaleDateString('pt-BR');
+    };
+
+    const handleConfirm = () => {
+        if (tempStart && tempEnd) {
+            onChange({ start: tempStart, end: tempEnd });
+            onClose();
+        }
     };
 
     const days = getDaysInMonth(currentMonth);
@@ -152,14 +171,14 @@ const DateRangePicker: React.FC<DateRangePickerProps> = ({ startDate, endDate, o
                 <div className="flex justify-between items-center text-xs">
                     <div className="text-center w-1/2 border-r border-slate-200 dark:border-slate-600 pr-2">
                         <span className="block text-[9px] text-slate-400 uppercase font-black tracking-widest mb-1">Início</span>
-                        <span className={`font-bold ${startDate ? 'text-slate-800 dark:text-white' : 'text-slate-400'}`}>
-                            {formatDate(startDate)}
+                        <span className={`font-bold ${tempStart ? 'text-slate-800 dark:text-white' : 'text-slate-400'}`}>
+                            {formatDate(tempStart)}
                         </span>
                     </div>
                     <div className="text-center w-1/2 pl-2">
                         <span className="block text-[9px] text-slate-400 uppercase font-black tracking-widest mb-1">Fim</span>
-                        <span className={`font-bold ${endDate ? 'text-slate-800 dark:text-white' : 'text-slate-400'}`}>
-                            {formatDate(endDate)}
+                        <span className={`font-bold ${tempEnd ? 'text-slate-800 dark:text-white' : 'text-slate-400'}`}>
+                            {formatDate(tempEnd)}
                         </span>
                     </div>
                 </div>
@@ -174,11 +193,11 @@ const DateRangePicker: React.FC<DateRangePickerProps> = ({ startDate, endDate, o
                     Cancelar
                 </button>
                 <button
-                    onClick={onClose}
-                    disabled={!startDate || !endDate}
-                    className={`flex-1 py-3 rounded-xl text-xs font-bold transition-all shadow-lg ${startDate && endDate
-                            ? 'bg-[#2e8ba6] text-white hover:bg-[#257a91] shadow-[#2e8ba6]/20 transform hover:-translate-y-0.5'
-                            : 'bg-slate-200 text-slate-400 cursor-not-allowed shadow-none'
+                    onClick={handleConfirm}
+                    disabled={!tempStart || !tempEnd}
+                    className={`flex-1 py-3 rounded-xl text-xs font-bold transition-all shadow-lg ${tempStart && tempEnd
+                        ? 'bg-[#2e8ba6] text-white hover:bg-[#257a91] shadow-[#2e8ba6]/20 transform hover:-translate-y-0.5'
+                        : 'bg-slate-200 text-slate-400 cursor-not-allowed shadow-none'
                         }`}
                 >
                     Confirmar Período

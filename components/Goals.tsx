@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 import { Target, TrendingUp, CheckCircle2, Plus, Flag, Trophy, Clock, X, Bot, Sparkles, Loader2, Users, User, BarChart as BarChartIcon, PieChart as PieChartIcon, BrainCircuit, Pencil, Trash2 } from 'lucide-react';
 import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, Tooltip } from 'recharts';
 import { geminiService } from '@/src/services';
+import { invoiceService } from '@/src/services/invoice/invoiceService';
 import { goalsService, Goal } from '@/src/services/goalsService';
 
 interface GoalsProps {
@@ -18,27 +19,86 @@ const Goals: React.FC<GoalsProps> = ({ lastUpdated }) => {
     const [goals, setGoals] = useState<Goal[]>([]);
     const [loading, setLoading] = useState(true);
 
+    const [categories, setCategories] = useState<string[]>([]);
     const [newGoal, setNewGoal] = useState<Partial<Goal>>({
         type: 'Individual',
         kpi: 'Receita',
+        start_date: new Date().toISOString().split('T')[0],
+        category: '',
         color: 'bg-[#73c6df]'
     });
 
-    // Fetch goals on mount
+
+    const [activeTab, setActiveTab] = useState<'active' | 'history'>('active');
+
     React.useEffect(() => {
         loadGoals();
+
     }, [lastUpdated]);
+
+    const loadCategories = (invoices: any[]) => {
+        const uniqueCategories = Array.from(new Set(invoices.map((inv: any) => inv.category))).filter(Boolean) as string[];
+        setCategories(uniqueCategories);
+    };
 
     const loadGoals = async () => {
         try {
-            const data = await goalsService.getGoals();
-            setGoals(data);
+            const [goalsData, invoicesData] = await Promise.all([
+                goalsService.getGoals(),
+                invoiceService.getInvoices()
+            ]);
+
+            loadCategories(invoicesData);
+
+            // Calculate dynamic progress
+            const enhancedGoals = goalsData.map(g => {
+                // Only automate 'Receita' for now, or others if logic permits
+                if (g.kpi === 'Receita' && g.start_date) {
+                    const startDate = new Date(g.start_date);
+                    const deadline = new Date(g.deadline);
+                    // Adjust deadline to end of day
+                    deadline.setHours(23, 59, 59, 999);
+
+                    const relevantInvoices = invoicesData.filter((inv: any) => {
+                        const invDate = new Date(inv.date);
+                        // Filter by Date
+                        if (invDate < startDate || invDate > deadline) return false;
+                        // Filter by Category
+                        if (g.category && g.category !== '' && inv.category !== g.category) return false;
+                        // Filter by Type (Receita)
+                        return inv.type === 'Receita';
+                    });
+
+                    const current = relevantInvoices.reduce((sum: number, inv: any) => sum + inv.amount, 0);
+                    const progress = Math.min(100, Math.round((current / g.target_value) * 100));
+
+                    return { ...g, current_value: current, progress };
+                }
+                return g;
+            });
+
+            setGoals(enhancedGoals);
         } catch (error) {
-            console.error("Failed to load goals", error);
+            console.error("Failed to load goals or invoices", error);
         } finally {
             setLoading(false);
         }
     };
+
+    const getStatusLabel = (status: string) => {
+        switch (status) {
+            case 'active': return 'Em andamento';
+            case 'completed': return 'Concluída';
+            case 'archived': return 'Arquivada';
+            default: return status;
+        }
+    };
+
+    const filteredGoals = goals.filter(g => {
+        if (activeTab === 'active') return g.status === 'active' || !g.status; // Default to active
+        if (activeTab === 'history') return g.status === 'completed' || g.status === 'archived';
+        return true;
+    });
 
     const pieData = [
         { name: 'Completed', value: goals.filter(g => (g.progress || 0) >= 100).length },
@@ -75,7 +135,13 @@ const Goals: React.FC<GoalsProps> = ({ lastUpdated }) => {
             }
             await loadGoals();
             setIsModalOpen(false);
-            setNewGoal({ type: 'Individual', kpi: 'Receita', color: 'bg-[#73c6df]' });
+            setNewGoal({
+                type: 'Individual',
+                kpi: 'Receita',
+                color: 'bg-[#73c6df]',
+                start_date: new Date().toISOString().split('T')[0],
+                category: ''
+            });
         } catch (error) {
             console.error("Error saving goal", error);
         }
@@ -92,6 +158,17 @@ const Goals: React.FC<GoalsProps> = ({ lastUpdated }) => {
         }
     };
 
+    const handleCompleteGoal = async (id: string, e: React.MouseEvent) => {
+        e.stopPropagation();
+        if (!confirm('Deseja marcar esta meta como conclúida e movê-la para o histórico?')) return;
+        try {
+            await goalsService.updateGoalStatus(id, 'completed');
+            await loadGoals();
+        } catch (error) {
+            console.error("Error completing goal", error);
+        }
+    };
+
     const handleEditGoal = (goal: Goal, e: React.MouseEvent) => {
         e.stopPropagation();
         setNewGoal({
@@ -101,13 +178,21 @@ const Goals: React.FC<GoalsProps> = ({ lastUpdated }) => {
             deadline: goal.deadline,
             type: goal.type,
             kpi: goal.kpi,
-            color: goal.color
+            color: goal.color,
+            start_date: goal.start_date,
+            category: goal.category
         });
         setIsModalOpen(true);
     };
 
     const openNewGoalModal = () => {
-        setNewGoal({ type: 'Individual', kpi: 'Receita', color: 'bg-[#73c6df]' });
+        setNewGoal({
+            type: 'Individual',
+            kpi: 'Receita',
+            color: 'bg-[#73c6df]',
+            start_date: new Date().toISOString().split('T')[0],
+            category: ''
+        });
         setIsModalOpen(true);
     };
 
@@ -152,8 +237,24 @@ const Goals: React.FC<GoalsProps> = ({ lastUpdated }) => {
                 </div>
             </div>
 
+            {/* Tabs for History */}
+            <div className="flex bg-slate-100 dark:bg-slate-800/50 p-1 rounded-2xl w-fit">
+                <button
+                    onClick={() => setActiveTab('active')}
+                    className={`px-6 py-2.5 rounded-xl text-sm font-bold transition-all ${activeTab === 'active' ? 'bg-white dark:bg-slate-700 shadow-sm text-[#2e8ba6]' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700'}`}
+                >
+                    Ativas
+                </button>
+                <button
+                    onClick={() => setActiveTab('history')}
+                    className={`px-6 py-2.5 rounded-xl text-sm font-bold transition-all ${activeTab === 'history' ? 'bg-white dark:bg-slate-700 shadow-sm text-[#2e8ba6]' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700'}`}
+                >
+                    Histórico
+                </button>
+            </div>
+
             {/* AI Advice Section */}
-            {aiAdvice && (
+            {aiAdvice && activeTab === 'active' && (
                 <div className="custom-gradient p-8 rounded-[2rem] shadow-lg shadow-[#73c6df]/20 flex flex-col lg:flex-row items-center gap-8 relative overflow-hidden text-white animate-in fade-in slide-in-from-top-4">
                     <div className="absolute -right-20 -top-20 w-80 h-80 bg-white/20 blur-[80px] rounded-full pointer-events-none"></div>
 
@@ -172,114 +273,118 @@ const Goals: React.FC<GoalsProps> = ({ lastUpdated }) => {
             )}
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                {/* Main Goal Card */}
-                <div className="md:col-span-2 bg-white/40 dark:bg-slate-800/40 backdrop-blur-xl border border-white/50 dark:border-slate-700 p-8 rounded-[2.5rem] relative overflow-hidden flex flex-col justify-between group">
-                    {goals.length > 0 ? (
-                        <>
-                            <div className="flex justify-between items-start mb-6">
-                                <div>
-                                    <div className="flex items-center gap-2 mb-2">
-                                        <span className="px-3 py-1 bg-[#8bd7bf]/20 text-[#4ca68a] rounded-full text-[10px] font-bold uppercase tracking-widest">Meta Principal</span>
-                                        <span className="text-slate-400 dark:text-slate-500 text-xs font-bold flex items-center gap-1"><Clock size={12} /> {goals[0].deadline}</span>
+                {/* Main Goal Card (Only show if activeTab is active) */}
+                {activeTab === 'active' && (
+                    <div className="md:col-span-2 bg-white/40 dark:bg-slate-800/40 backdrop-blur-xl border border-white/50 dark:border-slate-700 p-8 rounded-[2.5rem] relative overflow-hidden flex flex-col justify-between group">
+                        {filteredGoals.length > 0 ? (
+                            <>
+                                <div className="flex justify-between items-start mb-6">
+                                    <div>
+                                        <div className="flex items-center gap-2 mb-2">
+                                            <span className="px-3 py-1 bg-[#8bd7bf]/20 text-[#4ca68a] rounded-full text-[10px] font-bold uppercase tracking-widest">Meta Principal</span>
+                                            <span className="text-slate-400 dark:text-slate-500 text-xs font-bold flex items-center gap-1"><Clock size={12} /> {filteredGoals[0].deadline}</span>
+                                        </div>
+                                        <h2 className="text-2xl font-extrabold text-slate-800 dark:text-white">{filteredGoals[0].title}</h2>
+                                        <p className="text-slate-500 dark:text-slate-400 mt-1 max-w-lg">Foco principal da organização no momento.</p>
                                     </div>
-                                    <h2 className="text-2xl font-extrabold text-slate-800 dark:text-white">{goals[0].title}</h2>
-                                    <p className="text-slate-500 dark:text-slate-400 mt-1 max-w-lg">Foco principal da organização no momento.</p>
-                                </div>
-                                <div className="w-16 h-16 bg-white dark:bg-slate-700 rounded-2xl shadow-sm flex items-center justify-center text-[#73c6df] group-hover:scale-110 transition-transform">
-                                    <Trophy size={32} />
-                                </div>
-                            </div>
-
-                            <div className="space-y-4">
-                                <div className="flex justify-between items-end">
-                                    <span className="text-4xl font-extrabold text-slate-800 dark:text-white">${goals[0].current_value}</span>
-                                    <span className="text-sm font-bold text-slate-500 dark:text-slate-400">Alvo: ${goals[0].target_value}</span>
-                                </div>
-                                <div className="w-full h-4 bg-white/60 dark:bg-slate-700/60 rounded-full overflow-hidden border border-white/50 dark:border-slate-600">
-                                    <div className="h-full bg-gradient-to-r from-[#73c6df] to-[#8bd7bf] rounded-full shadow-sm relative transition-all duration-1000" style={{ width: `${goals[0].progress}%` }}>
-                                        <div className="absolute right-0 top-0 bottom-0 w-1 bg-white/40 animate-pulse"></div>
+                                    <div className="w-16 h-16 bg-white dark:bg-slate-700 rounded-2xl shadow-sm flex items-center justify-center text-[#73c6df] group-hover:scale-110 transition-transform">
+                                        <Trophy size={32} />
                                     </div>
                                 </div>
-                                <div className="flex justify-between text-xs font-bold text-slate-500 dark:text-slate-400">
-                                    <span>Progresso atual</span>
-                                    <div className="flex flex-col items-end">
-                                        <span>{goals[0].progress}% Concluído</span>
-                                        <span className="text-[9px] opacity-70 mt-0.5">Atualizado: {lastUpdated}</span>
+
+                                <div className="space-y-4">
+                                    <div className="flex justify-between items-end">
+                                        <span className="text-4xl font-extrabold text-slate-800 dark:text-white">${filteredGoals[0].current_value}</span>
+                                        <span className="text-sm font-bold text-slate-500 dark:text-slate-400">Alvo: ${filteredGoals[0].target_value}</span>
+                                    </div>
+                                    <div className="w-full h-4 bg-white/60 dark:bg-slate-700/60 rounded-full overflow-hidden border border-white/50 dark:border-slate-600">
+                                        <div className="h-full bg-gradient-to-r from-[#73c6df] to-[#8bd7bf] rounded-full shadow-sm relative transition-all duration-1000" style={{ width: `${filteredGoals[0].progress}%` }}>
+                                            <div className="absolute right-0 top-0 bottom-0 w-1 bg-white/40 animate-pulse"></div>
+                                        </div>
+                                    </div>
+                                    <div className="flex justify-between text-xs font-bold text-slate-500 dark:text-slate-400">
+                                        <span>Progresso atual</span>
+                                        <div className="flex flex-col items-end">
+                                            <span>{filteredGoals[0].progress}% Concluído</span>
+                                            <span className="text-[9px] opacity-70 mt-0.5">Atualizado: {lastUpdated}</span>
+                                        </div>
                                     </div>
                                 </div>
-                            </div>
-                        </>
-                    ) : (
-                        <div className="flex flex-col items-center justify-center h-full text-center">
-                            <Flag size={48} className="text-slate-300 mb-4" />
-                            <h3 className="text-xl font-bold text-slate-700 dark:text-slate-300">Sem metas definidas</h3>
-                            <p className="text-slate-500 dark:text-slate-400 mt-2">Crie sua primeira meta para começar a acompanhar o progresso.</p>
-                        </div>
-                    )}
-                </div>
-
-                {/* Progress Chart Card */}
-                <div className="bg-white/40 dark:bg-slate-800/40 backdrop-blur-xl border border-white/50 dark:border-slate-700 p-8 rounded-[2.5rem] flex flex-col items-center justify-center text-center relative">
-                    <div className="absolute top-6 right-6 flex gap-1 bg-white/50 dark:bg-slate-700/50 rounded-lg p-1">
-                        <button
-                            onClick={() => setChartType('pie')}
-                            className={`p-1.5 rounded-md transition-all ${chartType === 'pie' ? 'bg-[#73c6df] text-white shadow-sm' : 'text-slate-400'}`}
-                        >
-                            <PieChartIcon size={14} />
-                        </button>
-                        <button
-                            onClick={() => setChartType('bar')}
-                            className={`p-1.5 rounded-md transition-all ${chartType === 'bar' ? 'bg-[#73c6df] text-white shadow-sm' : 'text-slate-400'}`}
-                        >
-                            <BarChartIcon size={14} />
-                        </button>
-                    </div>
-
-                    <h3 className="text-lg font-bold text-slate-800 dark:text-white mb-6">Taxa de Sucesso</h3>
-
-                    <div className="w-full h-48 relative">
-                        <ResponsiveContainer width="100%" height="100%">
-                            {chartType === 'pie' ? (
-                                <PieChart>
-                                    <Pie
-                                        data={pieData}
-                                        cx="50%"
-                                        cy="50%"
-                                        innerRadius={55}
-                                        outerRadius={75}
-                                        paddingAngle={5}
-                                        dataKey="value"
-                                        startAngle={90}
-                                        endAngle={-270}
-                                        stroke="none"
-                                    >
-                                        {pieData.map((entry, index) => (
-                                            <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                                        ))}
-                                    </Pie>
-                                </PieChart>
-                            ) : (
-                                <BarChart data={barData}>
-                                    <Tooltip cursor={{ fill: 'transparent' }} contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }} />
-                                    <Bar dataKey="progress" fill="#73c6df" radius={[4, 4, 0, 0]} />
-                                </BarChart>
-                            )}
-                        </ResponsiveContainer>
-
-                        {chartType === 'pie' && (
-                            <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                                <span className="text-3xl font-extrabold text-slate-800 dark:text-white">{overallProgress}%</span>
+                            </>
+                        ) : (
+                            <div className="flex flex-col items-center justify-center h-full text-center">
+                                <Flag size={48} className="text-slate-300 mb-4" />
+                                <h3 className="text-xl font-bold text-slate-700 dark:text-slate-300">Sem metas ativas</h3>
+                                <p className="text-slate-500 dark:text-slate-400 mt-2">Crie sua primeira meta para começar a acompanhar o progresso.</p>
                             </div>
                         )}
                     </div>
-                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-4 font-medium">Média ponderada de todas as metas ativas.</p>
-                    <p className="text-[9px] text-slate-400 dark:text-slate-500 mt-1">Atualizado: {lastUpdated}</p>
-                </div>
+                )}
+
+                {/* Progress Chart Card */}
+                {activeTab === 'active' && (
+                    <div className="bg-white/40 dark:bg-slate-800/40 backdrop-blur-xl border border-white/50 dark:border-slate-700 p-8 rounded-[2.5rem] flex flex-col items-center justify-center text-center relative">
+                        <div className="absolute top-6 right-6 flex gap-1 bg-white/50 dark:bg-slate-700/50 rounded-lg p-1">
+                            <button
+                                onClick={() => setChartType('pie')}
+                                className={`p-1.5 rounded-md transition-all ${chartType === 'pie' ? 'bg-[#73c6df] text-white shadow-sm' : 'text-slate-400'}`}
+                            >
+                                <PieChartIcon size={14} />
+                            </button>
+                            <button
+                                onClick={() => setChartType('bar')}
+                                className={`p-1.5 rounded-md transition-all ${chartType === 'bar' ? 'bg-[#73c6df] text-white shadow-sm' : 'text-slate-400'}`}
+                            >
+                                <BarChartIcon size={14} />
+                            </button>
+                        </div>
+
+                        <h3 className="text-lg font-bold text-slate-800 dark:text-white mb-6">Taxa de Sucesso</h3>
+
+                        <div className="w-full h-48 relative">
+                            <ResponsiveContainer width="100%" height="100%">
+                                {chartType === 'pie' ? (
+                                    <PieChart>
+                                        <Pie
+                                            data={pieData}
+                                            cx="50%"
+                                            cy="50%"
+                                            innerRadius={55}
+                                            outerRadius={75}
+                                            paddingAngle={5}
+                                            dataKey="value"
+                                            startAngle={90}
+                                            endAngle={-270}
+                                            stroke="none"
+                                        >
+                                            {pieData.map((entry, index) => (
+                                                <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                                            ))}
+                                        </Pie>
+                                    </PieChart>
+                                ) : (
+                                    <BarChart data={barData}>
+                                        <Tooltip cursor={{ fill: 'transparent' }} contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }} />
+                                        <Bar dataKey="progress" fill="#73c6df" radius={[4, 4, 0, 0]} />
+                                    </BarChart>
+                                )}
+                            </ResponsiveContainer>
+
+                            {chartType === 'pie' && (
+                                <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                                    <span className="text-3xl font-extrabold text-slate-800 dark:text-white">{overallProgress}%</span>
+                                </div>
+                            )}
+                        </div>
+                        <p className="text-xs text-slate-500 dark:text-slate-400 mt-4 font-medium">Média ponderada de todas as metas ativas.</p>
+                        <p className="text-[9px] text-slate-400 dark:text-slate-500 mt-1">Atualizado: {lastUpdated}</p>
+                    </div>
+                )}
             </div>
 
             {/* Goals Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {goals.map((goal) => (
+                {filteredGoals.map((goal) => (
                     <div
                         key={goal.id}
                         className="bg-white/40 dark:bg-slate-800/40 backdrop-blur-md border border-white/50 dark:border-slate-700 rounded-[2rem] p-6 hover:bg-white/60 dark:hover:bg-slate-700/60 transition-all group relative cursor-pointer"
@@ -288,7 +393,7 @@ const Goals: React.FC<GoalsProps> = ({ lastUpdated }) => {
                         <div className="flex justify-between items-start mb-4">
                             <div className="flex gap-2">
                                 <div className="p-2 bg-white dark:bg-slate-700 rounded-xl text-slate-500 dark:text-slate-300 shadow-sm">
-                                    {goal.progress >= 100 ? <CheckCircle2 size={20} className="text-emerald-500" /> : <Target size={20} />}
+                                    {goal.progress >= 100 || goal.status === 'completed' ? <CheckCircle2 size={20} className="text-emerald-500" /> : <Target size={20} />}
                                 </div>
                                 {goal.type === 'Conjunta' && (
                                     <div className="p-2 bg-slate-100 dark:bg-slate-700 rounded-xl text-slate-500 dark:text-slate-300 shadow-sm" title="Meta Conjunta">
@@ -297,36 +402,50 @@ const Goals: React.FC<GoalsProps> = ({ lastUpdated }) => {
                                 )}
                             </div>
                             <div className="flex items-center gap-2">
-                                <span className={`text-[10px] font-bold px-2 py-1 rounded-full uppercase tracking-widest ${goal.progress >= 100 ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400' : 'bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400'}`}>
-                                    {goal.status}
+                                <span className={`text-[10px] font-bold px-2 py-1 rounded-full uppercase tracking-widest ${goal.progress >= 100 || goal.status === 'completed' ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400' : 'bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400'}`}>
+                                    {getStatusLabel(goal.status || 'active')}
                                 </span>
+                                {goal.status === 'active' && (
+                                    <button
+                                        onClick={(e) => handleCompleteGoal(goal.id, e)}
+                                        className="p-1.5 text-slate-400 hover:text-emerald-500 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 rounded-lg transition-colors"
+                                        title="Concluir Meta"
+                                    >
+                                        <CheckCircle2 size={14} />
+                                    </button>
+                                )}
                                 <button
                                     onClick={(e) => handleDeleteGoal(goal.id, e)}
                                     className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
                                 >
-                                    <X size={14} />
+                                    <Trash2 size={14} />
                                 </button>
                             </div>
                         </div>
                         <h3 className="font-bold text-slate-800 dark:text-white mb-1 pr-4">{goal.title}</h3>
                         <div className="flex justify-between items-center mb-4">
-                            <p className="text-xs text-slate-400 font-medium flex items-center gap-1">KPI: {goal.kpi}</p>
-                            <p className="text-[9px] text-slate-400">Prazo: {goal.deadline}</p>
+                            <p className="text-xs text-slate-400 font-medium flex items-center gap-1">KPI: {goal.kpi} {goal.category && <span className="bg-slate-100 dark:bg-slate-700 px-1.5 py-0.5 rounded text-[9px]">{goal.category}</span>}</p>
+                            <div className="text-right">
+                                <p className="text-[9px] text-slate-400">Prazo: {goal.deadline}</p>
+                                {goal.start_date && <p className="text-[9px] text-slate-400/70">Início: {goal.start_date}</p>}
+                            </div>
                         </div>
 
                         <div className="flex items-center gap-3">
                             <div className="flex-1 h-2 bg-slate-200/50 dark:bg-slate-700 rounded-full overflow-hidden">
-                                <div className={`h-full rounded-full ${goal.color}`} style={{ width: `${goal.progress}%` }}></div>
+                                <div className={`h-full rounded-full ${goal.color} ${goal.status === 'completed' ? 'bg-emerald-500' : ''}`} style={{ width: `${goal.progress}%` }}></div>
                             </div>
                             <span className="text-xs font-bold text-slate-600 dark:text-slate-300">{goal.progress}%</span>
                         </div>
                     </div>
                 ))}
 
-                <button onClick={openNewGoalModal} className="border-2 border-dashed border-slate-300 dark:border-slate-700 rounded-[2rem] p-6 flex flex-col items-center justify-center text-slate-400 dark:text-slate-500 hover:border-[#73c6df] hover:text-[#73c6df] hover:bg-[#73c6df]/5 transition-all gap-3 min-h-[180px]">
-                    <Plus size={32} />
-                    <span className="font-bold text-sm">Adicionar Novo Objetivo</span>
-                </button>
+                {activeTab === 'active' && (
+                    <button onClick={openNewGoalModal} className="border-2 border-dashed border-slate-300 dark:border-slate-700 rounded-[2rem] p-6 flex flex-col items-center justify-center text-slate-400 dark:text-slate-500 hover:border-[#73c6df] hover:text-[#73c6df] hover:bg-[#73c6df]/5 transition-all gap-3 min-h-[180px]">
+                        <Plus size={32} />
+                        <span className="font-bold text-sm">Adicionar Novo Objetivo</span>
+                    </button>
+                )}
             </div>
 
             {/* --- New/Edit Goal Modal --- */}
@@ -370,7 +489,24 @@ const Goals: React.FC<GoalsProps> = ({ lastUpdated }) => {
                                         <option value="Cashflow">Fluxo de Caixa</option>
                                         <option value="Geral">Outro</option>
                                     </select>
+
                                 </div>
+                                <div>
+                                    <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest mb-2">Categoria (Opcional)</label>
+                                    <select
+                                        className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#73c6df]/30 font-medium text-slate-600 dark:text-slate-200"
+                                        value={newGoal.category || ''}
+                                        onChange={(e) => setNewGoal({ ...newGoal, category: e.target.value })}
+                                    >
+                                        <option value="">Todas as Categorias</option>
+                                        {categories.map(cat => (
+                                            <option key={cat} value={cat}>{cat}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-4">
                                 <div>
                                     <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest mb-2">Tipo</label>
                                     <div className="flex bg-slate-50 dark:bg-slate-700 p-1 rounded-xl border border-slate-200 dark:border-slate-600">
@@ -390,7 +526,7 @@ const Goals: React.FC<GoalsProps> = ({ lastUpdated }) => {
                                 </div>
                             </div>
 
-                            <div className="grid grid-cols-2 gap-4">
+                            <div className="grid grid-cols-3 gap-4">
                                 <div>
                                     <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest mb-2">Valor Alvo</label>
                                     <input
@@ -399,6 +535,15 @@ const Goals: React.FC<GoalsProps> = ({ lastUpdated }) => {
                                         placeholder="Ex: 50000"
                                         value={newGoal.target_value || ''}
                                         onChange={(e) => setNewGoal({ ...newGoal, target_value: Number(e.target.value) })}
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest mb-2">Data Início</label>
+                                    <input
+                                        type="date"
+                                        className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#73c6df]/30 font-medium text-slate-600 dark:text-slate-200"
+                                        value={newGoal.start_date || ''}
+                                        onChange={(e) => setNewGoal({ ...newGoal, start_date: e.target.value })}
                                     />
                                 </div>
                                 <div>
@@ -435,7 +580,7 @@ const Goals: React.FC<GoalsProps> = ({ lastUpdated }) => {
                 </div>
             )}
 
-        </div>
+        </div >
     );
 };
 

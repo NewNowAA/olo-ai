@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Calendar, Clock, X } from 'lucide-react';
 import DateRangePicker from '../DateRangePicker';
-import { DateRangeType } from '../../hooks/useInvoiceFilters';
+import { DateRangeType } from '../../src/hooks/useInvoiceFilters';
 
 interface FilterControlsProps {
     dateRange: DateRangeType;
@@ -21,7 +21,7 @@ const FilterControls: React.FC<FilterControlsProps> = ({
     const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
 
     return (
-        <div className="bg-white/60 dark:bg-slate-800/60 p-1 rounded-xl border border-white/60 dark:border-slate-700 flex items-center gap-2 shadow-sm w-full md:w-auto overflow-x-auto">
+        <div className="bg-white/60 dark:bg-slate-800/60 p-1 rounded-xl border border-white/60 dark:border-slate-700 flex items-center gap-2 shadow-sm w-full md:w-auto">
             {/* Custom Date Picker Trigger */}
             <div className="relative">
                 <button

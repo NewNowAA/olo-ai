@@ -55,7 +55,7 @@ export const useInvoiceFilters = (invoices: Invoice[]) => {
             );
         }
 
-        // 4. Filter by Date Range (using created_at as requested)
+        // 4. Filter by Date Range (using issue date for financial accuracy)
         const now = new Date();
         let start: Date | null = null;
         let end: Date | null = null;
@@ -74,7 +74,7 @@ export const useInvoiceFilters = (invoices: Invoice[]) => {
 
         if (start) {
             result = result.filter(inv => {
-                const invDate = new Date(inv.created_at || inv.date);
+                const invDate = new Date(inv.date); // Use Issue Date for financial reporting
                 if (end) {
                     return invDate >= start! && invDate <= end;
                 }

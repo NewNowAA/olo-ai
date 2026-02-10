@@ -37,8 +37,7 @@ import MetricCard from './MetricCard';
 import { invoiceService, analyticsService } from '../src/services';
 import { Invoice } from '../src/types';
 import ReactMarkdown from 'react-markdown';
-import { useInvoiceFilters, useChartData } from '../src/hooks';
-import FilterControls from './Shared/FilterControls';
+import DateRangePicker from './DateRangePicker';
 
 // --- Custom KPI Cards ---
 
@@ -108,13 +107,17 @@ interface DashboardProps {
 const Dashboard: React.FC<DashboardProps> = ({ onNavigate, lastUpdated }) => {
   const [viewMode, setViewMode] = useState<'full' | 'revenue' | 'expenses'>('full');
 
+  // Date Filtering State
+  const [dateRange, setDateRange] = useState('year'); // '24h', '30days', 'year', 'custom'
+  const [customStartDate, setCustomStartDate] = useState<Date | null>(null);
+  const [customEndDate, setCustomEndDate] = useState<Date | null>(null);
+  const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
+
   // Data States
   const [invoices, setInvoices] = useState<Invoice[]>([]);
+  const [filteredInvoices, setFilteredInvoices] = useState<Invoice[]>([]);
   const [aiAnalysis, setAiAnalysis] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-
-  // Hook for filtering and stats
-  const { filters, setFilter, filteredInvoices, stats } = useInvoiceFilters(invoices);
 
   // Modal States
   const [isReportOpen, setIsReportOpen] = useState(false);
@@ -143,13 +146,48 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate, lastUpdated }) => {
     }
   };
 
-  // --- Aggregations & Calculations (Using stats from hook) ---
+  // --- Filtering Logic ---
+  useEffect(() => {
+    filterData();
+  }, [invoices, dateRange, customStartDate, customEndDate]);
+
+  const filterData = () => {
+    const now = new Date();
+    let filtered = [...invoices];
+
+    if (dateRange === '24h') {
+      const past24h = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+      filtered = filtered.filter(inv => new Date(inv.date) >= past24h);
+    } else if (dateRange === '30days') {
+      const past30d = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+      filtered = filtered.filter(inv => new Date(inv.date) >= past30d);
+    } else if (dateRange === 'year') {
+      const startOfYear = new Date(now.getFullYear(), 0, 1);
+      filtered = filtered.filter(inv => new Date(inv.date) >= startOfYear);
+    } else if (dateRange === 'custom' && customStartDate && customEndDate) {
+      // Set end date to end of day
+      const endOfDay = new Date(customEndDate);
+      endOfDay.setHours(23, 59, 59, 999);
+
+      filtered = filtered.filter(inv => {
+        const d = new Date(inv.date);
+        return d >= customStartDate && d <= endOfDay;
+      });
+    }
+
+    setFilteredInvoices(filtered);
+  };
+
+  // --- Aggregations & Calculations (Using Filtered Data) ---
 
   const metrics = useMemo(() => {
-    const totalRev = stats.revenue;
-    const totalExp = stats.expenses;
-    const netProfit = stats.profit;
-    const totalInvoices = stats.totalTransactions;
+    const rev = filteredInvoices.filter(i => i.type === 'Receita');
+    const exp = filteredInvoices.filter(i => i.type === 'Despesa');
+
+    const totalRev = rev.reduce((acc, curr) => acc + curr.amount, 0);
+    const totalExp = exp.reduce((acc, curr) => acc + curr.amount, 0);
+    const netProfit = totalRev - totalExp;
+    const totalInvoices = filteredInvoices.length;
 
     const healthScore = totalRev > 0 ? Math.round(((totalRev - totalExp) / totalRev) * 100) : 0;
 
@@ -161,17 +199,35 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate, lastUpdated }) => {
       headerStatus: healthScore > 20 ? 'Excelente' : (healthScore > 0 ? 'Bom' : 'Atenção'),
       healthScore
     };
-  }, [stats]);
+  }, [filteredInvoices]);
 
-  const chartData = useChartData(filteredInvoices, filters);
+  const chartData = useMemo(() => {
+    // Initialize full year structure
+    const months = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
+    const data = months.map(m => ({ name: m, value: 0, expense: 0 }));
+
+    filteredInvoices.forEach(inv => {
+      const date = new Date(inv.date);
+      const monthIdx = date.getMonth();
+      if (inv.type === 'Receita') {
+        data[monthIdx].value += inv.amount;
+      } else {
+        data[monthIdx].expense += inv.amount;
+      }
+    });
+    return data;
+  }, [filteredInvoices]);
 
   const recentTransactions = useMemo(() => {
-    // Show the absolute last 3 added invoices (unfiltered by date range)
-    // Using created_at for true insertion order
-    const sorted = [...invoices].sort((a, b) => new Date(b.created_at || b.date).getTime() - new Date(a.created_at || a.date).getTime());
+    // Show the absolute last 3 added invoices (unfiltered by date range, just by creation/date)
+    // Sort by ID (assuming sequential IDs or creation date if available) or Date
+    // If ID is UUID, reliance on Date is best proxy if created_at is not available.
+    // However, if the requirement is "last 3 added", we should sort by insertion order.
+    // If created_at is not available in Invoice type, use date as proxy.
+    const sorted = [...invoices].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
     return sorted.slice(0, 3).map(inv => ({
       company: inv.client,
-      date: new Date(inv.created_at || inv.date).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' }),
+      date: new Date(inv.date).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' }),
       amount: `$${inv.amount.toLocaleString()}`,
       status: inv.status,
       icon: inv.type === 'Receita' ? Building2 : ShoppingCart,
@@ -199,27 +255,113 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate, lastUpdated }) => {
   };
 
   const AICard = ({ type }: { type: 'full' | 'revenue' | 'expenses' }) => {
+    const isRevenue = type === 'revenue';
+    const isExpense = type === 'expenses';
+
+    const bgGradient = isExpense
+      ? "bg-gradient-to-br from-rose-400 to-rose-600"
+      : "custom-gradient";
+
+    const shadowColor = isExpense ? "shadow-rose-500/20" : "shadow-[#73c6df]/20";
+    const iconBg = isExpense ? "bg-white/20" : "bg-white/20";
+    const buttonPrimary = isExpense ? "bg-white text-rose-500" : "bg-[#2e8ba6] text-white border border-white/20";
+    const buttonSecondary = isExpense ? "bg-white/20 text-white" : "bg-white/90 text-[#2e8ba6]";
+
     return (
-      <div className="p-8 rounded-[2.5rem] bg-slate-800 text-white shadow-lg">
-        <h3 className="text-xl font-bold">Computed AI Analysis</h3>
-        <p className="mt-4">{type === 'full' ? 'General Analysis' : (type === 'revenue' ? 'Revenue Intelligence' : 'Cost Audit')}</p>
-        <p className="text-sm mt-2 opacity-80">{aiAnalysis || "Loading analysis..."}</p>
+      <div className={`${bgGradient} p-8 rounded-[2.5rem] shadow-lg ${shadowColor} flex flex-col lg:flex-row items-center gap-8 relative overflow-hidden text-white`}>
+        <div className="absolute -right-20 -top-20 w-80 h-80 bg-white/20 blur-[80px] rounded-full pointer-events-none"></div>
+        <div className="absolute -left-20 -bottom-20 w-60 h-60 bg-white/10 blur-[60px] rounded-full pointer-events-none"></div>
+
+        <div className={`w-20 h-20 rounded-3xl ${iconBg} backdrop-blur-md shadow-inner border border-white/30 flex-shrink-0 flex items-center justify-center text-white`}>
+          <BrainCircuit size={40} />
+        </div>
+
+        <div className="flex-1 space-y-3 text-center lg:text-left relative z-10">
+          <h3 className="text-xl font-bold flex items-center justify-center lg:justify-start gap-3">
+            {type === 'full' && "Avaliação Geral Lumea"}
+            {type === 'revenue' && "Inteligência de Receita"}
+            {type === 'expenses' && "Auditoria de Custos"}
+            <span className="px-3 py-1 rounded-full text-[10px] bg-white/20 border border-white/30 text-white uppercase font-extrabold tracking-widest">
+              {type === 'expenses' ? 'Alerta' : 'Otimizado'}
+            </span>
+          </h3>
+          <div className="text-white/90 leading-relaxed text-sm max-w-3xl font-medium prose-p:my-0 prose-strong:text-white">
+            {aiAnalysis ? (
+              <div className="line-clamp-3"><ReactMarkdown>{aiAnalysis}</ReactMarkdown></div>
+            ) : (
+              "Aguardando dados suficientes para gerar insights precisos. Continue registrando suas faturas diariamente."
+            )}
+          </div>
+          <p className="text-[10px] text-white/60">Última atualização: {lastUpdated}</p>
+        </div>
+
+        <div className="flex flex-col sm:flex-row lg:flex-col gap-3 w-full lg:w-auto relative z-10">
+          <button
+            onClick={() => setIsReportOpen(true)}
+            className={`px-8 py-3 rounded-xl ${buttonSecondary} backdrop-blur-sm text-xs font-bold hover:bg-white transition-all whitespace-nowrap shadow-lg`}
+          >
+            Relatório Detalhado
+          </button>
+          <button className={`px-8 py-3 rounded-xl ${buttonPrimary} text-xs font-bold hover:opacity-90 transition-all shadow-lg whitespace-nowrap`}>
+            Aplicar Estratégias
+          </button>
+        </div>
       </div>
-    );
+        </div>
+    </div>
+  );
   };
 
   const DateFilter = () => (
-    <div className="flex justify-end">
-      <FilterControls
-        dateRange={filters.dateRange}
-        customStartDate={filters.customStartDate}
-        customEndDate={filters.customEndDate}
-        onDateRangeChange={(range) => setFilter('dateRange', range)}
-        onCustomDatesChange={(dates) => {
-          setFilter('customStartDate', dates.start);
-          setFilter('customEndDate', dates.end);
-        }}
-      />
+    <div className="flex justify-end relative">
+      <div className="bg-white/60 dark:bg-slate-800/60 p-1 rounded-xl border border-white/60 dark:border-slate-700 flex items-center shadow-sm w-full md:w-auto overflow-x-auto">
+        <button
+          onClick={() => setDateRange('24h')}
+          className={`px-4 py-2 text-xs font-bold rounded-lg transition-colors flex items-center gap-1 whitespace-nowrap ${dateRange === '24h' ? 'bg-[#73c6df] text-white' : 'text-slate-500 dark:text-slate-400 hover:text-[#73c6df]'}`}
+        >
+          <Clock size={12} /> Últimas 24h
+        </button>
+        <button
+          onClick={() => setDateRange('30days')}
+          className={`px-4 py-2 text-xs font-bold rounded-lg transition-colors whitespace-nowrap ${dateRange === '30days' ? 'bg-[#73c6df] text-white' : 'text-slate-500 dark:text-slate-400 hover:text-[#73c6df]'}`}
+        >
+          30 Dias
+        </button>
+        <button
+          onClick={() => setDateRange('year')}
+          className={`px-4 py-2 text-xs font-bold rounded-lg transition-colors whitespace-nowrap ${dateRange === 'year' ? 'bg-[#73c6df] text-white' : 'text-slate-500 dark:text-slate-400 hover:text-[#73c6df]'}`}
+        >
+          Este Ano
+        </button>
+        <div className="relative">
+          <button
+            onClick={() => setIsDatePickerOpen(!isDatePickerOpen)}
+            className={`px-4 py-2 text-xs font-bold rounded-lg transition-colors flex items-center gap-1 whitespace-nowrap ${dateRange === 'custom' ? 'bg-[#73c6df] text-white' : 'text-slate-500 dark:text-slate-400 hover:text-[#73c6df]'}`}
+          >
+            <Calendar size={12} />
+            {customStartDate && customEndDate ? `${customStartDate.toLocaleDateString('pt-BR')} - ${customEndDate.toLocaleDateString('pt-BR')}` : 'Personalizar'}
+          </button>
+
+          {isDatePickerOpen && (
+            <DateRangePicker
+              startDate={customStartDate}
+              endDate={customEndDate}
+              onChange={(dates) => {
+                setCustomStartDate(dates.start);
+                setCustomEndDate(dates.end);
+              }}
+              onClose={() => {
+                setIsDatePickerOpen(false);
+                if (customStartDate && customEndDate) {
+                  setDateRange('custom');
+                }
+              }}
+            />
+          )}
+        </div>
+      </div>
+    </div>
+      </div>
     </div>
   );
 
