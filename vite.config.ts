@@ -15,7 +15,7 @@ export default defineConfig(({ mode }) => {
     },
     resolve: {
       alias: {
-        '@': __dirname,
+        '@': '/Users/marciofernando/Documents/InvoiceWebsite/InvoiceWebApp',
       }
     }
   };

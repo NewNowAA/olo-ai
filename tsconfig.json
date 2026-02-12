@@ -24,8 +24,10 @@
     }
   },
   "include": [
-    "**/*.ts",
-    "**/*.tsx"
+    "src/**/*.ts",
+    "src/**/*.tsx",
+    "vite.config.ts",
+    "tailwind.config.js"
   ],
   "exclude": [
     "node_modules",

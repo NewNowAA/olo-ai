@@ -10,6 +10,7 @@ import {
     Sparkles,
     Loader2
 } from 'lucide-react';
+import ReactMarkdown from 'react-markdown';
 import { geminiService } from '@/src/services';
 
 interface Message {
@@ -174,9 +175,15 @@ const AIIntelligence: React.FC = () => {
                                             ? 'bg-[#73c6df] text-white rounded-tr-none shadow-[#73c6df]/20'
                                             : 'bg-white border border-slate-100 text-slate-600 rounded-tl-none'}
                               `}>
-                                        {msg.text.split('\n').map((line, i) => (
-                                            <p key={i} className={i > 0 ? 'mt-2' : ''}>{line}</p>
-                                        ))}
+                                        {msg.sender === 'user' ? (
+                                            msg.text.split('\n').map((line, i) => (
+                                                <p key={i} className={i > 0 ? 'mt-2' : ''}>{line}</p>
+                                            ))
+                                        ) : (
+                                            <div className="prose prose-sm max-w-none text-slate-600">
+                                                <ReactMarkdown>{msg.text}</ReactMarkdown>
+                                            </div>
+                                        )}
                                     </div>
                                     <span className="text-[10px] text-slate-400 font-medium px-2">{msg.time}</span>
                                 </div>

@@ -1,0 +1,14 @@
+@import "tailwindcss";
+
+:root {
+    --color-teal-primary: #73c6df;
+    --color-mint-secondary: #8bd7bf;
+}
+
+body {
+    @apply bg-slate-50 text-slate-800 font-sans;
+}
+
+.custom-text-gradient {
+    @apply bg-gradient-to-br from-[#73c6df] to-[#2dd4bf] bg-clip-text text-transparent;
+}

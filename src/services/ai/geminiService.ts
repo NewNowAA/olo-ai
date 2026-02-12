@@ -1,100 +1,113 @@
-import { GoogleGenAI } from "@google/genai";
-
 // ===========================================
-// Gemini AI Service
+// Gemini AI Service (via n8n Webhooks)
 // ===========================================
 
-const API_KEY = import.meta.env.VITE_GEMINI_API_KEY || import.meta.env.GEMINI_API_KEY;
+const N8N_WEBHOOK_URL = import.meta.env.VITE_N8N_WEBHOOK_URL;
 
 /**
- * Service for interacting with Google Gemini AI
+ * Service for interacting with AI via n8n workflows
  */
 export const geminiService = {
     /**
-     * Generate content using Gemini AI
+     * Send a message to the AI Chat workflow
      */
-    async generateContent(
-        prompt: string,
-        systemInstruction?: string
-    ): Promise<string> {
-        if (!API_KEY) {
-            throw new Error('Gemini API key not configured. Please add GEMINI_API_KEY to your .env file.');
+    async sendMessageToN8n(message: string): Promise<string> {
+        if (!N8N_WEBHOOK_URL) {
+            console.warn('VITE_N8N_WEBHOOK_URL not configured');
+            return "Erro de configuração: URL do n8n não definida.";
         }
 
         try {
-            const ai = new GoogleGenAI({ apiKey: API_KEY });
-            const response = await ai.models.generateContent({
-                model: 'gemini-1.5-flash',
-                contents: prompt,
-                config: systemInstruction ? { systemInstruction } : undefined,
+            const response = await fetch(`${N8N_WEBHOOK_URL}/chat`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    message,
+                    input: message // Compatibility for n8n LangChain nodes
+                }),
             });
 
-            return response.text || 'Não foi possível gerar uma resposta.';
+            if (!response.ok) {
+                throw new Error(`n8n error: ${response.statusText}`);
+            }
+
+            const text = await response.text();
+            if (!text) {
+                console.warn('Empty response from n8n');
+                return "IA processou a mensagem, mas não retornou texto.";
+            }
+
+            try {
+                const data = JSON.parse(text);
+                return data.output || data.text || "Sem resposta da IA.";
+            } catch (e) {
+                console.warn('n8n returned non-JSON:', text);
+                return text; // Return raw text if it's not JSON
+            }
         } catch (error) {
-            console.error('Gemini API Error:', error);
-            throw error;
+            console.error('AI Chat Error:', error);
+            // @ts-ignore
+            return `Erro: ${error.message || "Falha na conexão"}`;
         }
     },
 
     /**
-     * Generate financial assistant response
+     * Start invoice processing workflow
      */
+    async processInvoice(file: File, userId: string): Promise<{ success: boolean; invoiceId?: string; message?: string }> {
+        if (!N8N_WEBHOOK_URL) {
+            throw new Error('VITE_N8N_WEBHOOK_URL not configured');
+        }
+
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('userId', userId);
+
+        try {
+            const response = await fetch(`${N8N_WEBHOOK_URL}/process-invoice`, {
+                method: 'POST',
+                body: formData, // Content-Type is set automatically for FormData
+            });
+
+            if (!response.ok) {
+                throw new Error(`n8n error: ${response.statusText}`);
+            }
+
+            const data = await response.json();
+            return {
+                success: true,
+                invoiceId: data.invoiceId,
+                message: data.message
+            };
+        } catch (error) {
+            console.error('Invoice Processing Error:', error);
+            return {
+                success: false,
+                message: "Falha ao iniciar processamento."
+            };
+        }
+    },
+
+    // Legacy methods kept for backward compatibility until fully migrated
+    // They will now just throw or return simple messages to avoid breaking imports
+
+    async generateContent(prompt: string): Promise<string> {
+        return this.sendMessageToN8n(prompt);
+    },
+
     async askFinancialAssistant(question: string): Promise<string> {
-        const systemInstruction = `
-      Você é Lumea, uma assistente financeira corporativa inteligente, útil e concisa.
-      Você ajuda com análise de dados, previsões de fluxo de caixa e gestão de faturas.
-      Responda sempre em português de forma profissional e objetiva.
-    `.trim();
-
-        return this.generateContent(question, systemInstruction);
+        return this.sendMessageToN8n(question);
     },
 
-    /**
-     * Generate goal analysis
-     */
     async analyzeGoals(goalsData: string): Promise<string> {
-        const systemInstruction = `
-      Você é um analista financeiro especializado em metas empresariais.
-      Analise os dados fornecidos e forneça insights acionáveis.
-      Seja conciso e objetivo. Responda em português.
-    `.trim();
-
-        return this.generateContent(goalsData, systemInstruction);
+        return this.sendMessageToN8n(`Analise estas metas: ${goalsData}`);
     },
 
-    /**
-     * Generate daily financial analysis
-     */
     async generateDailyAnalysis(invoices: any[]): Promise<string> {
-        // Simplify data for token limit
-        const simpleInvoices = invoices.map(inv => ({
-            date: inv.date,
-            type: inv.type,
-            amount: inv.amount,
-            category: inv.category,
-            client: inv.client
-        }));
-
-        const prompt = `
-            Analise estes dados de faturas recentes e crie um "Resumo Diário de Inteligência Financeira".
-            Dados: ${JSON.stringify(simpleInvoices)}
-
-            Estrutura da resposta (Use Markdown):
-            ### 📊 Pulso Financeiro
-            [Resumo curto sobre o saldo e volume recente]
-
-            ### 🔎 Destaques
-            - **Receitas:** [Tendência ou maior entrada]
-            - **Despesas:** [Onde se gastou mais]
-
-            ### 💡 Sugestão do Dia
-            [Uma dica acionável baseada nos dados]
-        `;
-
-        const systemInstruction = "Você é um consultor financeiro CFO de elite. Seja extremamente conciso, direto e motivador.";
-
-        return this.generateContent(prompt, systemInstruction);
-    },
+        return this.sendMessageToN8n(`Gere uma análise diária para: ${JSON.stringify(invoices).slice(0, 1000)}...`);
+    }
 };
 
 export default geminiService;
