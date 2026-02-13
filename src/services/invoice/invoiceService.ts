@@ -17,6 +17,7 @@ const mapInvoice = (dbInvoice: any): Invoice => ({
     invoiceNumber: dbInvoice.invoice_number,
     created_at: dbInvoice.created_at,
     // Add fileUrl if present in DB
+    fileUrl: dbInvoice.file_url,
     items: dbInvoice.invoice_products?.map((p: any) => ({
         name: p.description,
         description: p.description,
@@ -38,6 +39,23 @@ export const invoiceService = {
 
         if (error) throw error;
         return data.map(mapInvoice);
+    },
+
+    async getInvoiceById(id: string): Promise<Invoice | null> {
+        const { data, error } = await supabase
+            .from('invoices')
+            .select(`
+                *,
+                invoice_products (*)
+            `)
+            .eq('id', id)
+            .single();
+
+        if (error) {
+            console.error('Error fetching invoice:', error);
+            return null;
+        }
+        return data ? mapInvoice(data) : null;
     },
 
     async createInvoice(invoice: Partial<Invoice>, file?: File) {

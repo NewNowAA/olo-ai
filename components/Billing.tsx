@@ -41,10 +41,16 @@ import {
 } from 'lucide-react';
 import { Invoice, InvoiceStatus, InvoiceItem, InvoiceType, ExpenseType, ReviewStatus } from '../src/types';
 import { invoiceService, analyticsService } from '../src/services';
-import { useInvoiceFilters } from '../src/hooks';
+import { useInvoiceFilters, useInvoiceProcessing } from '../src/hooks';
 import FilterControls from './Shared/FilterControls';
+import { geminiService, supabase } from '../src/services';
+import { Loader2 } from 'lucide-react';
 
-const Billing: React.FC = () => {
+interface BillingProps {
+    onNavigate?: (page: 'dashboard' | 'billing' | 'ai' | 'goals' | 'builder' | 'settings' | 'help') => void;
+}
+
+const Billing: React.FC<BillingProps> = ({ onNavigate }) => {
     // --- State ---
     // Data States
     const [invoices, setInvoices] = useState<Invoice[]>([]);
@@ -52,6 +58,10 @@ const Billing: React.FC = () => {
     const [isSaving, setIsSaving] = useState(false);
     const [selectedInvoices, setSelectedInvoices] = useState<string[]>([]);
     const [viewMode, setViewMode] = useState<'list' | 'grid'>('list');
+
+    useEffect(() => {
+        console.log("Billing Component Mounted - " + new Date().toISOString());
+    }, []);
 
     // Hook for centralized filtering and stats
     const { filters, setFilter, filteredInvoices, stats } = useInvoiceFilters(invoices);
@@ -67,6 +77,109 @@ const Billing: React.FC = () => {
     const [modalStep, setModalStep] = useState<'choice' | 'manual' | 'ai'>('choice');
     const [uploadedImage, setUploadedImage] = useState<string | null>(null);
     const [selectedFile, setSelectedFile] = useState<File | undefined>(undefined);
+    const [processingInvoiceId, setProcessingInvoiceId] = useState<string | null>(null);
+    const [userId, setUserId] = useState<string | null>(null);
+
+    // Custom Confirmation/Alert State
+    const [confirmation, setConfirmation] = useState<{
+        isOpen: boolean;
+        title: string;
+        message: string;
+        onConfirm?: () => void;
+        type: 'danger' | 'info' | 'success';
+        singleButton?: boolean;
+    }>({ isOpen: false, title: '', message: '', type: 'info' });
+
+    const showAlert = (title: string, message: string, type: 'danger' | 'info' | 'success' = 'info') => {
+        setConfirmation({ isOpen: true, title, message, type, singleButton: true });
+    };
+
+    const showConfirm = (title: string, message: string, onConfirm: () => void, type: 'danger' | 'info' | 'success' = 'danger') => {
+        setConfirmation({ isOpen: true, title, message, onConfirm, type, singleButton: false });
+    };
+
+    const closeConfirmation = () => {
+        setConfirmation(prev => ({ ...prev, isOpen: false }));
+    };
+
+    // AI Analysis Hook
+    const { invoice: aiInvoice, status: processingStatus, isPolling } = useInvoiceProcessing(processingInvoiceId);
+
+    useEffect(() => {
+        supabase.auth.getUser().then(({ data }) => setUserId(data.user?.id || null));
+    }, []);
+
+    // Effect: Populate form when AI finishes
+    // Effect: Populate form when AI finishes
+    useEffect(() => {
+        // Prevent running if we are already in manual mode (avoids blinking/loops)
+        if (modalStep === 'manual') return;
+
+        if (aiInvoice && (processingStatus === 'needs_review' || processingStatus === 'completed')) {
+            // No more 'any' casting needed! The hook returns a clean Invoice object.
+            setFormData(prev => ({
+                ...prev,
+                id: aiInvoice.id,
+                client: aiInvoice.client, // Already mapped from vendor_name by service
+                date: aiInvoice.date,     // Already mapped from issue_date
+                amount: aiInvoice.amount, // Already mapped from total_amount
+                items: aiInvoice.items || [], // Already mapped from invoice_products
+                type: aiInvoice.type,
+                category: aiInvoice.category,
+                subcategory: aiInvoice.subcategory,
+                // processing_status: aiInvoice.processing_status // If needed
+            }));
+
+            if (aiInvoice.fileUrl) {
+                setUploadedImage(aiInvoice.fileUrl);
+            } else if (uploadedImage) {
+                // Keep the locally uploaded image if not returned by backend yet
+            }
+
+            setProcessingInvoiceId(null); // Stop listening
+            setModalStep('manual'); // Switch to edit form
+        }
+    }, [aiInvoice, processingStatus, modalStep, uploadedImage]);
+
+    const handleAiUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file || !userId) return;
+
+        const imageUrl = URL.createObjectURL(file);
+        setUploadedImage(imageUrl);
+        setSelectedFile(file);
+
+        try {
+            const result = await geminiService.processInvoice(file, userId);
+            if (result.success && result.invoiceId) {
+                setProcessingInvoiceId(result.invoiceId);
+            } else {
+                showAlert('Erro', 'Falha ao iniciar processamento: ' + result.message, 'danger');
+                setUploadedImage(null);
+            }
+        } catch (error) {
+            console.error(error);
+            showAlert('Erro', 'Erro ao enviar arquivo.', 'danger');
+            setUploadedImage(null);
+        }
+    };
+
+    const handleCancelAiUpload = async () => {
+        if (processingInvoiceId) {
+            try {
+                // Optimistic UI update
+                setProcessingInvoiceId(null);
+                setUploadedImage(null);
+                // Attempt to delete the temp invoice from DB
+                await invoiceService.deleteInvoice(processingInvoiceId);
+            } catch (e) {
+                console.warn("Failed to delete temp invoice", e);
+            }
+        }
+        setProcessingInvoiceId(null);
+        setUploadedImage(null);
+        setModalStep('choice');
+    };
 
     // Form State (New/Edit)
     const [formData, setFormData] = useState<Partial<Invoice>>({
@@ -147,6 +260,7 @@ const Billing: React.FC = () => {
         setSelectedFile(undefined);
         setCustomCategory('');
         setModalStep('choice');
+        setProcessingInvoiceId(null);
         setIsModalOpen(true);
     };
 
@@ -224,10 +338,25 @@ const Billing: React.FC = () => {
             closeModal();
         } catch (error) {
             console.error('Error saving invoice:', error);
-            alert('Erro ao salvar fatura. Verifique os dados.');
+            showAlert('Erro', 'Erro ao salvar fatura. Verifique os dados.', 'danger');
         } finally {
             setIsSaving(false);
         }
+    };
+
+    const handleDeleteInvoice = async (id: string, e: React.MouseEvent) => {
+        e.stopPropagation();
+
+        showConfirm('Excluir Fatura', 'Tem certeza que deseja excluir esta fatura? Esta ação não pode ser desfeita.', async () => {
+            try {
+                await invoiceService.deleteInvoice(id);
+                setInvoices(prev => prev.filter(inv => inv.id !== id));
+                showAlert('Sucesso', 'Fatura excluída com sucesso.', 'success');
+            } catch (error) {
+                console.error('Error deleting invoice:', error);
+                showAlert('Erro', 'Erro ao excluir fatura.', 'danger');
+            }
+        }, 'danger');
     };
 
     // --- Components Matching Dashboard ---
@@ -463,6 +592,9 @@ const Billing: React.FC = () => {
                                                 <button onClick={() => openEditModal(inv)} className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-500 hover:text-[#2e8ba6] transition-colors" title="Editar">
                                                     <Edit3 size={16} />
                                                 </button>
+                                                <button onClick={(e) => handleDeleteInvoice(inv.id, e)} className="p-1.5 rounded-lg hover:bg-rose-50 dark:hover:bg-rose-900/20 text-slate-500 hover:text-rose-500 transition-colors" title="Excluir">
+                                                    <Trash2 size={16} />
+                                                </button>
                                             </div>
                                         </td>
                                     </tr>
@@ -496,7 +628,10 @@ const Billing: React.FC = () => {
                                 </div>
                                 <div className="mt-auto pt-4 border-t border-slate-50 dark:border-slate-700 flex justify-between items-center z-10">
                                     <span className="font-extrabold text-lg text-slate-800 dark:text-white">${inv.amount.toLocaleString()}</span>
-                                    <button onClick={() => openEditModal(inv)} className="p-2 bg-slate-50 dark:bg-slate-700 rounded-full shadow-sm hover:scale-105 transition-transform text-[#2e8ba6]"><Edit3 size={16} /></button>
+                                    <div className="flex gap-2">
+                                        <button onClick={(e) => handleDeleteInvoice(inv.id, e)} className="p-2 bg-slate-50 dark:bg-slate-700 rounded-full shadow-sm hover:scale-105 transition-transform text-slate-400 hover:text-rose-500"><Trash2 size={16} /></button>
+                                        <button onClick={() => openEditModal(inv)} className="p-2 bg-slate-50 dark:bg-slate-700 rounded-full shadow-sm hover:scale-105 transition-transform text-[#2e8ba6]"><Edit3 size={16} /></button>
+                                    </div>
                                 </div>
                             </div>
                         ))}
@@ -530,6 +665,51 @@ const Billing: React.FC = () => {
                                         <h3 className="text-xl font-bold text-slate-800 dark:text-white mb-2">Manual</h3>
                                         <p className="text-sm text-slate-500">Preencher campos manualmente.</p>
                                     </button>
+                                </div>
+                            )}
+
+                            {modalStep === 'ai' && (
+                                <div className="p-10 flex flex-col items-center justify-center h-full text-center">
+                                    <div className="w-full max-w-md">
+                                        {isPolling || processingStatus === 'processing' ? (
+                                            <div className="flex flex-col items-center animate-in fade-in zoom-in duration-300">
+                                                <div className="w-24 h-24 bg-[#73c6df]/10 rounded-full flex items-center justify-center mb-6 relative">
+                                                    <Loader2 size={40} className="text-[#2e8ba6] animate-spin" />
+                                                    <div className="absolute inset-0 rounded-full border-4 border-[#73c6df]/20 border-t-[#73c6df] animate-spin"></div>
+                                                </div>
+                                                <h3 className="text-2xl font-bold text-slate-800 dark:text-white mb-2">Analisando Documento...</h3>
+                                                <p className="text-slate-500 mb-8">A Inteligência Artificial está a extrair os dados da sua fatura.</p>
+
+                                                <div className="w-full bg-slate-100 dark:bg-slate-700 rounded-full h-2 overflow-hidden">
+                                                    <div className="h-full bg-[#73c6df] animate-progress-indeterminate"></div>
+                                                </div>
+                                                <p className="text-xs text-slate-400 mt-4">Isto pode levar alguns segundos.</p>
+                                            </div>
+                                        ) : (
+                                            <>
+                                                <div className="mb-8">
+                                                    <div className="w-20 h-20 mx-auto bg-gradient-to-br from-[#73c6df] to-[#2e8ba6] rounded-3xl flex items-center justify-center shadow-lg shadow-[#73c6df]/30 mb-6 rotate-3">
+                                                        <ScanLine size={32} className="text-white" />
+                                                    </div>
+                                                    <h3 className="text-2xl font-bold text-slate-800 dark:text-white mb-2">Importação Inteligente</h3>
+                                                    <p className="text-slate-500">Carregue sua fatura (PDF ou Imagem) e deixe a IA preencher tudo para você.</p>
+                                                </div>
+
+                                                <label className="block w-full cursor-pointer group">
+                                                    <div className="border-2 border-dashed border-slate-300 dark:border-slate-600 rounded-[2rem] p-10 bg-slate-50 dark:bg-slate-800/50 hover:bg-[#f0f9ff] dark:hover:bg-slate-800 transition-colors flex flex-col items-center">
+                                                        <Upload size={40} className="text-slate-400 group-hover:text-[#2e8ba6] transition-colors mb-4" />
+                                                        <span className="font-bold text-slate-700 dark:text-slate-300 text-lg group-hover:text-[#2e8ba6]">Clique para carregar</span>
+                                                        <span className="text-sm text-slate-400 mt-2">ou arraste o arquivo aqui</span>
+                                                    </div>
+                                                    <input type="file" className="hidden" accept="image/*,application/pdf" onChange={handleAiUpload} />
+                                                </label>
+
+                                                <button onClick={handleCancelAiUpload} className="mt-8 text-slate-400 hover:text-red-500 text-sm font-bold flex items-center justify-center gap-2 mx-auto transition-colors">
+                                                    <X size={16} /> Cancelar Processo
+                                                </button>
+                                            </>
+                                        )}
+                                    </div>
                                 </div>
                             )}
 

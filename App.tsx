@@ -158,7 +158,7 @@ const App: React.FC = () => {
           <Header darkMode={darkMode} />
 
           {currentPage === 'dashboard' && <Dashboard onNavigate={(page) => setCurrentPage(page)} lastUpdated={lastUpdated} />}
-          {currentPage === 'billing' && <Billing />}
+          {currentPage === 'billing' && <Billing onNavigate={(page) => setCurrentPage(page)} />}
           {currentPage === 'ai' && <AIIntelligence />}
           {currentPage === 'goals' && <Goals lastUpdated={lastUpdated} />}
           {currentPage === 'builder' && <InvoiceBuilder />}
