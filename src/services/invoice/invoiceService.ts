@@ -18,6 +18,7 @@ const mapInvoice = (dbInvoice: any): Invoice => ({
     created_at: dbInvoice.created_at,
     // Add fileUrl if present in DB
     fileUrl: dbInvoice.file_url,
+    processing_status: dbInvoice.processing_status, // CRITICAL FIX: Map this field!
     items: dbInvoice.invoice_products?.map((p: any) => ({
         name: p.description,
         description: p.description,

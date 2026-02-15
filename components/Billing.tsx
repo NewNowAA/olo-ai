@@ -1,5 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import ReactMarkdown from 'react-markdown';
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import {
     Plus,
     Search,
@@ -45,6 +46,7 @@ import { useInvoiceFilters, useInvoiceProcessing } from '../src/hooks';
 import FilterControls from './Shared/FilterControls';
 import { geminiService, supabase } from '../src/services';
 import { Loader2 } from 'lucide-react';
+import { ConfirmationModal } from '../src/components/common';
 
 interface BillingProps {
     onNavigate?: (page: 'dashboard' | 'billing' | 'ai' | 'goals' | 'builder' | 'settings' | 'help') => void;
@@ -71,6 +73,8 @@ const Billing: React.FC<BillingProps> = ({ onNavigate }) => {
     // AI Analysis
     const [aiAnalysis, setAiAnalysis] = useState<string | null>(null);
     const [isAnalyzing, setIsAnalyzing] = useState(false);
+    const [analysisTimestamp, setAnalysisTimestamp] = useState<Date | null>(null);
+    const [countdown, setCountdown] = useState('');
 
     // Modal State
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -112,23 +116,27 @@ const Billing: React.FC<BillingProps> = ({ onNavigate }) => {
     // Effect: Populate form when AI finishes
     // Effect: Populate form when AI finishes
     useEffect(() => {
-        // Prevent running if we are already in manual mode (avoids blinking/loops)
+        // Prevent running if we are already in manual mode
         if (modalStep === 'manual') return;
 
         if (aiInvoice && (processingStatus === 'needs_review' || processingStatus === 'completed')) {
             // No more 'any' casting needed! The hook returns a clean Invoice object.
+            const cleanItems = aiInvoice.items || [];
+
             setFormData(prev => ({
                 ...prev,
                 id: aiInvoice.id,
                 client: aiInvoice.client, // Already mapped from vendor_name by service
                 date: aiInvoice.date,     // Already mapped from issue_date
                 amount: aiInvoice.amount, // Already mapped from total_amount
-                items: aiInvoice.items || [], // Already mapped from invoice_products
+                items: cleanItems,
                 type: aiInvoice.type,
                 category: aiInvoice.category,
                 subcategory: aiInvoice.subcategory,
                 // processing_status: aiInvoice.processing_status // If needed
             }));
+
+            setFormItems(cleanItems);
 
             if (aiInvoice.fileUrl) {
                 setUploadedImage(aiInvoice.fileUrl);
@@ -137,6 +145,7 @@ const Billing: React.FC<BillingProps> = ({ onNavigate }) => {
             }
 
             setProcessingInvoiceId(null); // Stop listening
+            setIsUploading(false); // Make sure to stop loading
             setModalStep('manual'); // Switch to edit form
         }
     }, [aiInvoice, processingStatus, modalStep, uploadedImage]);
@@ -148,20 +157,27 @@ const Billing: React.FC<BillingProps> = ({ onNavigate }) => {
         const imageUrl = URL.createObjectURL(file);
         setUploadedImage(imageUrl);
         setSelectedFile(file);
+        setIsUploading(true);
 
         try {
             const result = await geminiService.processInvoice(file, userId);
+
             if (result.success && result.invoiceId) {
                 setProcessingInvoiceId(result.invoiceId);
+                // CRITICAL FIX: Do NOT set isUploading(false) here. 
+                // We wait for the useEffect to detect 'completed' status.
             } else {
                 showAlert('Erro', 'Falha ao iniciar processamento: ' + result.message, 'danger');
                 setUploadedImage(null);
+                setIsUploading(false); // Only stop if it failed to start
             }
         } catch (error) {
             console.error(error);
             showAlert('Erro', 'Erro ao enviar arquivo.', 'danger');
             setUploadedImage(null);
+            setIsUploading(false);
         }
+        // finally block removed to prevent race condition
     };
 
     const handleCancelAiUpload = async () => {
@@ -192,10 +208,48 @@ const Billing: React.FC<BillingProps> = ({ onNavigate }) => {
     const [customCategory, setCustomCategory] = useState('');
     const [availableCategories, setAvailableCategories] = useState(defaultCategories);
 
+    const [isUploading, setIsUploading] = useState(false);
+
     // Load Data
     useEffect(() => {
         loadInvoices();
         loadAnalysis();
+
+        // Realtime Subscription
+        const channel = supabase
+            .channel('billing-all-invoices')
+            .on(
+                'postgres_changes',
+                {
+                    event: '*',
+                    schema: 'public',
+                    table: 'invoices',
+                },
+                async (payload) => {
+                    console.log('Realtime change received:', payload);
+                    if (payload.eventType === 'INSERT') {
+                        // Fetch the full mapped object to ensure consistency
+                        const { data } = await supabase.from('invoices').select('*').eq('id', payload.new.id).single();
+                        if (data) {
+                            // Apply same mapping as getInvoices if needed, or just append if shape is compatible
+                            // For safety, let's reload to ensure all relations/mapping are correct
+                            // or verify if we can push directly. 
+                            // Given we might need relations (items), reloading or specific fetch is safer.
+                            // But for "instant" feel, we can push raw if it matches.
+                            loadInvoices();
+                        }
+                    } else if (payload.eventType === 'UPDATE') {
+                        loadInvoices();
+                    } else if (payload.eventType === 'DELETE') {
+                        setInvoices((prev) => prev.filter((inv) => inv.id !== payload.old.id));
+                    }
+                }
+            )
+            .subscribe();
+
+        return () => {
+            supabase.removeChannel(channel);
+        };
     }, []);
 
     const loadInvoices = async () => {
@@ -217,12 +271,31 @@ const Billing: React.FC<BillingProps> = ({ onNavigate }) => {
         try {
             const text = await analyticsService.getDailyAnalysis();
             setAiAnalysis(text);
+            setAnalysisTimestamp(new Date());
         } catch (e) {
             console.warn("Failed to load AI analysis", e);
         } finally {
             setIsAnalyzing(false);
         }
     };
+
+    // Countdown timer to next 07:00
+    useEffect(() => {
+        const computeCountdown = () => {
+            const now = new Date();
+            const next7am = new Date(now);
+            next7am.setHours(7, 0, 0, 0);
+            if (now >= next7am) next7am.setDate(next7am.getDate() + 1);
+            const diff = next7am.getTime() - now.getTime();
+            const h = Math.floor(diff / 3600000);
+            const m = Math.floor((diff % 3600000) / 60000);
+            const s = Math.floor((diff % 60000) / 1000);
+            setCountdown(`${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`);
+        };
+        computeCountdown();
+        const interval = setInterval(computeCountdown, 1000);
+        return () => clearInterval(interval);
+    }, []);
 
     // --- Handlers ---
     const handleSort = (field: keyof Invoice) => {
@@ -329,6 +402,21 @@ const Billing: React.FC<BillingProps> = ({ onNavigate }) => {
             };
 
             if (formData.id) {
+                // If user selected a new file during edit, upload it and update fileUrl
+                if (selectedFile) {
+                    const fileExt = selectedFile.name.split('.').pop();
+                    const fileName = `${Date.now()}.${fileExt}`;
+                    const { error: uploadError } = await supabase.storage
+                        .from('faturas')
+                        .upload(fileName, selectedFile);
+
+                    if (!uploadError) {
+                        const { data: { publicUrl } } = supabase.storage
+                            .from('faturas')
+                            .getPublicUrl(fileName);
+                        invoiceToSave.fileUrl = publicUrl;
+                    }
+                }
                 await invoiceService.updateInvoice(formData.id, invoiceToSave);
             } else {
                 await invoiceService.createInvoice(invoiceToSave, selectedFile);
@@ -357,6 +445,28 @@ const Billing: React.FC<BillingProps> = ({ onNavigate }) => {
                 showAlert('Erro', 'Erro ao excluir fatura.', 'danger');
             }
         }, 'danger');
+    };
+
+    const handleBulkDelete = () => {
+        showConfirm(
+            'Excluir Faturas',
+            `Tem certeza que deseja excluir ${selectedInvoices.length} faturas selecionadas? Esta ação não pode ser desfeita.`,
+            async () => {
+                setIsLoading(true);
+                try {
+                    await Promise.all(selectedInvoices.map(id => invoiceService.deleteInvoice(id)));
+                    setInvoices(prev => prev.filter(inv => !selectedInvoices.includes(inv.id)));
+                    setSelectedInvoices([]);
+                    showAlert('Sucesso', `${selectedInvoices.length} faturas excluídas com sucesso.`, 'success');
+                } catch (error) {
+                    console.error('Error deleting invoices:', error);
+                    showAlert('Erro', 'Erro ao excluir faturas.', 'danger');
+                } finally {
+                    setIsLoading(false);
+                }
+            },
+            'danger'
+        );
     };
 
     // --- Components Matching Dashboard ---
@@ -428,6 +538,22 @@ const Billing: React.FC<BillingProps> = ({ onNavigate }) => {
                         )}
                     </div>
                     <p className="text-[10px] text-white/60 uppercase tracking-widest">Atualizado Diariamente</p>
+                    <div className="flex items-center gap-4 mt-3 flex-wrap">
+                        <div className="flex items-center gap-2 bg-white/10 backdrop-blur-sm px-3 py-1.5 rounded-xl">
+                            <Clock size={14} className="text-white/80" />
+                            <span className="text-xs font-bold text-white/90">Próxima: {countdown}</span>
+                        </div>
+                        {analysisTimestamp && (
+                            <span className="text-[10px] text-white/50">Última: {analysisTimestamp.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</span>
+                        )}
+                        <button
+                            onClick={loadAnalysis}
+                            disabled={isAnalyzing}
+                            className="text-xs font-bold text-white/80 hover:text-white bg-white/10 hover:bg-white/20 px-3 py-1.5 rounded-xl transition-all disabled:opacity-40"
+                        >
+                            {isAnalyzing ? 'Gerando...' : 'Gerar Agora'}
+                        </button>
+                    </div>
                 </div>
             </div>
 
@@ -607,7 +733,7 @@ const Billing: React.FC<BillingProps> = ({ onNavigate }) => {
                 {viewMode === 'grid' && (
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                         {filteredInvoices.map((inv) => (
-                            <div key={inv.id} className="bg-white dark:bg-slate-800 p-5 rounded-[2.5rem] border border-slate-100 dark:border-slate-700 flex flex-col gap-4 group hover:shadow-lg transition-all relative overflow-hidden">
+                            <div key={inv.id} onClick={() => openAnalysisModal(inv)} className="bg-white dark:bg-slate-800 p-5 rounded-[2.5rem] border border-slate-100 dark:border-slate-700 flex flex-col gap-4 group hover:shadow-lg transition-all relative overflow-hidden cursor-pointer">
                                 {/* Image Preview Background if available */}
                                 {inv.fileUrl && (
                                     <div className="absolute inset-x-0 top-0 h-32 opacity-10 pointer-events-none">
@@ -629,8 +755,8 @@ const Billing: React.FC<BillingProps> = ({ onNavigate }) => {
                                 <div className="mt-auto pt-4 border-t border-slate-50 dark:border-slate-700 flex justify-between items-center z-10">
                                     <span className="font-extrabold text-lg text-slate-800 dark:text-white">${inv.amount.toLocaleString()}</span>
                                     <div className="flex gap-2">
-                                        <button onClick={(e) => handleDeleteInvoice(inv.id, e)} className="p-2 bg-slate-50 dark:bg-slate-700 rounded-full shadow-sm hover:scale-105 transition-transform text-slate-400 hover:text-rose-500"><Trash2 size={16} /></button>
-                                        <button onClick={() => openEditModal(inv)} className="p-2 bg-slate-50 dark:bg-slate-700 rounded-full shadow-sm hover:scale-105 transition-transform text-[#2e8ba6]"><Edit3 size={16} /></button>
+                                        <button onClick={(e) => { e.stopPropagation(); handleDeleteInvoice(inv.id, e); }} className="p-2 bg-slate-50 dark:bg-slate-700 rounded-full shadow-sm hover:scale-105 transition-transform text-slate-400 hover:text-rose-500"><Trash2 size={16} /></button>
+                                        <button onClick={(e) => { e.stopPropagation(); openEditModal(inv); }} className="p-2 bg-slate-50 dark:bg-slate-700 rounded-full shadow-sm hover:scale-105 transition-transform text-[#2e8ba6]"><Edit3 size={16} /></button>
                                     </div>
                                 </div>
                             </div>
@@ -671,19 +797,34 @@ const Billing: React.FC<BillingProps> = ({ onNavigate }) => {
                             {modalStep === 'ai' && (
                                 <div className="p-10 flex flex-col items-center justify-center h-full text-center">
                                     <div className="w-full max-w-md">
-                                        {isPolling || processingStatus === 'processing' ? (
-                                            <div className="flex flex-col items-center animate-in fade-in zoom-in duration-300">
-                                                <div className="w-24 h-24 bg-[#73c6df]/10 rounded-full flex items-center justify-center mb-6 relative">
-                                                    <Loader2 size={40} className="text-[#2e8ba6] animate-spin" />
-                                                    <div className="absolute inset-0 rounded-full border-4 border-[#73c6df]/20 border-t-[#73c6df] animate-spin"></div>
-                                                </div>
-                                                <h3 className="text-2xl font-bold text-slate-800 dark:text-white mb-2">Analisando Documento...</h3>
-                                                <p className="text-slate-500 mb-8">A Inteligência Artificial está a extrair os dados da sua fatura.</p>
+                                        {isPolling || processingStatus === 'processing' || isUploading ? (
+                                            <div className="flex flex-col items-center animate-in fade-in zoom-in duration-300 relative w-full max-w-lg aspect-[3/4] bg-slate-100 dark:bg-slate-700/50 rounded-2xl overflow-hidden border border-slate-200 dark:border-slate-600 shadow-xl">
+                                                {/* Image Background */}
+                                                {uploadedImage ? (
+                                                    <>
+                                                        <img src={uploadedImage} className="w-full h-full object-contain opacity-50 blur-sm scale-105 transition-all duration-[20s] ease-linear transform translate-y-0" />
+                                                        <div className="absolute inset-0 bg-gradient-to-b from-transparent via-white/10 to-slate-900/10"></div>
+                                                    </>
+                                                ) : (
+                                                    <div className="w-full h-full flex items-center justify-center bg-slate-50 dark:bg-slate-800">
+                                                        <FileText size={48} className="text-slate-300 animate-pulse" />
+                                                    </div>
+                                                )}
 
-                                                <div className="w-full bg-slate-100 dark:bg-slate-700 rounded-full h-2 overflow-hidden">
-                                                    <div className="h-full bg-[#73c6df] animate-progress-indeterminate"></div>
+                                                {/* Scanner Line Animation */}
+                                                <div className="absolute inset-x-0 h-1 bg-cyan-400/80 shadow-[0_0_20px_rgba(34,211,238,0.6)] z-10 animate-[scan_2s_ease-in-out_infinite]"></div>
+
+                                                {/* Overlay Info */}
+                                                <div className="absolute inset-0 flex flex-col items-center justify-center z-20 backdrop-blur-[1px]">
+                                                    <div className="bg-white/90 dark:bg-slate-900/90 p-6 rounded-3xl shadow-2xl flex flex-col items-center max-w-[80%] border border-slate-200 dark:border-slate-700">
+                                                        <div className="relative mb-4">
+                                                            <div className="absolute inset-0 animate-ping opacity-20 bg-cyan-500 rounded-full"></div>
+                                                            <Loader2 size={32} className="text-[#2e8ba6] animate-spin relative z-10" />
+                                                        </div>
+                                                        <h3 className="text-lg font-bold text-slate-800 dark:text-white mb-1">Processando Fatura...</h3>
+                                                        <p className="text-xs text-slate-500 text-center">A IA está a ler os detalhes do fornecedor e itens.</p>
+                                                    </div>
                                                 </div>
-                                                <p className="text-xs text-slate-400 mt-4">Isto pode levar alguns segundos.</p>
                                             </div>
                                         ) : (
                                             <>
@@ -720,7 +861,7 @@ const Billing: React.FC<BillingProps> = ({ onNavigate }) => {
                                         <div className="bg-white dark:bg-slate-800 rounded-2xl border-2 border-dashed border-slate-300 dark:border-slate-600 h-80 flex flex-col items-center justify-center relative overflow-hidden group">
                                             {uploadedImage ? (
                                                 <>
-                                                    {uploadedImage.toLowerCase().endsWith('.pdf') || uploadedImage.startsWith('blob:') && selectedFile?.type === 'application/pdf' ? (
+                                                    {(uploadedImage.toLowerCase().endsWith('.pdf') || (uploadedImage.startsWith('blob:') && selectedFile?.type === 'application/pdf')) ? (
                                                         <iframe src={uploadedImage} className="w-full h-full" title="Preview"></iframe>
                                                     ) : (
                                                         <img src={uploadedImage} alt="Preview" className="w-full h-full object-contain" />
@@ -854,9 +995,17 @@ const Billing: React.FC<BillingProps> = ({ onNavigate }) => {
                         {modalStep !== 'choice' && (
                             <div className="px-8 py-5 border-t border-slate-100 dark:border-slate-700 bg-white dark:bg-slate-800 flex justify-end gap-3">
                                 <button onClick={() => setModalStep('choice')} className="px-6 py-3 text-slate-500 font-bold hover:text-slate-800">Voltar</button>
-                                <button onClick={handleSaveInvoice} className="px-8 py-3 bg-[#2e8ba6] text-white rounded-xl font-bold shadow-lg hover:bg-[#257a91] flex items-center gap-2">
-                                    <Save size={18} /> {isSaving ? 'Salvando...' : 'Salvar Fatura'}
-                                </button>
+                                {modalStep === 'manual' && (
+                                    isSaving ? (
+                                        <button disabled className="px-8 py-3 bg-slate-100 text-slate-400 rounded-xl font-bold flex items-center gap-2 cursor-not-allowed">
+                                            <Loader2 size={18} className="animate-spin" /> Salvando...
+                                        </button>
+                                    ) : (
+                                        <button onClick={handleSaveInvoice} className="px-8 py-3 bg-[#2e8ba6] text-white rounded-xl font-bold shadow-lg hover:bg-[#257a91] flex items-center gap-2">
+                                            <Save size={18} /> Salvar Fatura
+                                        </button>
+                                    )
+                                )}
                             </div>
                         )}
                     </div>
@@ -864,12 +1013,37 @@ const Billing: React.FC<BillingProps> = ({ onNavigate }) => {
             )}
 
             {/* --- ANALYSIS MODAL --- */}
-            {selectedInvoiceForAnalysis && (
+            {selectedInvoiceForAnalysis && (() => {
+                // Compute chart data for this invoice
+                const itemsByValue = (selectedInvoiceForAnalysis.items || []).map(item => ({
+                    name: (item.name || 'Sem nome').length > 12 ? (item.name || 'Sem nome').slice(0, 12) + '…' : (item.name || 'Sem nome'),
+                    total: item.price * item.quantity
+                })).sort((a, b) => b.total - a.total).slice(0, 6);
+
+                // Frequency: count how many times each item name appears across ALL invoices
+                const freqMap: Record<string, number> = {};
+                invoices.forEach(inv => {
+                    (inv.items || []).forEach(item => {
+                        const key = (item.name || 'Sem nome').trim().toLowerCase();
+                        if (key) freqMap[key] = (freqMap[key] || 0) + 1;
+                    });
+                });
+                const itemsByFrequency = Object.entries(freqMap)
+                    .sort(([, a], [, b]) => b - a)
+                    .slice(0, 6)
+                    .map(([name, count]) => ({
+                        name: name.length > 12 ? name.slice(0, 12) + '…' : name,
+                        count
+                    }));
+
+                const CHART_COLORS = ['#73c6df', '#2e8ba6', '#8bd7bf', '#0d9488', '#5eead4', '#a78bfa'];
+
+                return (
                 <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
                     <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-md" onClick={closeAnalysisModal}></div>
-                    <div className="relative bg-white dark:bg-slate-800 rounded-[2.5rem] shadow-2xl w-full max-w-lg overflow-hidden animate-in zoom-in-95 duration-200">
+                    <div className="relative bg-white dark:bg-slate-800 rounded-[2.5rem] shadow-2xl w-full max-w-2xl overflow-hidden animate-in zoom-in-95 duration-200 max-h-[90vh] overflow-y-auto">
                         <div className="p-8 relative">
-                            <button onClick={closeAnalysisModal} className="absolute top-6 right-6 p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-700"><X size={20} /></button>
+                            <button onClick={closeAnalysisModal} className="absolute top-6 right-6 p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-700 z-20"><X size={20} /></button>
 
                             <div className="mb-6">
                                 <span className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase ${selectedInvoiceForAnalysis.type === 'Receita' ? 'bg-[#f0fdf4] text-[#15803d]' : 'bg-rose-50 text-rose-500'}`}>{selectedInvoiceForAnalysis.type}</span>
@@ -878,32 +1052,61 @@ const Billing: React.FC<BillingProps> = ({ onNavigate }) => {
                             </div>
 
                             <div className="space-y-6">
-                                <div className="p-6 bg-slate-50 dark:bg-slate-700/50 rounded-3xl border border-slate-100 dark:border-slate-600 block text-center">
-                                    <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Valor Total</p>
-                                    <p className="text-4xl font-black text-slate-800 dark:text-white">${selectedInvoiceForAnalysis.amount.toLocaleString()}</p>
-                                </div>
-
-                                <div className="grid grid-cols-2 gap-4">
-                                    <div className="p-5 bg-[#73c6df]/10 rounded-2xl border border-[#73c6df]/20">
+                                {/* KPI Row */}
+                                <div className="grid grid-cols-3 gap-4">
+                                    <div className="p-5 bg-slate-50 dark:bg-slate-700/50 rounded-2xl border border-slate-100 dark:border-slate-600 text-center">
+                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Valor Total</p>
+                                        <p className="text-2xl font-black text-slate-800 dark:text-white">${selectedInvoiceForAnalysis.amount.toLocaleString()}</p>
+                                    </div>
+                                    <div className="p-5 bg-[#73c6df]/10 rounded-2xl border border-[#73c6df]/20 text-center">
                                         <p className="text-[10px] font-bold text-[#2e8ba6] uppercase mb-1">Items</p>
-                                        <p className="text-xl font-bold text-slate-800 dark:text-white">{selectedInvoiceForAnalysis.items?.length || 0}</p>
+                                        <p className="text-2xl font-bold text-slate-800 dark:text-white">{selectedInvoiceForAnalysis.items?.length || 0}</p>
                                     </div>
-                                    <div className="p-5 bg-indigo-50 dark:bg-indigo-900/20 rounded-2xl border border-indigo-100 dark:border-indigo-800">
+                                    <div className="p-5 bg-indigo-50 dark:bg-indigo-900/20 rounded-2xl border border-indigo-100 dark:border-indigo-800 text-center">
                                         <p className="text-[10px] font-bold text-indigo-500 uppercase mb-1">Categoria</p>
-                                        <p className="text-lg font-bold text-slate-800 dark:text-white line-clamp-1">{selectedInvoiceForAnalysis.category}</p>
+                                        <p className="text-sm font-bold text-slate-800 dark:text-white line-clamp-1">{selectedInvoiceForAnalysis.category}</p>
                                     </div>
                                 </div>
 
-                                {selectedInvoiceForAnalysis.items && selectedInvoiceForAnalysis.items.length > 0 && (
-                                    <div>
-                                        <h4 className="text-sm font-bold text-slate-700 dark:text-slate-300 mb-3">Item Mais Relevante</h4>
-                                        <div className="flex items-center justify-between p-4 rounded-xl bg-white dark:bg-slate-700 border border-slate-100 dark:border-slate-600 shadow-sm">
-                                            <div>
-                                                <p className="font-bold text-slate-800 dark:text-white">{selectedInvoiceForAnalysis.items.sort((a, b) => (b.price * b.quantity) - (a.price * a.quantity))[0].name}</p>
-                                                <p className="text-xs text-slate-500">{selectedInvoiceForAnalysis.items.sort((a, b) => (b.price * b.quantity) - (a.price * a.quantity))[0].quantity}x unid.</p>
-                                            </div>
-                                            <p className="font-bold text-slate-800 dark:text-white">${(selectedInvoiceForAnalysis.items.sort((a, b) => (b.price * b.quantity) - (a.price * a.quantity))[0].price * selectedInvoiceForAnalysis.items.sort((a, b) => (b.price * b.quantity) - (a.price * a.quantity))[0].quantity).toLocaleString()}</p>
-                                        </div>
+                                {/* Chart: Items by Value */}
+                                {itemsByValue.length > 0 && (
+                                    <div className="bg-slate-50 dark:bg-slate-700/30 rounded-2xl border border-slate-100 dark:border-slate-600 p-5">
+                                        <h4 className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-4">Top Items por Valor</h4>
+                                        <ResponsiveContainer width="100%" height={180}>
+                                            <BarChart data={itemsByValue} layout="vertical" margin={{ left: 10, right: 20, top: 5, bottom: 5 }}>
+                                                <XAxis type="number" hide />
+                                                <YAxis type="category" dataKey="name" width={80} tick={{ fontSize: 11, fill: '#94a3b8', fontWeight: 600 }} />
+                                                <Tooltip formatter={(v: number) => [`$${v.toLocaleString()}`, 'Valor']} contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 20px rgba(0,0,0,0.1)', fontSize: '12px' }} />
+                                                <Bar dataKey="total" radius={[0, 8, 8, 0]} barSize={16}>
+                                                    {itemsByValue.map((_, idx) => <Cell key={idx} fill={CHART_COLORS[idx % CHART_COLORS.length]} />)}
+                                                </Bar>
+                                            </BarChart>
+                                        </ResponsiveContainer>
+                                    </div>
+                                )}
+
+                                {/* Chart: Most Frequent Items (across all invoices) */}
+                                {itemsByFrequency.length > 0 && (
+                                    <div className="bg-slate-50 dark:bg-slate-700/30 rounded-2xl border border-slate-100 dark:border-slate-600 p-5">
+                                        <h4 className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-4">Items Mais Frequentes (Todas Faturas)</h4>
+                                        <ResponsiveContainer width="100%" height={180}>
+                                            <BarChart data={itemsByFrequency} margin={{ left: 10, right: 20, top: 5, bottom: 5 }}>
+                                                <XAxis dataKey="name" tick={{ fontSize: 11, fill: '#94a3b8', fontWeight: 600 }} />
+                                                <YAxis allowDecimals={false} tick={{ fontSize: 11, fill: '#94a3b8' }} />
+                                                <Tooltip formatter={(v: number) => [`${v}x`, 'Ocorrências']} contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 20px rgba(0,0,0,0.1)', fontSize: '12px' }} />
+                                                <Bar dataKey="count" radius={[8, 8, 0, 0]} barSize={28}>
+                                                    {itemsByFrequency.map((_, idx) => <Cell key={idx} fill={CHART_COLORS[idx % CHART_COLORS.length]} />)}
+                                                </Bar>
+                                            </BarChart>
+                                        </ResponsiveContainer>
+                                    </div>
+                                )}
+
+                                {/* No items fallback */}
+                                {itemsByValue.length === 0 && (
+                                    <div className="text-center py-8 text-slate-400">
+                                        <FileText size={32} className="mx-auto mb-2 opacity-40" />
+                                        <p className="text-sm font-medium">Sem itens detalhados nesta fatura.</p>
                                     </div>
                                 )}
                             </div>
@@ -916,8 +1119,47 @@ const Billing: React.FC<BillingProps> = ({ onNavigate }) => {
                         </div>
                     </div>
                 </div>
-            )}
+                );
+            })()}
 
+
+            {/* --- CONFIRMATION MODAL --- */}
+            <ConfirmationModal
+                isOpen={confirmation.isOpen}
+                onClose={() => setConfirmation({ ...confirmation, isOpen: false })}
+                onConfirm={confirmation.onConfirm}
+                title={confirmation.title}
+                message={confirmation.message}
+                type={confirmation.type}
+                singleButton={confirmation.singleButton}
+                confirmText={confirmation.type === 'danger' ? 'Excluir' : 'Confirmar'}
+            />
+
+            {/* --- BULK ACTIONS FLOATING BAR --- */}
+            {selectedInvoices.length > 0 && (
+                <div className="fixed bottom-8 left-1/2 -translate-x-1/2 z-40 bg-slate-900 dark:bg-slate-800 text-white px-6 py-3 rounded-full shadow-2xl shadow-slate-900/20 flex items-center gap-6 animate-in slide-in-from-bottom-10 fade-in duration-300 border border-slate-700/50">
+                    <span className="font-bold text-sm flex items-center gap-2">
+                        <div className="w-5 h-5 rounded-full bg-[#73c6df] text-slate-900 flex items-center justify-center text-[10px] font-black">
+                            {selectedInvoices.length}
+                        </div>
+                        selecionados
+                    </span>
+                    <div className="h-4 w-px bg-slate-700"></div>
+                    <button
+                        onClick={handleBulkDelete}
+                        className="flex items-center gap-2 text-rose-400 hover:text-rose-300 font-bold text-sm transition-colors group"
+                    >
+                        <Trash2 size={16} className="group-hover:scale-110 transition-transform" /> Excluir
+                    </button>
+                    <button
+                        onClick={() => setSelectedInvoices([])}
+                        className="p-1 hover:bg-slate-700 rounded-full transition-colors ml-2"
+                        title="Limpar seleção"
+                    >
+                        <X size={14} className="text-slate-500 hover:text-white" />
+                    </button>
+                </div>
+            )}
 
             <style>{`
                 .label-text { @apply text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest; }

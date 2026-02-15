@@ -7,6 +7,9 @@ export default defineConfig(({ mode }) => {
     server: {
       port: 3000,
       host: '0.0.0.0',
+      watch: {
+        ignored: ['**/.agent/**', '**/.gemini/**', '**/supabase/**', '**/node_modules/**'],
+      },
     },
     plugins: [react()],
     define: {

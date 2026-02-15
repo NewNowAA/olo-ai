@@ -26,11 +26,14 @@
   "include": [
     "src/**/*.ts",
     "src/**/*.tsx",
+    "components/**/*.tsx",
+    "App.tsx",
     "vite.config.ts",
     "tailwind.config.js"
   ],
   "exclude": [
     "node_modules",
-    "dist"
+    "dist",
+    "supabase"
   ]
 }

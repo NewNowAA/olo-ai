@@ -26,7 +26,8 @@ import {
   TrendingUp,
   AlertTriangle,
   Wallet,
-  Zap
+  Zap,
+  RefreshCw
 } from 'lucide-react';
 import {
   AreaChart, Area, XAxis, Tooltip, ResponsiveContainer, CartesianGrid,
@@ -236,35 +237,42 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate, lastUpdated }) => {
           </p>
         </div>
 
-        {/* Toggle Controls (Main View) */}
-        <div className="bg-white/40 dark:bg-slate-800/40 p-1.5 rounded-2xl border border-white/60 dark:border-slate-700 flex items-center shadow-sm backdrop-blur-sm relative">
-          {/* Sliding Background */}
-          <div
-            className={`absolute top-1.5 bottom-1.5 rounded-xl bg-white dark:bg-slate-700 shadow-sm border border-slate-100 dark:border-slate-600 transition-all duration-300 ease-out z-0`}
-            style={{
-              left: viewMode === 'full' ? '6px' : viewMode === 'revenue' ? '33.33%' : '66.66%',
-              width: 'calc(33.33% - 4px)',
-            }}
-          />
+        <div className="flex items-center gap-3">
+          {/* Refresh Button */}
+          <button onClick={loadData} className="px-4 py-2.5 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 font-bold text-sm hover:bg-slate-50 dark:hover:bg-slate-700 transition-all flex items-center gap-2">
+            <RefreshCw size={16} className={isLoading ? 'animate-spin' : ''} /> Atualizar
+          </button>
 
-          <button
-            onClick={() => handleViewChange('full')}
-            className={`flex-1 px-4 py-2 text-xs font-bold rounded-xl relative z-10 transition-colors ${viewMode === 'full' ? 'text-[#2e8ba6]' : 'text-slate-500 dark:text-slate-400 hover:text-[#2e8ba6]'}`}
-          >
-            Visão Geral
-          </button>
-          <button
-            onClick={() => handleViewChange('revenue')}
-            className={`flex-1 px-4 py-2 text-xs font-bold rounded-xl relative z-10 transition-colors ${viewMode === 'revenue' ? 'text-[#2e8ba6]' : 'text-slate-500 dark:text-slate-400 hover:text-[#2e8ba6]'}`}
-          >
-            Receita
-          </button>
-          <button
-            onClick={() => handleViewChange('expenses')}
-            className={`flex-1 px-4 py-2 text-xs font-bold rounded-xl relative z-10 transition-colors ${viewMode === 'expenses' ? 'text-[#2e8ba6]' : 'text-slate-500 dark:text-slate-400 hover:text-[#2e8ba6]'}`}
-          >
-            Despesas
-          </button>
+          {/* Toggle Controls (Main View) */}
+          <div className="bg-white/40 dark:bg-slate-800/40 p-1.5 rounded-2xl border border-white/60 dark:border-slate-700 flex items-center shadow-sm backdrop-blur-sm relative">
+            {/* Sliding Background */}
+            <div
+              className={`absolute top-1.5 bottom-1.5 rounded-xl bg-white dark:bg-slate-700 shadow-sm border border-slate-100 dark:border-slate-600 transition-all duration-300 ease-out z-0`}
+              style={{
+                left: viewMode === 'full' ? '6px' : viewMode === 'revenue' ? '33.33%' : '66.66%',
+                width: 'calc(33.33% - 4px)',
+              }}
+            />
+
+            <button
+              onClick={() => handleViewChange('full')}
+              className={`flex-1 px-4 py-2 text-xs font-bold rounded-xl relative z-10 transition-colors ${viewMode === 'full' ? 'text-[#2e8ba6]' : 'text-slate-500 dark:text-slate-400 hover:text-[#2e8ba6]'}`}
+            >
+              Visão Geral
+            </button>
+            <button
+              onClick={() => handleViewChange('revenue')}
+              className={`flex-1 px-4 py-2 text-xs font-bold rounded-xl relative z-10 transition-colors ${viewMode === 'revenue' ? 'text-[#2e8ba6]' : 'text-slate-500 dark:text-slate-400 hover:text-[#2e8ba6]'}`}
+            >
+              Receita
+            </button>
+            <button
+              onClick={() => handleViewChange('expenses')}
+              className={`flex-1 px-4 py-2 text-xs font-bold rounded-xl relative z-10 transition-colors ${viewMode === 'expenses' ? 'text-[#2e8ba6]' : 'text-slate-500 dark:text-slate-400 hover:text-[#2e8ba6]'}`}
+            >
+              Despesas
+            </button>
+          </div>
         </div>
       </div>
 

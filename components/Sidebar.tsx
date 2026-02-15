@@ -25,7 +25,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, toggleSidebar, currentPa
   const navItems = [
     { id: 'dashboard', icon: LayoutDashboard, label: 'Painel' },
     { id: 'billing', icon: Receipt, label: 'Faturamento' },
-    { id: 'ai', icon: BrainCircuit, label: 'Inteligência IA' },
+    { id: 'ai', icon: BrainCircuit, label: 'Consultor IA' },
     { id: 'goals', icon: Target, label: 'Metas e Objetivos' },
     { id: 'builder', icon: PenTool, label: 'Construtor', badge: 'Breve' },
   ];

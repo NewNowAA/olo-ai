@@ -1,5 +1,7 @@
+import { supabase } from '../index';
+
 // ===========================================
-// Gemini AI Service (via n8n Webhooks)
+// Gemini AI Service (Edge Functions)
 // ===========================================
 
 const N8N_WEBHOOK_URL = import.meta.env.VITE_N8N_WEBHOOK_URL;
@@ -57,35 +59,45 @@ export const geminiService = {
      * Start invoice processing workflow
      */
     async processInvoice(file: File, userId: string): Promise<{ success: boolean; invoiceId?: string; message?: string }> {
-        if (!N8N_WEBHOOK_URL) {
-            throw new Error('VITE_N8N_WEBHOOK_URL not configured');
-        }
-
-        const formData = new FormData();
-        formData.append('file', file);
-        formData.append('userId', userId);
-
         try {
-            const response = await fetch(`${N8N_WEBHOOK_URL}/process-invoice`, {
-                method: 'POST',
-                body: formData, // Content-Type is set automatically for FormData
+            // 1. Upload to Supabase Storage
+            const fileExt = file.name.split('.').pop();
+            const fileName = `${userId}/${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
+
+            const { error: uploadError } = await supabase.storage
+                .from('faturas')
+                .upload(fileName, file);
+
+            if (uploadError) throw new Error(`Upload failed: ${uploadError.message}`);
+
+            // 2. Invoke Edge Function
+            const { data, error: functionError } = await supabase.functions.invoke('process-invoice', {
+                body: { file_path: fileName }
             });
 
-            if (!response.ok) {
-                throw new Error(`n8n error: ${response.statusText}`);
+            // Handle Network/System Errors (500s that crash before our catch block)
+            if (functionError) {
+                console.error('Edge Function System Error:', functionError);
+                throw new Error(`System Error: ${functionError.message}`);
             }
 
-            const data = await response.json();
+            // Handle "Soft Errors" (Application logic errors returned as 200 OK with success: false)
+            if (data && !data.success) {
+                console.error('AI Processing Logic Error:', data);
+                throw new Error(`AI Error: ${data.error || 'Unknown error'}`);
+            }
+
             return {
                 success: true,
-                invoiceId: data.invoiceId,
-                message: data.message
+                invoiceId: data.invoice.id,
+                message: "Processamento iniciado com sucesso."
             };
-        } catch (error) {
+
+        } catch (error: any) {
             console.error('Invoice Processing Error:', error);
             return {
                 success: false,
-                message: "Falha ao iniciar processamento."
+                message: error.message || "Falha ao iniciar processamento."
             };
         }
     },
@@ -99,6 +111,32 @@ export const geminiService = {
 
     async askFinancialAssistant(question: string): Promise<string> {
         return this.sendMessageToN8n(question);
+    },
+
+    /**
+     * Send message to the AI Consultant Edge Function
+     * Fetches invoice context server-side and returns context-aware advice
+     */
+    async askConsultant(message: string, history: { sender: string; text: string }[]): Promise<string> {
+        try {
+            const { data, error } = await supabase.functions.invoke('ai-consultant', {
+                body: { message, history }
+            });
+
+            if (error) {
+                console.error('AI Consultant Edge Function Error:', error);
+                throw new Error(error.message || 'Erro na função de IA');
+            }
+
+            if (data && data.success) {
+                return data.response;
+            }
+
+            throw new Error(data?.error || 'Resposta inesperada da IA');
+        } catch (error: any) {
+            console.error('AI Consultant Error:', error);
+            return `Desculpe, não consegui processar o seu pedido. ${error.message || 'Tente novamente.'}`;
+        }
     },
 
     async analyzeGoals(goalsData: string): Promise<string> {

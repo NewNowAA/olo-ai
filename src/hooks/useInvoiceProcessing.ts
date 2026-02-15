@@ -7,6 +7,37 @@ export const useInvoiceProcessing = (invoiceId: string | null) => {
     const [status, setStatus] = useState<string>('idle');
     const [isPolling, setIsPolling] = useState(false); // Kept for API compatibility, essentially "isListening"
 
+    // 3. Polling Fallback (Safety net if Realtime fails)
+    useEffect(() => {
+        if (!invoiceId || !isPolling) return;
+
+        const pollInterval = setInterval(async () => {
+            console.log('[DEBUG] Polling tick... ID:', invoiceId);
+            try {
+                // Use the service which now maps items correctly!
+                const { invoiceService } = await import('../services/invoice/invoiceService');
+                const data = await invoiceService.getInvoiceById(invoiceId);
+
+                if (data) {
+                    const newStatus = data.processing_status || 'idle';
+
+                    // Only update if changed or critical status
+                    if (['completed', 'needs_review', 'failed'].includes(newStatus)) {
+                        setInvoice(data);
+                        setStatus(newStatus);
+                        setIsPolling(false); // Stop polling
+                    } else if (newStatus !== status) {
+                        setStatus(newStatus);
+                    }
+                }
+            } catch (err) {
+                console.warn("Polling error:", err);
+            }
+        }, 3000); // Poll every 3 seconds
+
+        return () => clearInterval(pollInterval);
+    }, [invoiceId, isPolling, status]);
+
     useEffect(() => {
         if (!invoiceId) {
             setInvoice(null);
@@ -53,16 +84,22 @@ export const useInvoiceProcessing = (invoiceId: string | null) => {
                 },
                 async (payload) => {
                     const newStatus = payload.new.processing_status;
-                    setStatus(newStatus);
 
                     if (['completed', 'needs_review'].includes(newStatus)) {
                         // Re-fetch full object including items (Realtime payload doesn't include relations)
                         const { invoiceService } = await import('../services/invoice/invoiceService');
                         const fullInvoice = await invoiceService.getInvoiceById(invoiceId);
+
+                        // Update both atomically-ish (React batching) to ensure consistent state
                         setInvoice(fullInvoice);
+                        setStatus(newStatus);
                         setIsPolling(false);
                     } else if (newStatus === 'failed') {
+                        setStatus(newStatus);
                         setIsPolling(false);
+                    } else {
+                        // For intermediate states like 'processing', update immediately
+                        setStatus(newStatus);
                     }
                 }
             )

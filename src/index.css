@@ -9,6 +9,32 @@ body {
     @apply bg-slate-50 text-slate-800 font-sans;
 }
 
+@layer utilities {
+    .text-balance {
+        text-wrap: balance;
+    }
+}
+
+@keyframes scan {
+    0% {
+        top: 0%;
+        opacity: 0;
+    }
+
+    10% {
+        opacity: 1;
+    }
+
+    90% {
+        opacity: 1;
+    }
+
+    100% {
+        top: 100%;
+        opacity: 0;
+    }
+}
+
 .custom-text-gradient {
     @apply bg-gradient-to-br from-[#73c6df] to-[#2dd4bf] bg-clip-text text-transparent;
 }

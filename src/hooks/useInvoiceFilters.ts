@@ -16,7 +16,7 @@ export interface InvoiceFiltersState {
 
 export const useInvoiceFilters = (invoices: Invoice[]) => {
     const [filters, setFilters] = useState<InvoiceFiltersState>({
-        dateRange: 'year',
+        dateRange: 'all',
         customStartDate: null,
         customEndDate: null,
         filterType: 'Todos',
@@ -74,11 +74,15 @@ export const useInvoiceFilters = (invoices: Invoice[]) => {
 
         if (start) {
             result = result.filter(inv => {
-                const invDate = new Date(inv.date); // Use Issue Date for financial reporting
+                // Use Created At (Upload Date) as primary filter source for operational visibility
+                // Fallback to Issue Date only if created_at is missing (legacy data)
+                const dateStr = inv.created_at || inv.date || new Date().toISOString();
+                const filterDate = new Date(dateStr);
+
                 if (end) {
-                    return invDate >= start! && invDate <= end;
+                    return filterDate >= start! && filterDate <= end;
                 }
-                return invDate >= start!;
+                return filterDate >= start!;
             });
         }
 
