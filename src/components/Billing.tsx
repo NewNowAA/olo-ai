@@ -32,13 +32,14 @@ import {
     Edit3,
     X
 } from 'lucide-react';
-import { Invoice, InvoiceStatus, InvoiceType, ExpenseType, ReviewStatus } from '../src/types';
-import { invoiceService, analyticsService, supabase } from '../src/services';
-import { useInvoiceFilters } from '../src/hooks';
+import { Invoice, InvoiceStatus, InvoiceType, ExpenseType, ReviewStatus } from '../types';
+import { invoiceService, analyticsService, supabase } from '../services';
+import { pdfService } from '../services/pdfService';
+import { useInvoiceFilters } from '../hooks';
 import FilterControls from './Shared/FilterControls';
 import Breadcrumbs from './Shared/Breadcrumbs';
 import { Loader2 } from 'lucide-react';
-import { ConfirmationModal } from '../src/components/common';
+import { ConfirmationModal } from './common';
 import { InvoiceModal } from './billing_parts/InvoiceModal';
 import { AnalysisModal } from './billing_parts/AnalysisModal';
 

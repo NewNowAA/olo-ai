@@ -2,8 +2,8 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Send, Bot, User, X, MessageSquare, Loader2, Trash2, Plus } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import { geminiService } from '../services/ai/geminiService';
-import { chatService, Message, Conversation } from '../src/services/chat/chatService';
-import { supabase } from '../src/services/organizationService/supabase/client';
+import { chatService, Message, Conversation } from '../services/chat/chatService';
+import { supabase } from '../services/organizationService/supabase/client';
 
 export const ChatComponent: React.FC = () => {
     const [isOpen, setIsOpen] = useState(false);

@@ -35,10 +35,10 @@ import {
   YAxis
 } from 'recharts';
 import MetricCard from './MetricCard';
-import { invoiceService, analyticsService } from '../src/services';
-import { Invoice } from '../src/types';
+import { invoiceService, analyticsService } from '../services';
+import { Invoice } from '../types';
 import ReactMarkdown from 'react-markdown';
-import { useInvoiceFilters, useChartData } from '../src/hooks';
+import { useInvoiceFilters, useChartData } from '../hooks';
 import FilterControls from './Shared/FilterControls';
 
 // --- Custom KPI Cards ---
