@@ -24,6 +24,10 @@ interface SidebarProps {
 const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, toggleSidebar, onLogout }) => {
   const navigate = useNavigate();
   const location = useLocation();
+
+  const handleNavigation = (path: string) => {
+    navigate(path);
+  };
   
   // Map routes to IDs for styling logic
   const currentPath = location.pathname.substring(1) || 'dashboard'; // remove slash
@@ -43,7 +47,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, toggleSidebar, onLogout 
     const loadProfile = async () => {
         try {
             // Dynamically import userService to avoid circular deps if any
-            const { userService } = await import('../src/services/userService');
+            const { userService } = await import('../services/userService');
             const profile = await userService.getCurrentProfile();
             
             if (profile) {
