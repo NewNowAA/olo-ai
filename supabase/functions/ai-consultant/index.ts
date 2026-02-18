@@ -1,9 +1,10 @@
 import { createClient } from '@supabase/supabase-js'
 
+const ALLOWED_ORIGIN = Deno.env.get("ALLOWED_ORIGIN") || "https://faturissimo.netlify.app";
 const corsHeaders = {
-    'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-}
+  "Access-Control-Allow-Origin": ALLOWED_ORIGIN,
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+};
 
 console.log("AI Consultant Function initialized - v1")
 
@@ -68,7 +69,7 @@ Deno.serve(async (req: Request) => {
         if (user) {
             const { data: invoices } = await supabase
                 .from('invoices')
-                .select('supplier, total_amount, issue_date, category, status, invoice_products(name, quantity, unit_price)')
+                .select('vendor_name, total_amount, issue_date, category, status, invoice_products(description, quantity, unit_price)')
                 .eq('user_id', user.id)
                 .order('issue_date', { ascending: false })
                 .limit(40)
@@ -84,7 +85,7 @@ Deno.serve(async (req: Request) => {
                     const cat = inv.category || 'Sem Categoria'
                     categorias[cat] = (categorias[cat] || 0) + (inv.total_amount || 0)
 
-                    const forn = inv.supplier || 'Desconhecido'
+                    const forn = inv.vendor_name || 'Desconhecido'
                     fornecedores[forn] = (fornecedores[forn] || 0) + (inv.total_amount || 0)
 
                     if (inv.issue_date) {
@@ -126,13 +127,59 @@ ${tendenciaMensal}
 
 ### Últimas 10 Faturas:
 ${invoices.slice(0, 10).map((inv: any) =>
-    `  - ${inv.issue_date || 'S/D'} | ${inv.supplier || 'N/A'} | €${(inv.total_amount || 0).toFixed(2)} | ${inv.category || 'S/C'} | ${inv.status || 'N/A'}`
+    `  - ${inv.issue_date || 'S/D'} | ${inv.vendor_name || 'N/A'} | €${(inv.total_amount || 0).toFixed(2)} | ${inv.category || 'S/C'} | ${inv.status || 'N/A'}`
 ).join('\n')}`
 
             }
         }
 
-        // --- 2. Build Gemini request ---
+        // --- 2. Get Organization & Goals Context ---
+        let orgContext = ''
+        let goalsContext = ''
+
+        if (user) {
+             // 2.1 Get Org ID from public.users
+             const { data: userProfile } = await supabase
+                .from('users')
+                .select('org_id')
+                .eq('id', user.id)
+                .single()
+             
+             if (userProfile?.org_id) {
+                 // 2.2 Get Org Details
+                 const { data: org } = await supabase
+                    .from('organizations')
+                    .select('name, sector, objective_description')
+                    .eq('id', userProfile.org_id)
+                    .single()
+                 
+                 if (org) {
+                     orgContext = `## Contexto da Empresa
+**Nome**: ${org.name}
+**Setor/Nicho**: ${org.sector || 'Não informado'}
+**Descrição/Objetivos**: ${org.objective_description || 'Não informado'}
+`
+                 }
+
+                 // 2.3 Get Active Goals
+                 const { data: goals } = await supabase
+                    .from('goals')
+                    .select('title, target_value, current_value, deadline, status, kpi')
+                    .eq('organization_id', userProfile.org_id)
+                    .eq('status', 'active')
+                 
+                 if (goals && goals.length > 0) {
+                     goalsContext = `## Metas Ativas da Empresa
+${goals.map((g: any) => {
+    const progress = g.target_value ? ((g.current_value / g.target_value) * 100).toFixed(1) : 0
+    return `- **${g.title}**: ${progress}% completo (Atual: ${g.current_value} / Alvo: ${g.target_value}) - Prazo: ${g.deadline}`
+}).join('\n')}
+`
+                 }
+             }
+        }
+
+        // --- 3. Build Gemini request ---
         const apiKey = Deno.env.get('GOOGLE_GENERATIVE_AI_API_KEY') ?? Deno.env.get('GEMINI_API_KEY') ?? ''
 
         if (!apiKey) {
@@ -156,8 +203,15 @@ ${invoices.slice(0, 10).map((inv: any) =>
         const userMessageWithContext = `${message}
 
 ---
-[CONTEXTO FINANCEIRO DO UTILIZADOR - Use estes dados para fundamentar sua resposta]
-${invoiceContext}`
+// ---
+// [CONTEXTO DA EMPRESA]
+// ${orgContext}
+//
+// [METAS ATIVAS]
+// ${goalsContext}
+//
+// [CONTEXTO FINANCEIRO DO UTILIZADOR - Use estes dados para fundamentar sua resposta]
+// ${invoiceContext}`
 
         contents.push({
             role: 'user',

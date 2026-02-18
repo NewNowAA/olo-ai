@@ -13,10 +13,11 @@ function arrayBufferToBase64(buffer: ArrayBuffer) {
     return btoa(binary);
 }
 
+const ALLOWED_ORIGIN = Deno.env.get("ALLOWED_ORIGIN") || "https://faturissimo.netlify.app";
 const corsHeaders = {
-    'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-}
+  "Access-Control-Allow-Origin": ALLOWED_ORIGIN,
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+};
 
 console.log("Function initialized - v5 (n8n Logic Match)")
 
@@ -60,8 +61,7 @@ Deno.serve(async (req: Request) => {
             })
         }
 
-        console.log(`Processing invoice for user: ${user.id}`)
-        console.log(`File path: ${file_path}`)
+        // REMOVED SENSITIVE LOGS
 
         // 2. Download File from Storage
         // Use Admin Client to bypass RLS policies for reliability
@@ -81,6 +81,18 @@ Deno.serve(async (req: Request) => {
         }
 
         console.log("File downloaded successfully, size:", fileData.size)
+
+        // Detect MimeType
+        const fileExtension = file_path.split(".").pop()?.toLowerCase();
+        const mimeTypeMap: Record<string, string> = {
+            jpg: "image/jpeg",
+            jpeg: "image/jpeg",
+            png: "image/png",
+            gif: "image/gif",
+            webp: "image/webp",
+            pdf: "application/pdf",
+        };
+        const detectedMimeType = mimeTypeMap[fileExtension || ""] || "image/jpeg";
 
         // 3. Prepare for Gemini (Native Base64 implementation)
         const arrayBuffer = await fileData.arrayBuffer()
@@ -130,15 +142,25 @@ Deno.serve(async (req: Request) => {
     `
 
         console.log("Sending to Gemini...")
-        const result = await model.generateContent([
-            prompt,
-            {
-                inlineData: {
-                    data: base64Data,
-                    mimeType: 'image/jpeg',
-                },
-            },
-        ])
+        let result;
+        for (let attempt = 1; attempt <= 3; attempt++) {
+            try {
+                result = await model.generateContent([
+                    prompt,
+                    {
+                        inlineData: {
+                            data: base64Data,
+                            mimeType: detectedMimeType,
+                        },
+                    },
+                ])
+                break; // Success
+            } catch (geminiError: any) {
+                console.error(`Gemini attempt ${attempt}/3 failed:`, geminiError.message);
+                if (attempt === 3) throw geminiError;
+                await new Promise(resolve => setTimeout(resolve, 2000 * attempt)); // Backoff
+            }
+        }
 
         const responseText = result.response.text()
         console.log("Gemini Response:", responseText)
@@ -218,7 +240,7 @@ Deno.serve(async (req: Request) => {
             total_amount: finalTotal,
             issue_date: data.issue_date,
             invoice_number: data.invoice_number,
-            currency: data.currency || 'AKZ',
+            currency: data.currency || 'AOA',
             category: data.category || 'Outros',
             atcud: data.atcud,
             is_agt_valid: !!data.is_agt_valid,
@@ -234,7 +256,7 @@ Deno.serve(async (req: Request) => {
             }
         }
 
-        console.log("Inserting Invoice Data:", JSON.stringify(invoiceData))
+        // REMOVED SENSITIVE LOG: Inserting Invoice Data
 
         const { data: invoice, error: insertError } = await supabaseAdmin
             .from('invoices')

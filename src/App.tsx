@@ -1,18 +1,25 @@
 import React, { useState, useEffect } from 'react';
+import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
 import Sidebar from './components/Sidebar';
+import MobileNav from './components/MobileNav';
 import Header from './components/Header';
 import Dashboard from './components/Dashboard';
 import Billing from './components/Billing';
 import AIIntelligence from './components/AIIntelligence';
 import Goals from './components/Goals';
-import InvoiceBuilder from './components/InvoiceBuilder';
+
+import ComingSoon from './components/ComingSoon';
 import Settings from './components/Settings';
 import HelpSupport from './components/HelpSupport';
 import LandingPage from './components/LandingPage';
 import LoginPage from './components/LoginPage';
 import RegisterPage from './components/RegisterPage';
 import ForgotPasswordPage from './components/ForgotPasswordPage';
-import { supabase, getCurrentUser, logoutUser } from '@/src/services';
+import Terms from './components/Terms';
+import Privacy from './components/Privacy';
+import OnboardingTour from './components/OnboardingTour';
+import { supabase, getCurrentUser } from '@/src/services';
+import { ErrorBoundary } from '@/src/components/common/ErrorBoundary';
 
 const App: React.FC = () => {
   // Auth State
@@ -22,12 +29,15 @@ const App: React.FC = () => {
 
   // App State
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
-  const [currentPage, setCurrentPage] = useState<'dashboard' | 'billing' | 'ai' | 'goals' | 'builder' | 'settings' | 'help'>('dashboard');
+  // currentPage state removed in favor of Router
 
   // Global Settings State
   const [darkMode, setDarkMode] = useState(false);
   const [aiFrequency, setAiFrequency] = useState('realtime');
   const [lastUpdated, setLastUpdated] = useState(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
+
+  const navigate = useNavigate();
+  const location = useLocation();
 
   // Check authentication on mount
   useEffect(() => {
@@ -49,8 +59,9 @@ const App: React.FC = () => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       setIsAuthenticated(!!session?.user);
       if (event === 'SIGNED_OUT') {
-        setCurrentPage('dashboard');
         // Do NOT force landing view here, to allow RegisterPage (Thank You) to remain visible
+        // But in router mode, we might want to redirect
+        // navigate('/'); 
       }
     });
 
@@ -70,7 +81,7 @@ const App: React.FC = () => {
   const handleLogin = () => {
     setIsAuthenticated(true);
     setAuthView('landing');
-    setCurrentPage('dashboard');
+    navigate('/dashboard');
   };
 
   const handleForgotPassword = () => {
@@ -78,10 +89,10 @@ const App: React.FC = () => {
   };
 
   const handleLogout = async () => {
-    const { supabase } = await import('@/src/services');
     await supabase.auth.signOut();
     setIsAuthenticated(false);
     setAuthView('landing');
+    navigate('/');
   };
 
   // Loading state
@@ -96,19 +107,22 @@ const App: React.FC = () => {
     );
   }
 
-  // --- Render Authentication Flows ---
-
-  // Priority: If registering, keep showing RegisterPage (even if auto-signed in) until user explicitly leaves
-  if (authView === 'register') {
-    return (
-      <RegisterPage
-        onLoginRequest={() => setAuthView('login')}
-        onBack={() => setAuthView('landing')}
-      />
-    );
-  }
-
+  // --- Render Authentication Flows & Landing ---
+  // If not authenticated, we handle routing for public pages differently or show auth screens
   if (!isAuthenticated) {
+     // Allow access to Terms and Privacy even if not logged in
+     if (location.pathname === '/terms') return <Terms />;
+     if (location.pathname === '/privacy') return <Privacy />;
+
+    if (authView === 'register') {
+      return (
+        <RegisterPage
+          onLoginRequest={() => setAuthView('login')}
+          onBack={() => setAuthView('landing')}
+        />
+      );
+    }
+
     if (authView === 'login') {
       return (
         <LoginPage
@@ -129,7 +143,7 @@ const App: React.FC = () => {
       );
     }
 
-    // Default to Landing if not authenticated and no specific view
+    // Default to Landing
     return (
       <LandingPage
         onLogin={() => setAuthView('login')}
@@ -145,34 +159,48 @@ const App: React.FC = () => {
       <Sidebar
         isCollapsed={isSidebarCollapsed}
         toggleSidebar={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
-        currentPage={currentPage}
-        onNavigate={(page) => setCurrentPage(page)}
         onLogout={handleLogout}
       />
-      <main className="flex-1 overflow-y-auto h-screen relative scroll-smooth no-scrollbar dark:text-slate-100">
+      <main className="flex-1 overflow-y-auto h-screen relative scroll-smooth no-scrollbar dark:text-slate-100 pb-20 md:pb-0">
+        <MobileNav />
         {/* Background Ambient Blurs for depth - Adjusted for Dark Mode */}
         <div className="fixed top-0 right-0 w-[500px] h-[500px] bg-[#73c6df]/10 dark:bg-[#73c6df]/5 blur-[120px] rounded-full -mr-64 -mt-64 pointer-events-none z-0"></div>
         <div className="fixed bottom-0 left-64 w-[400px] h-[400px] bg-[#8bd7bf]/20 dark:bg-[#8bd7bf]/10 blur-[100px] rounded-full -ml-32 -mb-32 pointer-events-none z-0"></div>
 
         <div className="relative z-10">
+          <OnboardingTour />
           <Header darkMode={darkMode} />
 
-          {currentPage === 'dashboard' && <Dashboard onNavigate={(page) => setCurrentPage(page)} lastUpdated={lastUpdated} />}
-          {currentPage === 'billing' && <Billing onNavigate={(page) => setCurrentPage(page)} />}
-          {currentPage === 'ai' && <AIIntelligence />}
-          {currentPage === 'goals' && <Goals lastUpdated={lastUpdated} />}
-          {currentPage === 'builder' && <InvoiceBuilder />}
+          <ErrorBoundary>
+            <Routes>
+              <Route path="/" element={<Navigate to="/dashboard" replace />} />
+              <Route path="/dashboard" element={<Dashboard onNavigate={(page: any) => navigate(page === 'dashboard' ? '/dashboard' : `/${page}`)} lastUpdated={lastUpdated} />} />
+              <Route path="/billing" element={<Billing onNavigate={(page: any) => navigate(page === 'dashboard' ? '/dashboard' : `/${page}`)} />} />
+              <Route path="/ai" element={<AIIntelligence />} />
+              <Route path="/goals" element={<Goals lastUpdated={lastUpdated} />} />
+              <Route path="/builder" element={
+                <ComingSoon 
+                  title="Construtor de Faturas" 
+                  description="Uma nova experiência de criação de faturas com IA está chegando. Aguarde novidades!"
+                  onBack={() => navigate('/dashboard')}
+                />
+              } />
+              <Route path="/settings" element={
+                <Settings
+                  darkMode={darkMode}
+                  toggleDarkMode={() => setDarkMode(!darkMode)}
+                  aiFrequency={aiFrequency}
+                  setAiFrequency={setAiFrequency}
+                />
+              } />
+              <Route path="/help" element={<HelpSupport />} />
+              <Route path="/terms" element={<Terms />} />
+              <Route path="/privacy" element={<Privacy />} />
+              {/* Fallback */}
+              <Route path="*" element={<Navigate to="/dashboard" replace />} />
+            </Routes>
+          </ErrorBoundary>
 
-          {currentPage === 'settings' && (
-            <Settings
-              darkMode={darkMode}
-              toggleDarkMode={() => setDarkMode(!darkMode)}
-              aiFrequency={aiFrequency}
-              setAiFrequency={setAiFrequency}
-            />
-          )}
-
-          {currentPage === 'help' && <HelpSupport />}
         </div>
       </main>
     </div>

@@ -89,8 +89,9 @@ export async function registerUser(data: RegisterData): Promise<AuthResult> {
 
         if (orgError) {
             console.error('Organization creation error:', orgError);
-            // Cleanup: delete auth user if org creation fails
-            await supabase.auth.admin.deleteUser(authUserId);
+            // WARNING: We cannot delete the auth user from client-side.
+            // This leaves an orphaned auth user that should be cleaned up by a backend process/cron.
+            console.warn(`ORPHANED USER: Auth User ${authUserId} created but Organization failed.`);
             return { success: false, error: 'Falha ao criar organização: ' + orgError.message };
         }
 

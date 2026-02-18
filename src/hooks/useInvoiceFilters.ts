@@ -106,17 +106,21 @@ export const useInvoiceFilters = (invoices: Invoice[]) => {
     }, [invoices, filters]);
 
     const stats = useMemo(() => {
-        const revenue = filteredInvoices
+        const totalRevenue = filteredInvoices
             .filter(inv => inv.type === 'Receita')
             .reduce((sum, inv) => sum + inv.amount, 0);
 
-        const expenses = filteredInvoices
+        const totalExpenses = filteredInvoices
             .filter(inv => inv.type === 'Despesa')
             .reduce((sum, inv) => sum + inv.amount, 0);
+        
+        const pendingAmount = filteredInvoices
+            .filter(inv => inv.status === 'Pendente')
+            .reduce((sum, inv) => sum + inv.amount, 0);
 
-        const profit = revenue - expenses;
+        const profit = totalRevenue - totalExpenses;
         const totalTransactions = filteredInvoices.length;
-        const averageTicket = totalTransactions > 0 ? (revenue + expenses) / totalTransactions : 0;
+        const averageTicket = totalTransactions > 0 ? (totalRevenue + totalExpenses) / totalTransactions : 0;
 
         // Calculate IVA (dummy for now or based on items if available)
         const totalIVA = filteredInvoices.reduce((sum, inv) => {
@@ -124,7 +128,7 @@ export const useInvoiceFilters = (invoices: Invoice[]) => {
             return sum + itemsIVA;
         }, 0);
 
-        return { revenue, expenses, profit, totalTransactions, averageTicket, totalIVA };
+        return { totalRevenue, totalExpenses, pendingAmount, profit, totalTransactions, averageTicket, totalIVA };
     }, [filteredInvoices]);
 
     return {

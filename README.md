@@ -20,6 +20,19 @@ npm run dev
 
 App will be available at `http://localhost:3000`
 
+App will be available at `http://localhost:3000`
+
+---
+
+## 🌐 Deployment (Netlify)
+
+This project is configured for Netlify.
+
+1. **Push to GitHub**: `git push origin main`
+2. **Netlify**: Connect your repo.
+3. **Environment**: Add `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY` in Site Settings.
+4. **Deploy**: It will auto-deploy.
+
 ---
 
 ## 📁 Project Structure
@@ -46,20 +59,20 @@ App will be available at `http://localhost:3000`
 
 ## 🔐 Environment Variables
 
-| Variable | Required | Description |
-|----------|----------|-------------|
-| `GEMINI_API_KEY` | Yes | Google Gemini API key for AI features |
-| `VITE_APP_NAME` | No | App name (default: faturAI) |
-| `VITE_APP_ENVIRONMENT` | No | Environment (development/production) |
+| Variable               | Required | Description                           |
+| ---------------------- | -------- | ------------------------------------- |
+| `GEMINI_API_KEY`       | Yes      | Google Gemini API key for AI features |
+| `VITE_APP_NAME`        | No       | App name (default: faturAI)           |
+| `VITE_APP_ENVIRONMENT` | No       | Environment (development/production)  |
 
 ---
 
 ## 📦 Scripts
 
-| Command | Description |
-|---------|-------------|
-| `npm run dev` | Start development server |
-| `npm run build` | Build for production |
+| Command           | Description              |
+| ----------------- | ------------------------ |
+| `npm run dev`     | Start development server |
+| `npm run build`   | Build for production     |
 | `npm run preview` | Preview production build |
 
 ---

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Calendar, Clock, X } from 'lucide-react';
+import { Calendar, Clock, X, Search, Filter } from 'lucide-react';
 import DateRangePicker from '../DateRangePicker';
 import { DateRangeType } from '../../src/hooks/useInvoiceFilters';
 
@@ -9,6 +9,12 @@ interface FilterControlsProps {
     customEndDate: Date | null;
     onDateRangeChange: (range: DateRangeType) => void;
     onCustomDatesChange: (dates: { start: Date | null, end: Date | null }) => void;
+    // Optional props for detailed filtering (Billing)
+    searchText?: string;
+    onSearchChange?: (text: string) => void;
+    availableCategories?: string[];
+    categoryFilter?: string;
+    onCategoryChange?: (category: string) => void;
 }
 
 const FilterControls: React.FC<FilterControlsProps> = ({
@@ -16,12 +22,50 @@ const FilterControls: React.FC<FilterControlsProps> = ({
     customStartDate,
     customEndDate,
     onDateRangeChange,
-    onCustomDatesChange
+    onCustomDatesChange,
+    searchText,
+    onSearchChange,
+    availableCategories,
+    categoryFilter,
+    onCategoryChange
 }) => {
     const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
 
     return (
-        <div className="bg-white/60 dark:bg-slate-800/60 p-1 rounded-xl border border-white/60 dark:border-slate-700 flex items-center gap-2 shadow-sm w-full md:w-auto">
+        <div className="flex flex-col md:flex-row gap-4 w-full md:items-center justify-between">
+            {/* Left: Search & Category (if provided) */}
+            {(onSearchChange || onCategoryChange) && (
+                <div className="flex flex-1 gap-2 items-center">
+                    {onSearchChange && (
+                        <div className="relative flex-1 max-w-xs">
+                            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                            <input
+                                type="text"
+                                placeholder="Buscar faturas..."
+                                value={searchText || ''}
+                                onChange={(e) => onSearchChange(e.target.value)}
+                                className="w-full pl-9 pr-4 py-2 text-xs font-bold bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#73c6df]/30 transition-all"
+                            />
+                        </div>
+                    )}
+                     {onCategoryChange && availableCategories && (
+                         <div className="relative">
+                            <Filter size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                            <select
+                                value={categoryFilter || ''}
+                                onChange={(e) => onCategoryChange(e.target.value)}
+                                className="pl-9 pr-8 py-2 text-xs font-bold bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#73c6df]/30 appearance-none cursor-pointer"
+                            >
+                                <option value="">Todas Categorias</option>
+                                {availableCategories.map(c => <option key={c} value={c}>{c}</option>)}
+                            </select>
+                         </div>
+                     )}
+                </div>
+            )}
+
+            {/* Right: Date Controls */}
+            <div className="bg-white/60 dark:bg-slate-800/60 p-1 rounded-xl border border-white/60 dark:border-slate-700 flex items-center gap-2 shadow-sm w-full md:w-auto">
             {/* Custom Date Picker Trigger */}
             <div className="relative">
                 <button
@@ -83,6 +127,7 @@ const FilterControls: React.FC<FilterControlsProps> = ({
                 >
                     Ano
                 </button>
+            </div>
             </div>
         </div>
     );

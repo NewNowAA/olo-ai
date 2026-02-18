@@ -33,3 +33,6 @@ test_output*.txt
 
 # Supabase temp
 supabase/.temp
+
+# Agent files
+.agent/

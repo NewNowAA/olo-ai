@@ -34,6 +34,8 @@ export interface Invoice {
     created_at?: string;
     processing_status?: ProcessingStatus;
     ai_metadata?: AiMetadata;
+    nif?: string;
+    hash?: string;
 }
 
 export type ProcessingStatus = 'idle' | 'processing' | 'needs_review' | 'completed' | 'failed';
