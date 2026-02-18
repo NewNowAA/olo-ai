@@ -2,10 +2,10 @@
 import React, { useState } from 'react';
 import { Target, TrendingUp, CheckCircle2, Plus, Flag, Trophy, Clock, X, Bot, Sparkles, Loader2, Users, User, BarChart as BarChartIcon, PieChart as PieChartIcon, BrainCircuit, Pencil, Trash2 } from 'lucide-react';
 import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, Tooltip } from 'recharts';
-import { geminiService } from '@/src/services';
-import { invoiceService } from '@/src/services/invoice/invoiceService';
-import { goalsService, Goal } from '@/src/services/goalsService';
-import { goalSchema } from '@/src/validation/schemas';
+import { geminiService } from '../services';
+import { invoiceService } from '../services/invoice/invoiceService';
+import { goalsService, Goal } from '../services/goalsService';
+import { goalSchema } from '../validation/schemas';
 
 interface GoalsProps {
     lastUpdated: string;

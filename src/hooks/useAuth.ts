@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import type { PageId, AuthView } from '@/src/types';
+import type { PageId, AuthView } from '../types';
 
 // ===========================================
 // useAuth Hook

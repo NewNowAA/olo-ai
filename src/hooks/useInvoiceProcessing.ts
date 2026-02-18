@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { supabase } from '@/src/services';
+import { supabase } from '../services';
 import { Invoice } from '../types/invoice.types';
 
 export const useInvoiceProcessing = (invoiceId: string | null) => {

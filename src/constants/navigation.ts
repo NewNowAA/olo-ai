@@ -7,7 +7,7 @@ import {
     Settings,
     HelpCircle
 } from 'lucide-react';
-import type { NavItem } from '@/src/types';
+import type { NavItem } from '../types';
 
 // ===========================================
 // Navigation Constants

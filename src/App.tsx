@@ -18,8 +18,8 @@ import ForgotPasswordPage from './components/ForgotPasswordPage';
 import Terms from './components/Terms';
 import Privacy from './components/Privacy';
 import OnboardingTour from './components/OnboardingTour';
-import { supabase, getCurrentUser } from '@/src/services';
-import { ErrorBoundary } from '@/src/components/common/ErrorBoundary';
+import { supabase, getCurrentUser } from './services';
+import { ErrorBoundary } from './components/common/ErrorBoundary';
 
 const App: React.FC = () => {
   // Auth State

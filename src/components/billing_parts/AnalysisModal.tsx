@@ -6,9 +6,9 @@ import {
     Download
 } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts';
-import { Modal } from '../../src/components/common/Modal/Modal';
-import { Invoice } from '../../src/types';
-import { pdfService } from '../../src/services/pdfService';
+import { Modal } from '../common/Modal/Modal';
+import { Invoice } from '../../types';
+import { pdfService } from '../../services/pdfService';
 
 interface AnalysisModalProps {
     invoice: Invoice | null;

@@ -19,10 +19,10 @@ import {
   Copy,
   ExternalLink
 } from 'lucide-react';
-import { organizationService, Organization } from '../src/services/organizationService';
-import { userService, UserProfile } from '../src/services/userService';
-import { supabase } from '../src/services/organizationService/supabase/client';
-import { Modal } from '../src/components/common/Modal/Modal';
+import { organizationService, Organization } from '../services/organizationService';
+import { userService, UserProfile } from '../services/userService';
+import { supabase } from '../services/supabase/client';
+import { Modal } from './common/Modal/Modal';
 
 interface SettingsProps {
   darkMode: boolean;

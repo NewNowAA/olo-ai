@@ -12,11 +12,11 @@ import {
     FileUp,
     CheckSquare
 } from 'lucide-react';
-import { Modal } from '../../src/components/common/Modal/Modal';
-import { Invoice, InvoiceItem } from '../../src/types';
-import { geminiService, invoiceService, supabase } from '../../src/services';
-import { invoiceSchema } from '../../src/validation/schemas';
-import { validateNIF } from '../../src/utils/compliance';
+import { Modal } from '../common/Modal/Modal';
+import { Invoice, InvoiceItem } from '../../types';
+import { geminiService, invoiceService, supabase } from '../../services';
+import { invoiceSchema } from '../../validation/schemas';
+import { validateNIF } from '../../utils/compliance';
 
 interface InvoiceModalProps {
     isOpen: boolean;

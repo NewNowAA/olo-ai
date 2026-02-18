@@ -14,7 +14,7 @@ import {
     FileText
 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
-import { geminiService } from '@/src/services';
+import { geminiService } from '../services';
 
 interface Message {
     id: string;

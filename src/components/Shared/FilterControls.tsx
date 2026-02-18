@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Calendar, Clock, X, Search, Filter } from 'lucide-react';
 import DateRangePicker from '../DateRangePicker';
-import { DateRangeType } from '../../src/hooks/useInvoiceFilters';
+import { DateRangeType } from '../../hooks/useInvoiceFilters';
 
 interface FilterControlsProps {
     dateRange: DateRangeType;

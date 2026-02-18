@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { ArrowLeft, Building, User, Check, ChevronRight, MessageSquare, Briefcase, Zap, Shield, BarChart3, Loader2, AlertCircle, ChevronDown } from 'lucide-react';
-import { registerUser, checkEmailExists, checkPhoneExists, RegisterData } from '@/src/services';
+import { registerUser, checkEmailExists, checkPhoneExists, RegisterData } from '../services';
 
 interface RegisterPageProps {
     onLoginRequest: () => void;
