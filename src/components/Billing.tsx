@@ -376,7 +376,7 @@ const Billing: React.FC<BillingProps> = ({ onNavigate }) => {
             <Breadcrumbs />
             
             {/* Controls */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 mb-12">
                  {/* Total Revenue */}
                  <div className="bg-white dark:bg-slate-800 p-6 rounded-[2rem] shadow-sm border border-slate-100 dark:border-slate-700 relative overflow-hidden group">
                     <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-500/5 rounded-full blur-3xl group-hover:bg-emerald-500/10 transition-colors"></div>
@@ -444,7 +444,7 @@ const Billing: React.FC<BillingProps> = ({ onNavigate }) => {
             </div>
 
             {/* AI Analysis Bar */}
-            <div className="bg-white dark:bg-slate-800 rounded-[2rem] p-8 shadow-sm border border-slate-100 dark:border-slate-700 relative overflow-hidden">
+            <div className="bg-white dark:bg-slate-800 rounded-[2rem] p-8 shadow-sm border border-slate-100 dark:border-slate-700 relative overflow-hidden mb-12">
                 <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-[#73c6df] via-[#2e8ba6] to-[#73c6df] animate-gradient bg-[length:200%_100%]"></div>
                 <div className="flex flex-col md:flex-row gap-8">
                     <div className="flex-1">
@@ -503,7 +503,7 @@ const Billing: React.FC<BillingProps> = ({ onNavigate }) => {
             </div>
 
             {/* Controls */}
-            <div className="flex flex-col lg:flex-row justify-between gap-6 items-end lg:items-center sticky top-0 bg-slate-50/80 dark:bg-slate-900/80 backdrop-blur-xl z-30 py-4 -mx-4 px-4 border-b border-slate-200/50 dark:border-slate-700/50 mt-8 mb-6">
+            <div className="flex flex-col lg:flex-row justify-between gap-6 items-end lg:items-center sticky top-0 bg-slate-50/80 dark:bg-slate-900/80 backdrop-blur-xl z-30 py-6 -mx-4 px-4 border-b border-slate-200/50 dark:border-slate-700/50 mt-12 mb-10">
                 <FilterControls
                     dateRange={filters.dateRange}
                     customStartDate={filters.customStartDate}
