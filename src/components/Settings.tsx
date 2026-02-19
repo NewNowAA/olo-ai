@@ -160,9 +160,9 @@ const Settings: React.FC<SettingsProps> = ({ darkMode, toggleDarkMode, aiFrequen
           fiscal_address: orgForm.fiscal_address,
           employee_range: orgForm.employee_range
       });
-      alert('Configurações da empresa atualizadas!');
+      console.log('Configurações da empresa atualizadas!');
     } catch (error) {
-      alert('Erro ao atualizar empresa.');
+      console.error('Erro ao atualizar empresa.', error);
     } finally {
       setSaving(false);
     }
@@ -186,9 +186,9 @@ const Settings: React.FC<SettingsProps> = ({ darkMode, toggleDarkMode, aiFrequen
           whatsapp_id: profileForm.whatsapp_id,
           telegram_id: profileForm.telegram_id
       });
-      alert('Perfil atualizado com sucesso!');
+      console.log('Perfil atualizado com sucesso!');
     } catch (error) {
-      alert('Erro ao atualizar perfil.');
+      console.error('Erro ao atualizar perfil.', error);
     } finally {
       setSaving(false);
     }
@@ -209,10 +209,9 @@ const Settings: React.FC<SettingsProps> = ({ darkMode, toggleDarkMode, aiFrequen
         // Language and Notifications are persisted via useEffect/localStorage
         // We could also save to User Profile if needed
         
-        alert('Preferências salvas com sucesso!');
+        console.log('Preferências salvas com sucesso!');
     } catch (error) {
-        console.error(error);
-        alert('Erro ao salvar preferências.');
+        console.error('Erro ao salvar preferências.', error);
     } finally {
         setSaving(false);
     }
@@ -229,12 +228,12 @@ const Settings: React.FC<SettingsProps> = ({ darkMode, toggleDarkMode, aiFrequen
               phone: inviteForm.phone,
               org_id: profile.org_id
           });
-          alert(`Convite enviado para ${inviteForm.email}`);
+          console.log(`Convite enviado para ${inviteForm.email}`);
           setIsInviteModalOpen(false);
           setInviteForm({ email: '', role: 'viewer', fullName: '', phone: '' });
           loadData(); // Refresh list
       } catch (error: any) {
-          alert(`Erro ao convidar: ${error.message}`);
+          console.error(`Erro ao convidar: ${error.message}`);
       } finally {
           setInviting(false);
       }
@@ -247,7 +246,7 @@ const Settings: React.FC<SettingsProps> = ({ darkMode, toggleDarkMode, aiFrequen
 
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text);
-    alert('Copiado para a área de transferência!');
+    console.log('Copiado para a área de transferência!');
   };
 
   return (
@@ -539,7 +538,7 @@ const Settings: React.FC<SettingsProps> = ({ darkMode, toggleDarkMode, aiFrequen
                                               {member.user_role || 'Member'}
                                           </span>
                                           {/* Only show remove for others if current user is admin (logic simplified) */}
-                                          {member.id !== profile?.id && <button className="text-rose-400 hover:text-rose-600 font-bold text-xs" onClick={() => alert('Feature em desenvolvimento')}>Remover</button>}
+                                          {member.id !== profile?.id && <button className="text-rose-400 hover:text-rose-600 font-bold text-xs" onClick={() => console.log('Feature em desenvolvimento')}>Remover</button>}
                                       </div>
                                   </div>
                               ))}
@@ -582,7 +581,7 @@ const Settings: React.FC<SettingsProps> = ({ darkMode, toggleDarkMode, aiFrequen
                                       <li className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-300"><Check size={16} className="text-[#73c6df]" /> <span>Relatórios Básicos</span></li>
                                   </ul>
 
-                                  <button onClick={() => alert('Seu plano atual.')} className="w-full py-3 border border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-300 rounded-xl font-bold hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors">Plano Atual</button>
+                                  <button onClick={() => console.log('Seu plano atual.')} className="w-full py-3 border border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-300 rounded-xl font-bold hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors">Plano Atual</button>
                               </div>
 
                               {/* Pro Plan */}

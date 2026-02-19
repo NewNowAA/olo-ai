@@ -48,13 +48,13 @@ export const runGoalsDiagnostics = async () => {
         log('✅ Goal Deleted successfully');
 
         log('🎉 ALL DIAGNOSTICS PASSED');
-        alert('Diagnostics Passed! Check console for details.\n\n' + results.join('\n'));
+        console.log('Diagnostics Passed! Check console for details.\n\n' + results.join('\n'));
         return true;
 
     } catch (error: any) {
         console.error('❌ Diagnostics Failed:', error);
         log(`❌ FAILED: ${error.message || error}`);
-        alert('Diagnostics FAILED using RLS fix.\nError: ' + (error.message || JSON.stringify(error)));
+        console.error('Diagnostics FAILED using RLS fix.\nError: ' + (error.message || JSON.stringify(error)));
         return false;
     } finally {
         console.groupEnd();
