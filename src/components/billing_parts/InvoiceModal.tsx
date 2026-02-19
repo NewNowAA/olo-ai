@@ -273,7 +273,11 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
                                 <Loader2 size={18} className="animate-spin" /> Salvando...
                             </button>
                         ) : (
-                            <button onClick={handleSaveInvoice} className="px-8 py-3 bg-[#2e8ba6] text-white rounded-xl font-bold shadow-lg hover:bg-[#257a91] flex items-center gap-2 transition-transform active:scale-95">
+                            <button 
+                                onClick={handleSaveInvoice} 
+                                disabled={!formData.client || formData.client.trim().length === 0 || !formData.date || !formData.amount || formData.amount <= 0}
+                                className={`px-8 py-3 rounded-xl font-bold flex items-center gap-2 transition-transform ${(!formData.client || formData.client.trim().length === 0 || !formData.date || !formData.amount || formData.amount <= 0) ? 'bg-slate-200 text-slate-400 cursor-not-allowed' : 'bg-[#2e8ba6] text-white shadow-lg hover:bg-[#257a91] active:scale-95'}`}
+                            >
                                 <Save size={18} /> Salvar Fatura
                             </button>
                         )
@@ -421,8 +425,9 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
                         <div className="grid grid-cols-2 gap-4">
                             <div>
                                 <label className="label-text mb-2 block font-bold text-xs text-slate-500 uppercase">Data <span className="text-rose-500">*</span></label>
-                                <input type="date" value={formData.date} onChange={(e) => setFormData({ ...formData, date: e.target.value })} className={`input-field w-full px-4 py-3 bg-slate-100 rounded-xl ${validationErrors.date ? 'border-rose-500 ring-1 ring-rose-500' : ''}`} />
-                                {validationErrors.date && <span className="text-rose-500 text-xs font-medium mt-1 block">{validationErrors.date}</span>}
+                                <input type="date" value={formData.date} onChange={(e) => setFormData({ ...formData, date: e.target.value })} className={`input-field w-full px-4 py-3 bg-slate-100 rounded-xl ${(validationErrors.date || !formData.date) ? 'border-rose-500 ring-1 ring-rose-500' : ''}`} />
+                                <p className="text-[10px] text-slate-400 mt-1">Obrigatório. Insira a data de emissão.</p>
+                                {validationErrors.date && <span className="text-rose-500 text-[10px] font-bold mt-1 block">{validationErrors.date}</span>}
                             </div>
                             <div>
                                 <label className="label-text mb-2 block font-bold text-xs text-slate-500 uppercase">Status Pagamento</label>
@@ -437,8 +442,9 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
                         <div className="grid grid-cols-3 gap-4">
                             <div className="col-span-2">
                                 <label className="label-text mb-2 block font-bold text-xs text-slate-500 uppercase">Cliente / Fornecedor <span className="text-rose-500">*</span></label>
-                                <input type="text" value={formData.client} onChange={(e) => setFormData({ ...formData, client: e.target.value })} className={`input-field w-full px-4 py-3 bg-slate-100 rounded-xl ${validationErrors.client ? 'border-rose-500 ring-1 ring-rose-500' : ''}`} placeholder="Nome da Empresa" />
-                                {validationErrors.client && <span className="text-rose-500 text-xs font-medium mt-1 block">{validationErrors.client}</span>}
+                                <input type="text" value={formData.client} onChange={(e) => setFormData({ ...formData, client: e.target.value })} className={`input-field w-full px-4 py-3 bg-slate-100 rounded-xl ${(validationErrors.client || !formData.client || formData.client.trim().length === 0) ? 'border-rose-500 ring-1 ring-rose-500' : ''}`} placeholder="Nome da Empresa" />
+                                <p className="text-[10px] text-slate-400 mt-1">Obrigatório. Mínimo 2 caracteres.</p>
+                                {validationErrors.client && <span className="text-rose-500 text-[10px] font-bold mt-1 block">{validationErrors.client}</span>}
                             </div>
                             <div>
                                 <label className="label-text mb-2 block font-bold text-xs text-slate-500 uppercase">NIF</label>
@@ -480,8 +486,9 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
 
                         <div>
                             <label className="label-text mb-2 block font-bold text-xs text-slate-500 uppercase">Valor Total <span className="text-rose-500">*</span></label>
-                            <input type="number" value={formData.amount} onChange={(e) => setFormData({ ...formData, amount: parseFloat(e.target.value) || 0 })} className={`input-field w-full font-bold text-lg px-4 py-3 bg-slate-100 rounded-xl ${validationErrors.amount ? 'border-rose-500 ring-1 ring-rose-500' : ''}`} />
-                            {validationErrors.amount && <span className="text-rose-500 text-xs font-medium mt-1 block">{validationErrors.amount}</span>}
+                            <input type="number" value={formData.amount} onChange={(e) => setFormData({ ...formData, amount: parseFloat(e.target.value) || 0 })} className={`input-field w-full font-bold text-lg px-4 py-3 bg-slate-100 rounded-xl ${(validationErrors.amount || !formData.amount || formData.amount <= 0) ? 'border-rose-500 ring-1 ring-rose-500' : ''}`} />
+                            <p className="text-[10px] text-slate-400 mt-1">Obrigatório. Deve ser maior que 0.</p>
+                            {validationErrors.amount && <span className="text-rose-500 text-[10px] font-bold mt-1 block">{validationErrors.amount}</span>}
                         </div>
 
                         {/* Items */}
