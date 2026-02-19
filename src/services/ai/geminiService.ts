@@ -4,55 +4,17 @@ import { supabase } from '../index';
 // Gemini AI Service (Edge Functions)
 // ===========================================
 
-const N8N_WEBHOOK_URL = import.meta.env.VITE_N8N_WEBHOOK_URL;
-
 /**
- * Service for interacting with AI via n8n workflows
+ * Service for interacting with AI via Supabase Edge Functions
+ * Replaces legacy n8n workflows
  */
 export const geminiService = {
     /**
-     * Send a message to the AI Chat workflow
+     * @deprecated Use askConsultant instead
      */
     async sendMessageToN8n(message: string): Promise<string> {
-        if (!N8N_WEBHOOK_URL) {
-            console.warn('VITE_N8N_WEBHOOK_URL not configured');
-            return "Erro de configuração: URL do n8n não definida.";
-        }
-
-        try {
-            const response = await fetch(`${N8N_WEBHOOK_URL}/chat`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    message,
-                    input: message // Compatibility for n8n LangChain nodes
-                }),
-            });
-
-            if (!response.ok) {
-                throw new Error(`n8n error: ${response.statusText}`);
-            }
-
-            const text = await response.text();
-            if (!text) {
-                console.warn('Empty response from n8n');
-                return "IA processou a mensagem, mas não retornou texto.";
-            }
-
-            try {
-                const data = JSON.parse(text);
-                return data.output || data.text || "Sem resposta da IA.";
-            } catch (e) {
-                console.warn('n8n returned non-JSON:', text);
-                return text; // Return raw text if it's not JSON
-            }
-        } catch (error) {
-            console.error('AI Chat Error:', error);
-            // @ts-ignore
-            return `Erro: ${error.message || "Falha na conexão"}`;
-        }
+        console.warn('Deprecated: sendMessageToN8n called. Redirecting to Edge Function.');
+        return this.askConsultant(message, []);
     },
 
     /**
@@ -103,14 +65,13 @@ export const geminiService = {
     },
 
     // Legacy methods kept for backward compatibility until fully migrated
-    // They will now just throw or return simple messages to avoid breaking imports
-
+    
     async generateContent(prompt: string): Promise<string> {
-        return this.sendMessageToN8n(prompt);
+        return this.askConsultant(prompt, []);
     },
 
     async askFinancialAssistant(question: string): Promise<string> {
-        return this.sendMessageToN8n(question);
+        return this.askConsultant(question, []);
     },
 
     /**
@@ -120,7 +81,7 @@ export const geminiService = {
     async askConsultant(message: string, history: { sender: string; text: string }[]): Promise<string> {
         try {
             const { data, error } = await supabase.functions.invoke('ai-consultant', {
-                body: { message, history }
+                body: { action: 'chat', message, history }
             });
 
             if (error) {
@@ -140,11 +101,31 @@ export const geminiService = {
     },
 
     async analyzeGoals(goalsData: string): Promise<string> {
-        return this.sendMessageToN8n(`Analise estas metas: ${goalsData}`);
+        return this.askConsultant(`Analise estas metas: ${goalsData}`, []);
     },
 
     async generateDailyAnalysis(invoices: any[]): Promise<string> {
-        return this.sendMessageToN8n(`Gere uma análise diária para: ${JSON.stringify(invoices).slice(0, 1000)}...`);
+        try {
+            // We ignore the passed 'invoices' array because the Edge Function fetches fresh data securely
+            const { data, error } = await supabase.functions.invoke('ai-consultant', {
+                body: { action: 'daily_analysis' }
+            });
+
+            if (error) {
+                console.error('Daily Analysis Edge Function Error:', error);
+                throw new Error(error.message);
+            }
+
+            if (data && data.success) {
+                return data.response;
+            }
+
+            throw new Error(data?.error || 'Falha ao gerar análise');
+
+        } catch (error) {
+            console.error('Daily Analysis Error:', error);
+            return "Não foi possível gerar a análise diária. Tente novamente mais tarde.";
+        }
     }
 };
 
