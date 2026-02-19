@@ -128,8 +128,57 @@ export const useInvoiceFilters = (invoices: Invoice[]) => {
             return sum + itemsIVA;
         }, 0);
 
-        return { totalRevenue, totalExpenses, pendingAmount, profit, totalTransactions, averageTicket, totalIVA };
-    }, [filteredInvoices]);
+        // --- TREND ANALYSIS (REAL PERCENTAGES) ---
+        // 1. Determine Current vs Previous Period
+        const now = new Date();
+        let prevStart: Date | null = null;
+        let prevEnd: Date | null = null;
+
+        // Simple approximate comparison logic relying on filters.dateRange
+        if (filters.dateRange === '24h') {
+             // Previous 24h
+             prevEnd = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+             prevStart = new Date(prevEnd.getTime() - 24 * 60 * 60 * 1000);
+        } else if (filters.dateRange === '30days') {
+             // Previous 30 days (Day 31-60 ago)
+             prevEnd = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+             prevStart = new Date(prevEnd.getTime() - 30 * 24 * 60 * 60 * 1000);
+        } else if (filters.dateRange === 'year') {
+             // Previous Year
+             prevEnd = new Date(now.getFullYear() - 1, 11, 31);
+             prevStart = new Date(now.getFullYear() - 1, 0, 1);
+        }
+        
+        // Calculate Previous Stats
+        let prevRevenue = 0;
+        let prevExpenses = 0;
+        let prevProfit = 0;
+
+        if (prevStart && prevEnd) {
+             const prevInvoices = invoices.filter(inv => {
+                 const d = new Date(inv.created_at || inv.date);
+                 return d >= prevStart! && d <= prevEnd!;
+             });
+
+             prevRevenue = prevInvoices.filter(i => i.type === 'Receita').reduce((s, i) => s + i.amount, 0);
+             prevExpenses = prevInvoices.filter(i => i.type === 'Despesa').reduce((s, i) => s + i.amount, 0);
+             prevProfit = prevRevenue - prevExpenses;
+        }
+
+        // Calculate % Changes
+        const calcChange = (current: number, previous: number) => {
+            if (previous === 0) return current > 0 ? 100 : 0;
+            return ((current - previous) / previous) * 100;
+        };
+
+        const trends = {
+            revenueChange: calcChange(totalRevenue, prevRevenue),
+            expensesChange: calcChange(totalExpenses, prevExpenses),
+            profitChange: calcChange(profit, prevProfit)
+        };
+
+        return { totalRevenue, totalExpenses, pendingAmount, profit, totalTransactions, averageTicket, totalIVA, trends };
+    }, [filteredInvoices, invoices, filters.dateRange]);
 
     return {
         filters,

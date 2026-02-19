@@ -160,7 +160,8 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate, lastUpdated }) => {
       netProfit,
       totalInvoices,
       headerStatus: healthScore > 20 ? 'Excelente' : (healthScore > 0 ? 'Bom' : 'Atenção'),
-      healthScore
+      healthScore,
+      trends: stats.trends
     };
   }, [stats]);
 
@@ -173,7 +174,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate, lastUpdated }) => {
     return sorted.slice(0, 3).map(inv => ({
       company: inv.client,
       date: new Date(inv.created_at || inv.date).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' }),
-      amount: `$${inv.amount.toLocaleString()}`,
+      amount: `Kz ${inv.amount.toLocaleString()}`,
       status: inv.status,
       icon: inv.type === 'Receita' ? Building2 : ShoppingCart,
       color: inv.type === 'Receita' ? 'text-[#73c6df] bg-[#73c6df]/10' : 'text-rose-500 bg-rose-50',
@@ -294,15 +295,39 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate, lastUpdated }) => {
               />
               <MetricCard
                 lastUpdated={lastUpdated}
-                data={{ title: 'Receita Total', value: `$${metrics.totalRev.toLocaleString()}`, change: '+--%', isPositive: true, trend: 'up', icon: Banknote, colorClass: 'bg-[#8bd7bf]/20 text-[#4ca68a]' }}
+                data={{ 
+                    title: 'Receita Total', 
+                    value: `Kz ${metrics.totalRev.toLocaleString()}`, 
+                    change: `${metrics.trends?.revenueChange > 0 ? '+' : ''}${metrics.trends?.revenueChange?.toFixed(1) || '0.0'}%`, 
+                    isPositive: (metrics.trends?.revenueChange || 0) >= 0, 
+                    trend: (metrics.trends?.revenueChange || 0) >= 0 ? 'up' : 'down', 
+                    icon: Banknote, 
+                    colorClass: 'bg-[#8bd7bf]/20 text-[#4ca68a]' 
+                }}
               />
               <MetricCard
                 lastUpdated={lastUpdated}
-                data={{ title: 'Despesas Totais', value: `$${metrics.totalExp.toLocaleString()}`, change: '-0%', isPositive: false, trend: 'stable', icon: ShoppingCart, colorClass: 'bg-rose-50 text-rose-500 dark:bg-rose-900/30 dark:text-rose-400' }}
+                data={{ 
+                    title: 'Despesas Totais', 
+                    value: `Kz ${metrics.totalExp.toLocaleString()}`, 
+                    change: `${metrics.trends?.expensesChange > 0 ? '+' : ''}${metrics.trends?.expensesChange?.toFixed(1) || '0.0'}%`, 
+                    isPositive: (metrics.trends?.expensesChange || 0) <= 0,
+                    trend: 'stable', 
+                    icon: ShoppingCart, 
+                    colorClass: 'bg-rose-50 text-rose-500 dark:bg-rose-900/30 dark:text-rose-400' 
+                }}
               />
               <MetricCard
                 lastUpdated={lastUpdated}
-                data={{ title: 'Lucro Líquido', value: `$${metrics.netProfit.toLocaleString()}`, change: '+--%', isPositive: metrics.netProfit >= 0, trend: metrics.netProfit >= 0 ? 'peak' : 'down', icon: BarChart3, colorClass: 'bg-[#73c6df]/20 text-[#73c6df]' }}
+                data={{ 
+                    title: 'Lucro Líquido', 
+                    value: `Kz ${metrics.netProfit.toLocaleString()}`, 
+                    change: `${metrics.trends?.profitChange > 0 ? '+' : ''}${metrics.trends?.profitChange?.toFixed(1) || '0.0'}%`, 
+                    isPositive: (metrics.trends?.profitChange || 0) >= 0, 
+                    trend: (metrics.trends?.profitChange || 0) >= 0 ? 'peak' : 'down', 
+                    icon: BarChart3, 
+                    colorClass: 'bg-[#73c6df]/20 text-[#73c6df]' 
+                }}
               />
             </div>
 
@@ -427,8 +452,8 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate, lastUpdated }) => {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <RevenueMetricCard
                 title="Receita Total"
-                value={`$${metrics.totalRev.toLocaleString()}`}
-                change="+--%"
+                value={`Kz ${metrics.totalRev.toLocaleString()}`}
+                change={`${metrics.trends?.revenueChange > 0 ? '+' : ''}${metrics.trends?.revenueChange?.toFixed(1) || '0.0'}%`}
                 icon={Banknote}
               />
               <MetricCard
@@ -470,8 +495,8 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate, lastUpdated }) => {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <ExpenseMetricCard
                 title="Despesas Totais"
-                value={`$${metrics.totalExp.toLocaleString()}`}
-                change="-0%"
+                value={`Kz ${metrics.totalExp.toLocaleString()}`}
+                change={`${metrics.trends?.expensesChange > 0 ? '+' : ''}${metrics.trends?.expensesChange?.toFixed(1) || '0.0'}%`}
                 progress={75} // Example static progress for now, ideally calculated vs budget
                 icon={ShoppingCart}
                 alert={true}

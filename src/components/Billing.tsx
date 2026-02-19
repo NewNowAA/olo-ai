@@ -372,12 +372,38 @@ const Billing: React.FC<BillingProps> = ({ onNavigate }) => {
 
     // --- Render ---
     return (
-        <div className="p-6 md:p-10 max-w-[1600px] mx-auto min-h-screen pb-20">
+        <div className="p-6 md:p-12 lg:p-14 max-w-[1600px] mx-auto min-h-screen pb-24 relative space-y-12">
             <Breadcrumbs />
             
+            {/* Breathing line */}
+            <div className="h-px bg-gradient-to-r from-transparent via-slate-200 dark:via-slate-700 to-transparent" />
+
+            {/* AI Insight — Barra compacta */}
+            <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-gradient-to-r from-slate-50 to-[#73c6df]/5 border border-slate-100 dark:border-slate-700 dark:from-slate-800 dark:to-slate-800">
+                <div className="w-8 h-8 rounded-lg bg-[#73c6df]/10 flex items-center justify-center shrink-0">
+                    <BrainCircuit size={16} className={`text-[#2e8ba6] ${isAnalyzing ? 'animate-pulse' : ''}`} />
+                </div>
+                <p className="text-xs text-slate-600 dark:text-slate-300 flex-1 truncate leading-relaxed">
+                    {aiAnalysis && !aiAnalysis.startsWith('Erro')
+                        ? aiAnalysis.slice(0, 280)
+                        : <span className="italic text-slate-400">Adicione faturas para gerar insights com IA.</span>
+                    }
+                </p>
+                <div className="flex items-center gap-2 shrink-0">
+                    <span className="text-[9px] text-slate-400 tabular-nums hidden sm:inline">{countdown}</span>
+                    <button
+                        onClick={loadAnalysis}
+                        disabled={isAnalyzing}
+                        className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors disabled:opacity-30"
+                        title="Atualizar análise"
+                    >
+                        <RefreshCw size={14} className={`text-slate-400 ${isAnalyzing ? 'animate-spin text-[#73c6df]' : ''}`} />
+                    </button>
+                </div>
+            </div>
+
             {/* Controls */}
-            {/* Controls */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 lg:gap-10 mb-16">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 lg:gap-10">
                  {/* Total Revenue */}
                  <div className="bg-white dark:bg-slate-800 p-6 rounded-[2rem] shadow-sm border border-slate-100 dark:border-slate-700 relative overflow-hidden group">
                     <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-500/5 rounded-full blur-3xl group-hover:bg-emerald-500/10 transition-colors"></div>
@@ -386,8 +412,9 @@ const Billing: React.FC<BillingProps> = ({ onNavigate }) => {
                             <div className="p-3 bg-emerald-100 dark:bg-emerald-900/30 rounded-2xl text-emerald-600 dark:text-emerald-400">
                                 <TrendingUp size={24} />
                             </div>
-                            <span className="flex items-center text-xs font-bold text-emerald-600 bg-emerald-50 dark:bg-emerald-900/20 px-2 py-1 rounded-lg">
-                                +12.5% <ArrowUpRight size={14} className="ml-1" />
+                            <span className={`flex items-center text-xs font-bold px-2 py-1 rounded-lg ${stats.trends?.revenueChange >= 0 ? 'text-emerald-600 bg-emerald-50 dark:bg-emerald-900/20' : 'text-rose-600 bg-rose-50 dark:bg-rose-900/20'}`}>
+                                {stats.trends?.revenueChange > 0 ? '+' : ''}{stats.trends?.revenueChange?.toFixed(1) || '0.0'}% 
+                                {stats.trends?.revenueChange >= 0 ? <ArrowUpRight size={14} className="ml-1" /> : <ArrowDownRight size={14} className="ml-1" />}
                             </span>
                         </div>
                         <p className="text-slate-500 dark:text-slate-400 text-xs font-bold uppercase tracking-wider mb-1">Receita Total</p>
@@ -403,8 +430,9 @@ const Billing: React.FC<BillingProps> = ({ onNavigate }) => {
                             <div className="p-3 bg-rose-100 dark:bg-rose-900/30 rounded-2xl text-rose-600 dark:text-rose-400">
                                 <ArrowDownRight size={24} />
                             </div>
-                            <span className="flex items-center text-xs font-bold text-rose-600 bg-rose-50 dark:bg-rose-900/20 px-2 py-1 rounded-lg">
-                                +4.2% <ArrowUpRight size={14} className="ml-1" />
+                            <span className={`flex items-center text-xs font-bold px-2 py-1 rounded-lg ${stats.trends?.expensesChange <= 0 ? 'text-emerald-600 bg-emerald-50 dark:bg-emerald-900/20' : 'text-rose-600 bg-rose-50 dark:bg-rose-900/20'}`}>
+                                {stats.trends?.expensesChange > 0 ? '+' : ''}{stats.trends?.expensesChange?.toFixed(1) || '0.0'}%
+                                {stats.trends?.expensesChange <= 0 ? <ArrowDownRight size={14} className="ml-1" /> : <ArrowUpRight size={14} className="ml-1" />}
                             </span>
                         </div>
                         <p className="text-slate-500 dark:text-slate-400 text-xs font-bold uppercase tracking-wider mb-1">Despesas</p>
@@ -420,6 +448,10 @@ const Billing: React.FC<BillingProps> = ({ onNavigate }) => {
                             <div className="p-3 bg-white/20 rounded-2xl backdrop-blur-sm">
                                 <DollarSign size={24} className="text-white" />
                             </div>
+                            <span className="flex items-center text-xs font-bold text-white bg-white/20 px-2 py-1 rounded-lg backdrop-blur-sm">
+                                {stats.trends?.profitChange > 0 ? '+' : ''}{stats.trends?.profitChange?.toFixed(1) || '0.0'}%
+                                {stats.trends?.profitChange >= 0 ? <ArrowUpRight size={14} className="ml-1" /> : <ArrowDownRight size={14} className="ml-1" />}
+                            </span>
                         </div>
                         <p className="text-cyan-100 text-xs font-bold uppercase tracking-wider mb-1">Lucro Líquido</p>
                         <h3 className="text-3xl font-black text-white">Kz {(stats.totalRevenue - stats.totalExpenses).toLocaleString()}</h3>
@@ -442,68 +474,9 @@ const Billing: React.FC<BillingProps> = ({ onNavigate }) => {
                         <h3 className="text-2xl font-black text-slate-800 dark:text-white">Kz {stats.pendingAmount.toLocaleString()}</h3>
                     </div>
                 </div>
-            </div>
-
-            {/* AI Analysis Bar */}
-            <div className="max-w-4xl mx-auto w-full mb-16">
-                <div className="bg-white dark:bg-slate-800 rounded-[2rem] p-6 shadow-sm border border-slate-100 dark:border-slate-700 relative overflow-hidden">
-                    <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-[#73c6df] via-[#2e8ba6] to-[#73c6df] animate-gradient bg-[length:200%_100%]"></div>
-                <div className="flex flex-col md:flex-row gap-8">
-                    <div className="flex-1">
-                        <div className="flex items-center gap-3 mb-4">
-                            <div className="p-2 bg-gradient-to-br from-[#73c6df] to-[#2e8ba6] rounded-xl text-white shadow-lg shadow-[#73c6df]/20">
-                                <BrainCircuit size={20} />
-                            </div>
-                            <h3 className="text-lg font-bold text-slate-800 dark:text-white">Análise Financeira Diária</h3>
-                            <button 
-                                onClick={loadAnalysis} 
-                                disabled={isAnalyzing}
-                                className="ml-auto p-2 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-full transition-colors disabled:opacity-50"
-                            >
-                                <RefreshCw size={16} className={`text-slate-400 ${isAnalyzing ? 'animate-spin' : ''}`} />
-                            </button>
-                        </div>
-                        
-                        <div className="bg-slate-50 dark:bg-slate-900/50 rounded-2xl p-6 border border-slate-100 dark:border-slate-700/50 relative min-h-[120px]">
-                            {isAnalyzing ? (
-                                <div className="absolute inset-0 flex flex-col items-center justify-center text-slate-400 gap-2">
-                                    <Loader2 size={24} className="animate-spin text-[#2e8ba6]" />
-                                    <span className="text-xs font-medium animate-pulse">Gerando insights com IA...</span>
-                                </div>
-                            ) : aiAnalysis ? (
-                                <div className="prose prose-sm dark:prose-invert max-w-none">
-                                    <ReactMarkdown 
-                                        components={{
-                                            p: ({node, ...props}) => <p className="text-slate-600 dark:text-slate-300 text-sm leading-relaxed mb-3 last:mb-0" {...props} />,
-                                            strong: ({node, ...props}) => <strong className="font-bold text-slate-800 dark:text-slate-100" {...props} />,
-                                            ul: ({node, ...props}) => <ul className="list-disc pl-4 space-y-1 mb-3" {...props} />,
-                                            li: ({node, ...props}) => <li className="text-slate-600 dark:text-slate-300 text-sm" {...props} />
-                                        }}
-                                    >
-                                        {aiAnalysis}
-                                    </ReactMarkdown>
-                                </div>
-                            ) : (
-                                <div className="text-center text-slate-400 py-4">
-                                    <p className="text-sm">Nenhuma análise disponível para hoje.</p>
-                                    <button onClick={loadAnalysis} className="mt-2 text-[#2e8ba6] text-xs font-bold hover:underline">Gerar Análise Agora</button>
-                                </div>
-                            )}
-                        </div>
-                    </div>
-                
-                    <div className="md:w-72 flex-none flex flex-col justify-center border-l border-slate-100 dark:border-slate-700 pl-8">
-                         <div className="text-center">
-                            <span className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-2 block">Próxima Análise Em</span>
-                            <div className="text-3xl font-black text-slate-800 dark:text-white font-mono tracking-tight mb-2">
-                                {countdown}
-                            </div>
-                            <p className="text-xs text-slate-500">Atualizado automaticamente às 07:00</p>
-                        </div>
-                    </div>
                 </div>
-            </div>
-        </div>
+
+            <div className="h-px bg-gradient-to-r from-transparent via-slate-200 dark:via-slate-700 to-transparent" />
 
             {/* Controls */}
             <div className="flex flex-col lg:flex-row justify-between gap-6 items-end lg:items-center sticky top-0 bg-slate-50/80 dark:bg-slate-900/80 backdrop-blur-xl z-30 py-8 -mx-4 px-4 border-b border-slate-200/50 dark:border-slate-700/50 mt-16 mb-12">
@@ -522,15 +495,15 @@ const Billing: React.FC<BillingProps> = ({ onNavigate }) => {
                     categoryFilter={filters.subcategoryFilter}
                     onCategoryChange={(cat) => setFilter('subcategoryFilter', cat)}
                 />
-                <div className="flex gap-3">
-                    <button onClick={handleExportCSV} disabled={isExporting || filteredInvoices.length === 0} className="px-4 py-2.5 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 font-bold text-sm hover:bg-slate-50 dark:hover:bg-slate-700 flex items-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
+                <div className="flex gap-3 h-11 items-center">
+                    <button onClick={handleExportCSV} disabled={isExporting || filteredInvoices.length === 0} className="h-9 px-4 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 font-bold text-sm hover:bg-slate-50 dark:hover:bg-slate-700 flex items-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
                         <Download size={16} /> Exportar CSV
                     </button>
-                    <div className="flex bg-white dark:bg-slate-800 p-1 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700">
-                        <button onClick={() => setViewMode('list')} className={`p-2 rounded-lg transition-colors ${viewMode === 'list' ? 'bg-slate-100 dark:bg-slate-700 text-[#2e8ba6]' : 'text-slate-400 hover:text-slate-600'}`}><LayoutList size={20} /></button>
-                        <button onClick={() => setViewMode('grid')} className={`p-2 rounded-lg transition-colors ${viewMode === 'grid' ? 'bg-slate-100 dark:bg-slate-700 text-[#2e8ba6]' : 'text-slate-400 hover:text-slate-600'}`}><LayoutGrid size={20} /></button>
+                    <div className="flex bg-white dark:bg-slate-800 p-0.5 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 h-9 items-center">
+                        <button onClick={() => setViewMode('list')} className={`p-1.5 rounded-lg transition-colors h-full aspect-square flex items-center justify-center ${viewMode === 'list' ? 'bg-slate-100 dark:bg-slate-700 text-[#2e8ba6]' : 'text-slate-400 hover:text-slate-600'}`}><LayoutList size={18} /></button>
+                        <button onClick={() => setViewMode('grid')} className={`p-1.5 rounded-lg transition-colors h-full aspect-square flex items-center justify-center ${viewMode === 'grid' ? 'bg-slate-100 dark:bg-slate-700 text-[#2e8ba6]' : 'text-slate-400 hover:text-slate-600'}`}><LayoutGrid size={18} /></button>
                     </div>
-                    <button onClick={openNewInvoice} className="px-6 py-3 bg-[#2e8ba6] hover:bg-[#257a91] text-white rounded-xl font-bold shadow-lg shadow-[#2e8ba6]/20 flex items-center gap-2 transition-all active:scale-95">
+                    <button onClick={openNewInvoice} className="h-9 px-6 bg-[#2e8ba6] hover:bg-[#257a91] text-white rounded-xl font-bold shadow-lg shadow-[#2e8ba6]/20 flex items-center gap-2 transition-all active:scale-95">
                         <Plus size={20} /> Nova Fatura
                     </button>
                 </div>
@@ -543,7 +516,7 @@ const Billing: React.FC<BillingProps> = ({ onNavigate }) => {
                     <p className="text-slate-400 font-medium animate-pulse">Carregando suas finanças...</p>
                 </div>
             ) : viewMode === 'list' ? (
-                <div className="bg-white dark:bg-slate-800 rounded-[2.5rem] shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden flex flex-col">
+                <div className="bg-white dark:bg-slate-800 rounded-[2rem] p-6 md:p-10 shadow-sm border border-slate-100 dark:border-slate-700 min-h-[500px] flex flex-col">
                     <div className="overflow-x-auto">
                         <table className="w-full">
                             <thead className="bg-slate-50 dark:bg-slate-900/50 border-b border-slate-200 dark:border-slate-700">

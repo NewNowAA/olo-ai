@@ -105,27 +105,21 @@ export const geminiService = {
     },
 
     async generateDailyAnalysis(invoices: any[]): Promise<string> {
-        try {
-            // We ignore the passed 'invoices' array because the Edge Function fetches fresh data securely
-            const { data, error } = await supabase.functions.invoke('ai-consultant', {
-                body: { action: 'daily_analysis' }
-            });
+        // We ignore the passed 'invoices' array because the Edge Function fetches fresh data securely
+        const { data, error } = await supabase.functions.invoke('ai-consultant', {
+            body: { action: 'daily_analysis' }
+        });
 
-            if (error) {
-                console.error('Daily Analysis Edge Function Error:', error);
-                throw new Error(error.message);
-            }
-
-            if (data && data.success) {
-                return data.response;
-            }
-
-            throw new Error(data?.error || 'Falha ao gerar análise');
-
-        } catch (error) {
-            console.error('Daily Analysis Error:', error);
-            return "Não foi possível gerar a análise diária. Tente novamente mais tarde.";
+        if (error) {
+            console.error('Daily Analysis Edge Function Error:', error);
+            throw new Error(error.message);
         }
+
+        if (data && data.success) {
+            return data.response;
+        }
+
+        throw new Error(data?.error || 'Falha ao gerar análise');
     }
 };
 

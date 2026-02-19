@@ -31,7 +31,18 @@ export const analyticsService = {
                 return "Ainda não há dados suficientes para uma análise diária. Adicione faturas para começar.";
             }
 
-            const analysis = await geminiService.generateDailyAnalysis(recentInvoices);
+            // Retry Logic Wrapper
+            const fetchWithRetry = async (fn: () => Promise<string>, retries = 3, delay = 1000): Promise<string> => {
+                try {
+                    return await fn();
+                } catch (error) {
+                    if (retries <= 0) throw error;
+                    await new Promise(res => setTimeout(res, delay));
+                    return fetchWithRetry(fn, retries - 1, delay * 2); // Exponential backoff
+                }
+            };
+
+            const analysis = await fetchWithRetry(() => geminiService.generateDailyAnalysis(recentInvoices));
 
             // 3. Save to DB
             const { error } = await supabase.from('daily_analytics').insert({
@@ -47,8 +58,8 @@ export const analyticsService = {
 
             return analysis;
         } catch (error) {
-            console.error('Analytics Service Error:', error);
-            return "Não foi possível gerar a análise diária no momento.";
+            console.error('Analytics Service Error (Final):', error);
+            return "Não foi possível gerar a análise diária no momento. Tente atualizar a página.";
         }
     }
 };
