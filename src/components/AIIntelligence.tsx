@@ -358,7 +358,6 @@ const AIIntelligence: React.FC = () => {
                     )}
                 </div>
 
-                </div>
 
                 {/* Input Area */}
                 <div className="p-4 bg-white/60 dark:bg-slate-800/60 border-t border-white/40 dark:border-slate-700/40">
