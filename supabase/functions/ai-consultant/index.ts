@@ -1,14 +1,15 @@
 import { createClient } from '@supabase/supabase-js'
 
-const ALLOWED_ORIGIN = Deno.env.get("ALLOWED_ORIGIN") || "https://faturissimo.netlify.app";
+// Allow all origins for development and preview environments
+// In production, this is still safe because we require a valid Supabase Auth token
 const corsHeaders = {
-  "Access-Control-Allow-Origin": ALLOWED_ORIGIN,
+  "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-console.log("AI Consultant Function initialized - v1")
+console.log("AI Consultant Function initialized - v3 (CORS Fix)")
 
-const SYSTEM_PROMPT = `Você é a **Lumea**, uma consultora financeira de elite especializada em gestão empresarial e otimização financeira. Você trabalha como IA integrada numa plataforma de gestão de faturas.
+const CHAT_SYSTEM_PROMPT = `Você é a **Lumea**, uma consultora financeira de elite especializada em gestão empresarial e otimização financeira. Você trabalha como IA integrada numa plataforma de gestão de faturas.
 
 ## Sua Personalidade
 - Profissional mas acessível, como um consultor financeiro de confiança
@@ -33,6 +34,21 @@ const SYSTEM_PROMPT = `Você é a **Lumea**, uma consultora financeira de elite 
 - Respostas devem ser concisas mas completas (máximo 400 palavras)
 - NUNCA invente dados que não estejam no contexto fornecido`
 
+const DAILY_ANALYSIS_PROMPT = `Você é um Analista Financeiro Sênior gerando o "Relatório Diário de Inteligência" para o gestor da empresa.
+
+## Objetivo
+Analisar as faturas recentes (últimos 30 dias) e fornecer um resumo executivo de alto impacto.
+
+## Estrutura da Resposta
+Gere um texto curto e direto (máximo 3 parágrafos) usando Markdown, focado em insights acionáveis.
+
+1. **Resumo do Momento**: "Nos últimos 30 dias, a receita foi de Kz X e despesas Kz Y..."
+2. **Destaque Principal**: O maior gasto, o melhor cliente, ou uma anomalia detectada.
+3. **Sugestão do Dia**: Uma recomendação prática baseada nos dados (ex: "Atenção ao aumento de 15% em Fornecedores").
+
+Use emojis com moderação para tornar a leitura agradável. Seja motivador mas realista.
+`
+
 Deno.serve(async (req: Request) => {
     if (req.method === 'OPTIONS') {
         return new Response('ok', { headers: corsHeaders })
@@ -47,13 +63,9 @@ Deno.serve(async (req: Request) => {
             throw new Error(`Invalid JSON: ${e.message}`)
         }
 
-        const { message, history } = body
+        const { action = 'chat', message, history } = body
 
-        if (!message) {
-            throw new Error('Message is required')
-        }
-
-        // --- 1. Get user's invoices for context ---
+        // Initialize Supabase
         const authHeader = req.headers.get('Authorization')
         const supabase = createClient(
             Deno.env.get('SUPABASE_URL') ?? '',
@@ -64,133 +76,69 @@ Deno.serve(async (req: Request) => {
         const token = authHeader?.replace('Bearer ', '') ?? ''
         const { data: { user }, error: userError } = await supabase.auth.getUser(token)
 
-        let invoiceContext = 'Sem dados de faturas disponíveis.'
-
-        if (user) {
-            const { data: invoices } = await supabase
-                .from('invoices')
-                .select('vendor_name, total_amount, issue_date, category, status, invoice_products(description, quantity, unit_price)')
-                .eq('user_id', user.id)
-                .order('issue_date', { ascending: false })
-                .limit(40)
-
-            if (invoices && invoices.length > 0) {
-                // Build financial summary
-                const totalGasto = invoices.reduce((sum: number, inv: any) => sum + (inv.total_amount || 0), 0)
-                const categorias: Record<string, number> = {}
-                const fornecedores: Record<string, number> = {}
-                const porMes: Record<string, number> = {}
-
-                invoices.forEach((inv: any) => {
-                    const cat = inv.category || 'Sem Categoria'
-                    categorias[cat] = (categorias[cat] || 0) + (inv.total_amount || 0)
-
-                    const forn = inv.vendor_name || 'Desconhecido'
-                    fornecedores[forn] = (fornecedores[forn] || 0) + (inv.total_amount || 0)
-
-                    if (inv.issue_date) {
-                        const mes = inv.issue_date.substring(0, 7) // YYYY-MM
-                        porMes[mes] = (porMes[mes] || 0) + (inv.total_amount || 0)
-                    }
-                })
-
-                const topCategorias = Object.entries(categorias)
-                    .sort((a, b) => b[1] - a[1])
-                    .slice(0, 8)
-                    .map(([cat, val]) => `  - ${cat}: €${val.toFixed(2)} (${((val / totalGasto) * 100).toFixed(1)}%)`)
-                    .join('\n')
-
-                const topFornecedores = Object.entries(fornecedores)
-                    .sort((a, b) => b[1] - a[1])
-                    .slice(0, 8)
-                    .map(([f, val]) => `  - ${f}: €${val.toFixed(2)}`)
-                    .join('\n')
-
-                const tendenciaMensal = Object.entries(porMes)
-                    .sort((a, b) => a[0].localeCompare(b[0]))
-                    .map(([mes, val]) => `  - ${mes}: €${val.toFixed(2)}`)
-                    .join('\n')
-
-                invoiceContext = `## Dados Financeiros do Utilizador (${invoices.length} faturas recentes)
-
-**Total Gasto**: €${totalGasto.toFixed(2)}
-**Número de Faturas**: ${invoices.length}
-
-### Gastos por Categoria:
-${topCategorias}
-
-### Top Fornecedores:
-${topFornecedores}
-
-### Tendência Mensal:
-${tendenciaMensal}
-
-### Últimas 10 Faturas:
-${invoices.slice(0, 10).map((inv: any) =>
-    `  - ${inv.issue_date || 'S/D'} | ${inv.vendor_name || 'N/A'} | €${(inv.total_amount || 0).toFixed(2)} | ${inv.category || 'S/C'} | ${inv.status || 'N/A'}`
-).join('\n')}`
-
-            }
+        if (!user) {
+            return new Response(
+                JSON.stringify({ success: false, error: 'Unauthorized' }),
+                { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 401 }
+            )
         }
 
-        // --- 2. Get Organization & Goals Context ---
+        // --- FETCH DATA CONTEXT (Common for both actions) ---
+        
+        // 1. Invoices
+        const { data: invoices } = await supabase
+            .from('invoices')
+            .select('vendor_name, total_amount, issue_date, category, status, type')
+            .eq('user_id', user.id)
+            .order('issue_date', { ascending: false })
+            .limit(action === 'daily_analysis' ? 50 : 40)
+
+        let invoiceContext = 'Sem dados de faturas disponíveis.'
+        
+        if (invoices && invoices.length > 0) {
+            const totalRevenue = invoices.filter((i: any) => i.type === 'Receita').reduce((sum, i) => sum + (i.total_amount || 0), 0);
+            const totalExpenses = invoices.filter((i: any) => i.type === 'Despesa').reduce((sum, i) => sum + (i.total_amount || 0), 0);
+            
+            invoiceContext = `## Dados Financeiros Recentes
+- **Total Receita (Amostra)**: Kz ${totalRevenue.toLocaleString()}
+- **Total Despesa (Amostra)**: Kz ${totalExpenses.toLocaleString()}
+- **Net**: Kz ${(totalRevenue - totalExpenses).toLocaleString()}
+
+### Lista de Transações (Recentes):
+${invoices.map((inv: any) => `- ${inv.issue_date}: ${inv.type === 'Receita' ? 'Recebeu de' : 'Pagou a'} ${inv.vendor_name || 'Desconhecido'} (Kz ${inv.total_amount}, ${inv.category})`).join('\n')}
+`
+        }
+
+        // 2. Organization & Goals (Simplified for daily analysis, full for chat)
         let orgContext = ''
-        let goalsContext = ''
-
-        if (user) {
-             // 2.1 Get Org ID from public.users
-             const { data: userProfile } = await supabase
-                .from('users')
-                .select('org_id')
-                .eq('id', user.id)
-                .single()
-             
+        if (action === 'chat') {
+             const { data: userProfile } = await supabase.from('users').select('org_id').eq('id', user.id).single()
              if (userProfile?.org_id) {
-                 // 2.2 Get Org Details
-                 const { data: org } = await supabase
-                    .from('organizations')
-                    .select('name, sector, objective_description')
-                    .eq('id', userProfile.org_id)
-                    .single()
-                 
-                 if (org) {
-                     orgContext = `## Contexto da Empresa
-**Nome**: ${org.name}
-**Setor/Nicho**: ${org.sector || 'Não informado'}
-**Descrição/Objetivos**: ${org.objective_description || 'Não informado'}
-`
-                 }
-
-                 // 2.3 Get Active Goals
-                 const { data: goals } = await supabase
-                    .from('goals')
-                    .select('title, target_value, current_value, deadline, status, kpi')
-                    .eq('organization_id', userProfile.org_id)
-                    .eq('status', 'active')
-                 
-                 if (goals && goals.length > 0) {
-                     goalsContext = `## Metas Ativas da Empresa
-${goals.map((g: any) => {
-    const progress = g.target_value ? ((g.current_value / g.target_value) * 100).toFixed(1) : 0
-    return `- **${g.title}**: ${progress}% completo (Atual: ${g.current_value} / Alvo: ${g.target_value}) - Prazo: ${g.deadline}`
-}).join('\n')}
-`
-                 }
+                 const { data: org } = await supabase.from('organizations').select('name, sector, objective_description').eq('id', userProfile.org_id).single()
+                 if (org) orgContext = `Empresa: ${org.name} (${org.sector}). Obj: ${org.objective_description}`
              }
         }
 
-        // --- 3. Build Gemini request ---
+        // --- PREPARE GEMINI REQUEST ---
         const apiKey = Deno.env.get('GOOGLE_GENERATIVE_AI_API_KEY') ?? Deno.env.get('GEMINI_API_KEY') ?? ''
+        if (!apiKey) throw new Error('Gemini API key not configured')
 
-        if (!apiKey) {
-            throw new Error('Gemini API key not configured')
+        let systemPrompt = '';
+        let userPrompt = '';
+
+        if (action === 'daily_analysis') {
+            systemPrompt = DAILY_ANALYSIS_PROMPT;
+            userPrompt = `Aqui estão os dados recentes das faturas para análise:\n\n${invoiceContext}\n\n${orgContext}\n\nPor favor, gere a análise diária.`;
+        } else {
+            systemPrompt = CHAT_SYSTEM_PROMPT;
+            userPrompt = `${message}\n\n---\n[CONTEXTO]\n${orgContext}\n${invoiceContext}`;
         }
 
         // Build conversation contents
         const contents: any[] = []
-
-        // Add history if provided
-        if (history && Array.isArray(history)) {
+        
+        // Add history (ONLY for chat)
+        if (action === 'chat' && history && Array.isArray(history)) {
             for (const msg of history) {
                 contents.push({
                     role: msg.sender === 'user' ? 'user' : 'model',
@@ -199,40 +147,23 @@ ${goals.map((g: any) => {
             }
         }
 
-        // Add the current message with context
-        const userMessageWithContext = `${message}
-
----
-// ---
-// [CONTEXTO DA EMPRESA]
-// ${orgContext}
-//
-// [METAS ATIVAS]
-// ${goalsContext}
-//
-// [CONTEXTO FINANCEIRO DO UTILIZADOR - Use estes dados para fundamentar sua resposta]
-// ${invoiceContext}`
-
         contents.push({
             role: 'user',
-            parts: [{ text: userMessageWithContext }]
+            parts: [{ text: userPrompt }]
         })
 
-        // Call Gemini API directly
+        // Call Gemini
         const geminiResponse = await fetch(
             `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
             {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    system_instruction: {
-                        parts: [{ text: SYSTEM_PROMPT }]
-                    },
+                    system_instruction: { parts: [{ text: systemPrompt }] },
                     contents,
                     generationConfig: {
                         temperature: 0.7,
-                        maxOutputTokens: 2048,
-                        topP: 0.9,
+                        maxOutputTokens: 1024,
                     }
                 })
             }
@@ -254,7 +185,7 @@ ${goals.map((g: any) => {
         )
 
     } catch (error: any) {
-        console.error('AI Consultant Error:', error)
+        console.error('AI Function Error:', error)
         return new Response(
             JSON.stringify({ success: false, error: error.message }),
             { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }

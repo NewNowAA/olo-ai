@@ -87,35 +87,39 @@ export const AnalysisModal: React.FC<AnalysisModalProps> = ({
 
                     {/* Chart: Items by Value */}
                     {itemsByValue.length > 0 && (
-                        <div className="bg-slate-50 dark:bg-slate-700/30 rounded-2xl border border-slate-100 dark:border-slate-600 p-5">
+                        <div className="bg-slate-50 dark:bg-slate-700/30 rounded-2xl border border-slate-100 dark:border-slate-600 p-5 min-h-[220px]">
                             <h4 className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-4">Top Items por Valor</h4>
-                            <ResponsiveContainer width="100%" height={180}>
-                                <BarChart data={itemsByValue} layout="vertical" margin={{ left: 10, right: 20, top: 5, bottom: 5 }}>
-                                    <XAxis type="number" hide />
-                                    <YAxis type="category" dataKey="name" width={80} tick={{ fontSize: 11, fill: '#94a3b8', fontWeight: 600 }} />
-                                    <Tooltip formatter={(v: number) => [`$${v.toLocaleString()}`, 'Valor']} contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 20px rgba(0,0,0,0.1)', fontSize: '12px' }} />
-                                    <Bar dataKey="total" radius={[0, 8, 8, 0]} barSize={16}>
-                                        {itemsByValue.map((_, idx) => <Cell key={idx} fill={CHART_COLORS[idx % CHART_COLORS.length]} />)}
-                                    </Bar>
-                                </BarChart>
-                            </ResponsiveContainer>
+                            <div className="h-[180px] w-full">
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <BarChart data={itemsByValue} layout="vertical" margin={{ left: 10, right: 20, top: 5, bottom: 5 }}>
+                                        <XAxis type="number" hide />
+                                        <YAxis type="category" dataKey="name" width={80} tick={{ fontSize: 11, fill: '#94a3b8', fontWeight: 600 }} />
+                                        <Tooltip formatter={(v: number) => [`$${v.toLocaleString()}`, 'Valor']} contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 20px rgba(0,0,0,0.1)', fontSize: '12px' }} />
+                                        <Bar dataKey="total" radius={[0, 8, 8, 0]} barSize={16}>
+                                            {itemsByValue.map((_, idx) => <Cell key={idx} fill={CHART_COLORS[idx % CHART_COLORS.length]} />)}
+                                        </Bar>
+                                    </BarChart>
+                                </ResponsiveContainer>
+                            </div>
                         </div>
                     )}
 
-                    {/* Chart: Most Frequent Items (across all invoices) */}
+                    {/* Chart: Items by Frequency (across all invoices) */}
                     {itemsByFrequency.length > 0 && (
-                        <div className="bg-slate-50 dark:bg-slate-700/30 rounded-2xl border border-slate-100 dark:border-slate-600 p-5">
+                        <div className="bg-slate-50 dark:bg-slate-700/30 rounded-2xl border border-slate-100 dark:border-slate-600 p-5 min-h-[220px]">
                             <h4 className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-4">Items Mais Frequentes (Todas Faturas)</h4>
-                            <ResponsiveContainer width="100%" height={180}>
-                                <BarChart data={itemsByFrequency} margin={{ left: 10, right: 20, top: 5, bottom: 5 }}>
-                                    <XAxis dataKey="name" tick={{ fontSize: 11, fill: '#94a3b8', fontWeight: 600 }} />
-                                    <YAxis allowDecimals={false} tick={{ fontSize: 11, fill: '#94a3b8' }} />
-                                    <Tooltip formatter={(v: number) => [`${v}x`, 'Ocorrências']} contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 20px rgba(0,0,0,0.1)', fontSize: '12px' }} />
-                                    <Bar dataKey="count" radius={[8, 8, 0, 0]} barSize={28}>
-                                        {itemsByFrequency.map((_, idx) => <Cell key={idx} fill={CHART_COLORS[idx % CHART_COLORS.length]} />)}
-                                    </Bar>
-                                </BarChart>
-                            </ResponsiveContainer>
+                            <div className="h-[180px] w-full">
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <BarChart data={itemsByFrequency} margin={{ left: 10, right: 20, top: 5, bottom: 5 }}>
+                                        <XAxis dataKey="name" tick={{ fontSize: 11, fill: '#94a3b8', fontWeight: 600 }} />
+                                        <YAxis allowDecimals={false} tick={{ fontSize: 11, fill: '#94a3b8' }} />
+                                        <Tooltip formatter={(v: number) => [`${v}x`, 'Ocorrências']} contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 20px rgba(0,0,0,0.1)', fontSize: '12px' }} />
+                                        <Bar dataKey="count" radius={[8, 8, 0, 0]} barSize={28}>
+                                            {itemsByFrequency.map((_, idx) => <Cell key={idx} fill={CHART_COLORS[idx % CHART_COLORS.length]} />)}
+                                        </Bar>
+                                    </BarChart>
+                                </ResponsiveContainer>
+                            </div>
                         </div>
                     )}
 
