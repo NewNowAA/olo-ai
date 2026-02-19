@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { ArrowLeft, Mail, Loader2, CheckCircle, AlertCircle } from 'lucide-react';
-import { resetPasswordForEmail } from '../src/services/auth/authService';
+import { resetPassword } from '../services/auth/authService';
 
 interface ForgotPasswordPageProps {
     onBack: () => void;
