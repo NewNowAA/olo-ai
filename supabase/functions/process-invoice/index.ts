@@ -1,6 +1,6 @@
 
-import { createClient } from '@supabase/supabase-js'
-import { GoogleGenerativeAI } from '@google/generative-ai'
+import { createClient } from 'npm:@supabase/supabase-js@2'
+import { GoogleGenerativeAI } from 'npm:@google/generative-ai'
 
 // Helper for large file Base64 encoding (avoids stack overflow)
 function arrayBufferToBase64(buffer: ArrayBuffer) {
