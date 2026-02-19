@@ -88,7 +88,7 @@ Deno.serve(async (req: Request) => {
         // 1. Invoices
         const { data: invoices } = await supabase
             .from('invoices')
-            .select('vendor_name, total_amount, issue_date, category, status, type')
+            .select('vendor_name, total_amount, issue_date, category, status, type, invoice_products(name, quantity, unit_price, total_price)')
             .eq('user_id', user.id)
             .order('issue_date', { ascending: false })
             .limit(action === 'daily_analysis' ? 50 : 40)
@@ -99,13 +99,40 @@ Deno.serve(async (req: Request) => {
             const totalRevenue = invoices.filter((i: any) => i.type === 'Receita').reduce((sum, i) => sum + (i.total_amount || 0), 0);
             const totalExpenses = invoices.filter((i: any) => i.type === 'Despesa').reduce((sum, i) => sum + (i.total_amount || 0), 0);
             
+            // Calculate Top Items
+            const itemStats: Record<string, {count: number, total: number}> = {};
+            invoices.forEach((inv: any) => {
+                if (inv.invoice_products) {
+                    inv.invoice_products.forEach((p: any) => {
+                        const name = p.name || 'Item Desconhecido';
+                        if (!itemStats[name]) itemStats[name] = { count: 0, total: 0 };
+                        itemStats[name].count += (p.quantity || 1);
+                        itemStats[name].total += (p.total_price || 0);
+                    });
+                }
+            });
+
+            const topItems = Object.entries(itemStats)
+                .sort(([, a], [, b]) => b.total - a.total)
+                .slice(0, 5)
+                .map(([name, stats]) => `- ${name}: ${stats.count} un. (Total: Kz ${stats.total.toLocaleString()})`)
+                .join('\n');
+
             invoiceContext = `## Dados Financeiros Recentes
 - **Total Receita (Amostra)**: Kz ${totalRevenue.toLocaleString()}
 - **Total Despesa (Amostra)**: Kz ${totalExpenses.toLocaleString()}
 - **Net**: Kz ${(totalRevenue - totalExpenses).toLocaleString()}
 
+### Top Itens Vendidos/Comprados (Por Valor):
+${topItems || 'Sem dados de itens.'}
+
 ### Lista de Transações (Recentes):
-${invoices.map((inv: any) => `- ${inv.issue_date}: ${inv.type === 'Receita' ? 'Recebeu de' : 'Pagou a'} ${inv.vendor_name || 'Desconhecido'} (Kz ${inv.total_amount}, ${inv.category})`).join('\n')}
+${invoices.map((inv: any) => {
+    const items = inv.invoice_products && inv.invoice_products.length > 0 
+        ? `\n   > Itens: ${inv.invoice_products.map((p:any) => `${p.quantity}x ${p.name}`).join(', ')}`
+        : '';
+    return `- ${inv.issue_date}: ${inv.type === 'Receita' ? 'Recebeu de' : 'Pagou a'} ${inv.vendor_name || 'Desconhecido'} (Kz ${inv.total_amount}, ${inv.category})${items}`
+}).join('\n')}
 `
         }
 

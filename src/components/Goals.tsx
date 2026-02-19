@@ -1,5 +1,7 @@
 
 import React, { useState } from 'react';
+import { useToast } from '../contexts/ToastContext';
+
 import { Target, TrendingUp, CheckCircle2, Plus, Flag, Trophy, Clock, X, Bot, Sparkles, Loader2, Users, User, BarChart as BarChartIcon, PieChart as PieChartIcon, BrainCircuit, Pencil, Trash2 } from 'lucide-react';
 import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, Tooltip } from 'recharts';
 import { geminiService } from '../services';
@@ -12,7 +14,9 @@ interface GoalsProps {
 }
 
 const Goals: React.FC<GoalsProps> = ({ lastUpdated }) => {
+    const toast = useToast();
     const [isModalOpen, setIsModalOpen] = useState(false);
+
     const [analyzing, setAnalyzing] = useState(false);
     const [aiAdvice, setAiAdvice] = useState<string | null>(null);
     const [chartType, setChartType] = useState<'pie' | 'bar'>('pie');
@@ -142,9 +146,10 @@ const Goals: React.FC<GoalsProps> = ({ lastUpdated }) => {
             const errorMessages = Object.entries(fieldErrors)
                 .map(([field, errs]) => `${field}: ${errs?.join(', ')}`)
                 .join('\n');
-            alert(`Por favor, corrija os seguintes erros:\n${errorMessages}`);
+            toast.error(`Por favor, corrija os seguintes erros:\n${errorMessages}`);
             return;
         }
+
 
         try {
             if (newGoal.id) {

@@ -1,4 +1,6 @@
 import React, { useState, useEffect } from 'react';
+import { useToast } from '../../contexts/ToastContext';
+
 import {
     Plus,
     X,
@@ -35,6 +37,8 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
     availableCategories,
     onAddCategory
 }) => {
+    const toast = useToast();
+
     // --- State ---
     const [step, setStep] = useState<'choice' | 'manual' | 'ai'>('choice');
     const [formData, setFormData] = useState<Partial<Invoice>>({
@@ -128,14 +132,16 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
             if (result.success && result.invoiceId) {
                 setProcessingInvoiceId(result.invoiceId);
             } else {
-                alert('Falha ao iniciar processamento: ' + result.message);
+                toast.error('Falha ao iniciar processamento: ' + result.message);
                 setIsUploading(false);
             }
+
         } catch (error) {
             console.error(error);
-            alert('Erro ao enviar arquivo.');
+            toast.error('Erro ao enviar arquivo.');
             setIsUploading(false);
         }
+
     };
 
     const handleCancelAiUpload = async () => {
@@ -197,20 +203,28 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
             const validationResult = invoiceSchema.safeParse(invoiceToSave);
             if (!validationResult.success) {
                 const fieldErrors = validationResult.error.flatten().fieldErrors;
+                const fieldNames: Record<string, string> = {
+                    client: 'Cliente/Fornecedor',
+                    amount: 'Valor Total',
+                    date: 'Data',
+                    items: 'Itens'
+                };
                 const errorMessages = Object.entries(fieldErrors)
-                    .map(([field, errs]) => `${field}: ${errs?.join(', ')}`)
+                    .map(([field, errs]) => `${fieldNames[field] || field}: ${errs?.join(', ')}`)
                     .join('\n');
-                alert(`Por favor, corrija os seguintes erros:\n${errorMessages}`);
+                toast.error(`Por favor, corrija os seguintes erros:\n${errorMessages}`);
                 setIsSaving(false);
                 return;
             }
 
+
             // Compliance Validation (NIF)
             if (formData.nif && !validateNIF(formData.nif)) {
-                alert('NIF inválido. Verifique o número inserido.');
+                toast.error('NIF inválido. Verifique o número inserido.');
                 setIsSaving(false);
                 return;
             }
+
 
             if (formData.id) {
                 // Edit / AI Result Update
@@ -238,9 +252,10 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
             onClose();
         } catch (error) {
             console.error('Error saving invoice:', error);
-            alert('Erro ao salvar fatura. Verifique os dados.');
+            toast.error('Erro ao salvar fatura. Verifique os dados.');
         } finally {
             setIsSaving(false);
+
         }
     };
 

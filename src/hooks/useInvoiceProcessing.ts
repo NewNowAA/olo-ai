@@ -12,7 +12,7 @@ export const useInvoiceProcessing = (invoiceId: string | null) => {
         if (!invoiceId || !isPolling) return;
 
         const pollInterval = setInterval(async () => {
-            console.log('[DEBUG] Polling tick... ID:', invoiceId);
+            // console.log('[DEBUG] Polling tick... ID:', invoiceId);
             try {
                 // Use the service which now maps items correctly!
                 const { invoiceService } = await import('../services/invoice/invoiceService');

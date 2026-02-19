@@ -35,7 +35,8 @@ import {
     ChevronLeft,
     ChevronRight,
     ChevronFirst,
-    ChevronLast
+    ChevronLast,
+    Settings
 } from 'lucide-react';
 import { Invoice, InvoiceStatus, InvoiceType, ExpenseType, ReviewStatus } from '../types';
 import { invoiceService, analyticsService, supabase } from '../services';
@@ -52,9 +53,28 @@ interface BillingProps {
     onNavigate?: (page: 'dashboard' | 'billing' | 'ai' | 'goals' | 'builder' | 'settings' | 'help') => void;
 }
 
+const ALL_COLUMNS = [
+    { key: 'select',      label: '☑',             locked: true },
+    { key: 'client',      label: 'Fatura / Cliente', default: true },
+    { key: 'category',    label: 'Categoria',      default: true },
+    { key: 'date',        label: 'Data',           default: true },
+    { key: 'status',      label: 'Status',         default: true },
+    { key: 'amount',      label: 'Valor',          default: true },
+    { key: 'actions',     label: 'Ações',          locked: true },
+];
+
 const StatusDropdown = ({ invoice, onUpdate }: { invoice: Invoice; onUpdate: (updatedInvoice: Invoice) => void }) => {
     const [isOpen, setIsOpen] = useState(false);
+    const dropRef = React.useRef<HTMLDivElement>(null);
     const statuses: InvoiceStatus[] = ['Pendente', 'Pago', 'Atrasado'];
+
+    useEffect(() => {
+        const handler = (e: MouseEvent) => {
+            if (dropRef.current && !dropRef.current.contains(e.target as Node)) setIsOpen(false);
+        };
+        document.addEventListener('mousedown', handler);
+        return () => document.removeEventListener('mousedown', handler);
+    }, []);
 
     const handleChange = async (newStatus: InvoiceStatus) => {
         try {
@@ -67,7 +87,7 @@ const StatusDropdown = ({ invoice, onUpdate }: { invoice: Invoice; onUpdate: (up
     };
 
     return (
-        <div className="relative" onClick={e => e.stopPropagation()}>
+        <div ref={dropRef} className="relative" onClick={e => e.stopPropagation()}>
             <button onClick={() => setIsOpen(!isOpen)} className={`
           px-3 py-1 rounded-full text-[10px] font-bold uppercase cursor-pointer
           hover:ring-2 hover:ring-offset-1 hover:ring-[#73c6df]/30 transition-all
@@ -128,6 +148,24 @@ const Billing: React.FC<BillingProps> = ({ onNavigate }) => {
     // Category Options
     const defaultCategories = ['Software', 'Consultoria', 'Infraestrutura', 'Marketing', 'Escritório', 'Salários', 'Impostos'];
     const [availableCategories, setAvailableCategories] = useState(defaultCategories);
+
+    // Column Visibility, Resizing & Reordering
+    const [visibleColumns, setVisibleColumns] = useState({
+        client: true,
+        category: true,
+        date: true,
+        status: true,
+        amount: true,
+        select: true,
+        actions: true
+    });
+    const [isColumnMenuOpen, setIsColumnMenuOpen] = useState(false);
+
+    const [colWidths, setColWidths] = useState<Record<string, number>>({
+        select: 50, client: 220, category: 140, date: 120, status: 120, amount: 120, actions: 100
+    });
+    const [colOrder, setColOrder] = useState<string[]>(ALL_COLUMNS.map(c => c.key));
+    const [dragCol, setDragCol] = useState<string | null>(null);
 
     // Custom Confirmation/Alert State
     const [confirmation, setConfirmation] = useState<{
@@ -370,6 +408,35 @@ const Billing: React.FC<BillingProps> = ({ onNavigate }) => {
         setSelectedInvoices(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]);
     };
 
+    // Column Resize Handler
+    const onResizeStart = (colKey: string, startX: number) => {
+        const startW = colWidths[colKey] || 120;
+        const move = (e: MouseEvent) => {
+            setColWidths(prev => ({ ...prev, [colKey]: Math.max(60, startW + (e.clientX - startX)) }));
+        };
+        const up = () => { document.removeEventListener('mousemove', move); document.removeEventListener('mouseup', up); };
+        document.addEventListener('mousemove', move);
+        document.addEventListener('mouseup', up);
+    };
+
+    // Column Reorder Handlers
+    const onDragStartCol = (key: string) => setDragCol(key);
+    const onDragOverCol = (e: React.DragEvent, key: string) => {
+        e.preventDefault();
+        if (!dragCol || dragCol === key) return;
+        setColOrder(prev => {
+            const arr = [...prev];
+            const from = arr.indexOf(dragCol);
+            const to = arr.indexOf(key);
+            if (from !== -1 && to !== -1) {
+                arr.splice(from, 1);
+                arr.splice(to, 0, dragCol);
+            }
+            return arr;
+        });
+    };
+    const onDragEndCol = () => setDragCol(null);
+
     // --- Render ---
     return (
         <div className="p-6 md:p-12 lg:p-14 max-w-[1600px] mx-auto min-h-screen pb-24 relative space-y-12">
@@ -479,7 +546,7 @@ const Billing: React.FC<BillingProps> = ({ onNavigate }) => {
             <div className="h-px bg-gradient-to-r from-transparent via-slate-200 dark:via-slate-700 to-transparent" />
 
             {/* Controls */}
-            <div className="flex flex-col lg:flex-row justify-between gap-6 items-end lg:items-center sticky top-0 bg-slate-50/80 dark:bg-slate-900/80 backdrop-blur-xl z-30 py-8 -mx-4 px-4 border-b border-slate-200/50 dark:border-slate-700/50 mt-16 mb-12">
+            <div className="flex flex-col lg:flex-row justify-between gap-6 items-start lg:items-center sticky top-0 bg-slate-50/80 dark:bg-slate-900/80 backdrop-blur-xl z-30 py-8 -mx-4 px-4 border-b border-slate-200/50 dark:border-slate-700/50 mt-16 mb-12">
                 <FilterControls
                     dateRange={filters.dateRange}
                     customStartDate={filters.customStartDate}
@@ -503,6 +570,34 @@ const Billing: React.FC<BillingProps> = ({ onNavigate }) => {
                         <button onClick={() => setViewMode('list')} className={`p-1.5 rounded-lg transition-colors h-full aspect-square flex items-center justify-center ${viewMode === 'list' ? 'bg-slate-100 dark:bg-slate-700 text-[#2e8ba6]' : 'text-slate-400 hover:text-slate-600'}`}><LayoutList size={18} /></button>
                         <button onClick={() => setViewMode('grid')} className={`p-1.5 rounded-lg transition-colors h-full aspect-square flex items-center justify-center ${viewMode === 'grid' ? 'bg-slate-100 dark:bg-slate-700 text-[#2e8ba6]' : 'text-slate-400 hover:text-slate-600'}`}><LayoutGrid size={18} /></button>
                     </div>
+                    <div className="relative">
+                        <button 
+                            onClick={() => setIsColumnMenuOpen(!isColumnMenuOpen)} 
+                            className="h-9 px-4 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 font-bold text-sm hover:bg-slate-50 dark:hover:bg-slate-700 flex items-center gap-2 transition-colors"
+                        >
+                            <Settings size={16} /> Colunas
+                        </button>
+                        {isColumnMenuOpen && (
+                            <div className="absolute top-full right-0 mt-2 w-48 bg-white dark:bg-slate-800 rounded-xl shadow-xl border border-slate-100 dark:border-slate-700 p-2 z-50">
+                                <p className="text-xs font-bold text-slate-400 uppercase tracking-wider px-3 py-2">Exibir Colunas</p>
+                            {ALL_COLUMNS.filter(c => !c.locked).map(col => (
+                                    <label key={col.key} className="flex items-center gap-3 px-3 py-2 hover:bg-slate-50 dark:hover:bg-slate-700 rounded-lg cursor-pointer">
+                                        <input 
+                                            type="checkbox" 
+                                            checked={visibleColumns[col.key as keyof typeof visibleColumns] !== false} 
+                                            onChange={() => setVisibleColumns(prev => ({ ...prev, [col.key]: !prev[col.key as keyof typeof visibleColumns] }))}
+                                            className="rounded border-slate-300 text-[#2e8ba6] focus:ring-[#2e8ba6]"
+                                        />
+                                        <span className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                                            {col.label}
+                                        </span>
+                                    </label>
+                                ))}
+                            </div>
+                        )}
+                        {isColumnMenuOpen && <div className="fixed inset-0 z-40" onClick={() => setIsColumnMenuOpen(false)}></div>}
+                    </div>
+
                     <button onClick={openNewInvoice} className="h-9 px-6 bg-[#2e8ba6] hover:bg-[#257a91] text-white rounded-xl font-bold shadow-lg shadow-[#2e8ba6]/20 flex items-center gap-2 transition-all active:scale-95">
                         <Plus size={20} /> Nova Fatura
                     </button>
@@ -517,54 +612,53 @@ const Billing: React.FC<BillingProps> = ({ onNavigate }) => {
                 </div>
             ) : viewMode === 'list' ? (
                 <div className="bg-white dark:bg-slate-800 rounded-[2rem] p-6 md:p-10 shadow-sm border border-slate-100 dark:border-slate-700 min-h-[500px] flex flex-col">
-                    <div className="overflow-x-auto">
-                        <table className="w-full">
+                    <div className="overflow-x-auto rounded-[2rem] border border-slate-100 dark:border-slate-700">
+                        <table className="w-full border-separate border-spacing-y-0" style={{ tableLayout: 'fixed' }}>
                             <thead className="bg-slate-50 dark:bg-slate-900/50 border-b border-slate-200 dark:border-slate-700">
                                 <tr>
-                                    <th className="px-8 py-5 text-left"><input type="checkbox" className="rounded border-slate-300 text-[#2e8ba6] focus:ring-[#2e8ba6]" onChange={(e) => setSelectedInvoices(e.target.checked ? paginatedInvoices.map(i => i.id || '') : [])} checked={selectedInvoices.length === paginatedInvoices.length && paginatedInvoices.length > 0} /></th>
-                                    
-                                    <th className="px-6 py-5 text-left text-xs font-bold text-slate-400 uppercase tracking-wider cursor-pointer hover:text-[#2e8ba6] transition-colors group" onClick={() => handleSort('client')}>
-                                        <div className="flex items-center gap-1">
-                                            Fatura / Cliente
-                                            {sortField === 'client' ? (sortDirection === 'asc' ? <ChevronUp size={14} className="text-[#2e8ba6]"/> : <ChevronDown size={14} className="text-[#2e8ba6]"/>) : <ArrowUpDown size={14} className="opacity-0 group-hover:opacity-50 transition-opacity" />}
-                                        </div>
-                                    </th>
-
-                                    <th className="px-6 py-5 text-left text-xs font-bold text-slate-400 uppercase tracking-wider cursor-pointer hover:text-[#2e8ba6] transition-colors group" onClick={() => handleSort('category')}>
-                                        <div className="flex items-center gap-1">
-                                            Categoria
-                                            {sortField === 'category' ? (sortDirection === 'asc' ? <ChevronUp size={14} className="text-[#2e8ba6]"/> : <ChevronDown size={14} className="text-[#2e8ba6]"/>) : <ArrowUpDown size={14} className="opacity-0 group-hover:opacity-50 transition-opacity" />}
-                                        </div>
-                                    </th>
-
-                                    <th className="px-6 py-5 text-left text-xs font-bold text-slate-400 uppercase tracking-wider cursor-pointer hover:text-[#2e8ba6] transition-colors group" onClick={() => handleSort('date')}>
-                                        <div className="flex items-center gap-1">
-                                            Data
-                                            {sortField === 'date' ? (sortDirection === 'asc' ? <ChevronUp size={14} className="text-[#2e8ba6]"/> : <ChevronDown size={14} className="text-[#2e8ba6]"/>) : <ArrowUpDown size={14} className="opacity-0 group-hover:opacity-50 transition-opacity" />}
-                                        </div>
-                                    </th>
-
-                                    <th className="px-6 py-5 text-left text-xs font-bold text-slate-400 uppercase tracking-wider cursor-pointer hover:text-[#2e8ba6] transition-colors group" onClick={() => handleSort('status')}>
-                                        <div className="flex items-center gap-1">
-                                            Status
-                                            {sortField === 'status' ? (sortDirection === 'asc' ? <ChevronUp size={14} className="text-[#2e8ba6]"/> : <ChevronDown size={14} className="text-[#2e8ba6]"/>) : <ArrowUpDown size={14} className="opacity-0 group-hover:opacity-50 transition-opacity" />}
-                                        </div>
-                                    </th>
-
-                                    <th className="px-6 py-5 text-right text-xs font-bold text-slate-400 uppercase tracking-wider cursor-pointer hover:text-[#2e8ba6] transition-colors group" onClick={() => handleSort('amount')}>
-                                        <div className="flex items-center justify-end gap-1">
-                                            Valor
-                                            {sortField === 'amount' ? (sortDirection === 'asc' ? <ChevronUp size={14} className="text-[#2e8ba6]"/> : <ChevronDown size={14} className="text-[#2e8ba6]"/>) : <ArrowUpDown size={14} className="opacity-0 group-hover:opacity-50 transition-opacity" />}
-                                        </div>
-                                    </th>
-
-                                    <th className="px-6 py-5 text-center text-xs font-bold text-slate-400 uppercase tracking-wider">Ações</th>
+                                    {colOrder.filter(k => visibleColumns[k as keyof typeof visibleColumns] !== false).map(colKey => (
+                                        <th
+                                            key={colKey}
+                                            style={{ width: colWidths[colKey], minWidth: 60 }}
+                                            className={`relative group/resize px-4 py-5 text-left text-xs font-bold text-slate-400 uppercase tracking-wider 
+                                                ${dragCol === colKey ? 'opacity-40' : ''} 
+                                                ${colKey !== 'select' && colKey !== 'actions' ? 'cursor-grab active:cursor-grabbing hover:bg-slate-100/50 dark:hover:bg-slate-800/50' : ''}`}
+                                            draggable={colKey !== 'select' && colKey !== 'actions'}
+                                            onDragStart={() => onDragStartCol(colKey)}
+                                            onDragOver={(e) => onDragOverCol(e, colKey)}
+                                            onDragEnd={onDragEndCol}
+                                            onClick={() => {
+                                                if (colKey !== 'select' && colKey !== 'actions') handleSort(colKey);
+                                            }}
+                                        >
+                                            {colKey === 'select' ? (
+                                                <input type="checkbox" className="rounded border-slate-300 text-[#2e8ba6] focus:ring-[#2e8ba6]" onChange={(e) => setSelectedInvoices(e.target.checked ? paginatedInvoices.map(i => i.id || '') : [])} checked={selectedInvoices.length === paginatedInvoices.length && paginatedInvoices.length > 0} />
+                                            ) : colKey === 'actions' ? (
+                                                'Ações'
+                                            ) : (
+                                                <div className="flex items-center gap-1 select-none">
+                                                    {colKey === 'client' ? 'Fatura / Cliente' :
+                                                     colKey === 'category' ? 'Categoria' :
+                                                     colKey === 'date' ? 'Data' :
+                                                     colKey === 'status' ? 'Status' :
+                                                     colKey === 'amount' ? 'Valor' : colKey}
+                                                    {sortField === colKey ? (sortDirection === 'asc' ? <ChevronUp size={14} className="text-[#2e8ba6]"/> : <ChevronDown size={14} className="text-[#2e8ba6]"/>) : <ArrowUpDown size={14} className="opacity-0 group-hover/resize:opacity-50 transition-opacity" />}
+                                                </div>
+                                            )}
+                                            {/* Resizer Handle */}
+                                            <div
+                                                className="absolute right-0 top-0 bottom-0 w-1.5 cursor-col-resize opacity-0 group-hover/resize:opacity-100 hover:bg-[#73c6df] transition-opacity z-10"
+                                                onMouseDown={(e) => { e.stopPropagation(); onResizeStart(colKey, e.clientX); }}
+                                                onClick={(e) => e.stopPropagation()} 
+                                            />
+                                        </th>
+                                    ))}
                                 </tr>
                             </thead>
-                            <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
+                            <tbody className="divide-y divide-slate-100 dark:divide-slate-700 bg-white dark:bg-slate-800">
                                 {paginatedInvoices.length === 0 ? (
                                     <tr>
-                                        <td colSpan={8} className="py-20 text-center">
+                                        <td colSpan={colOrder.filter(k => visibleColumns[k as keyof typeof visibleColumns] !== false).length} className="py-20 text-center">
                                             <div className="flex flex-col items-center gap-4">
                                                 <div className="w-16 h-16 rounded-full bg-slate-100 dark:bg-slate-700/50 flex items-center justify-center">
                                                     <FileText size={28} className="text-slate-300" />
@@ -577,67 +671,74 @@ const Billing: React.FC<BillingProps> = ({ onNavigate }) => {
                                                             : 'Clique em "Nova Fatura" para começar.'}
                                                     </p>
                                                 </div>
-                                                {!filters.searchText && filters.filterType === 'Todos' && (
-                                                    <button onClick={openNewInvoice}
-                                                        className="mt-2 px-4 py-2 bg-[#73c6df] text-white rounded-xl text-xs font-bold hover:bg-[#5dbad6] transition-colors">
-                                                        + Adicionar Primeira Fatura
-                                                    </button>
-                                                )}
                                             </div>
                                         </td>
                                     </tr>
                                 ) : (
                                     paginatedInvoices.map((invoice) => (
-                                        <tr key={invoice.id} className="group hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors cursor-pointer" onClick={() => setSelectedInvoiceForAnalysis(invoice)}>
-                                            <td className="px-8 py-5" onClick={(e) => e.stopPropagation()}>
-                                                <input type="checkbox" checked={selectedInvoices.includes(invoice.id || '')} onChange={() => toggleSelection(invoice.id || '')} className="rounded border-slate-300 text-[#2e8ba6] focus:ring-[#2e8ba6]" />
-                                            </td>
-                                            <td className="px-6 py-5">
-                                                <div className="relative group/preview">
-                                                    <div className="flex items-center gap-3">
-                                                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${invoice.type === 'Receita' ? 'bg-[#f0fdf4] text-[#15803d]' : 'bg-rose-50 text-rose-500'}`}>
-                                                            {invoice.type === 'Receita' ? <ArrowUpRight size={20} /> : <ArrowDownRight size={20} />}
-                                                        </div>
-                                                        <div>
-                                                            <p className="font-bold text-slate-700 dark:text-slate-200 text-sm">#{invoice.id?.slice(0, 8)}</p>
-                                                            <div className="flex items-center gap-2">
-                                                                <p className="text-xs text-slate-400">{invoice.category}</p>
-                                                                {invoice.fileUrl && <Eye size={12} className="text-slate-300 opacity-0 group-hover/preview:opacity-100 transition-opacity" />}
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                    {/* Preview Tooltip */}
-                                                    {invoice.fileUrl && (
-                                                        <div className="absolute left-full ml-4 top-1/2 -translate-y-1/2 z-50 opacity-0 group-hover/preview:opacity-100 pointer-events-none transition-opacity duration-200 hidden md:block">
-                                                            <div className="bg-white rounded-xl shadow-2xl border p-2 w-48">
-                                                                <img src={invoice.fileUrl} alt="Preview" className="w-full h-auto rounded-lg" />
-                                                            </div>
+                                        <tr key={invoice.id} className={`group transition-all hover:scale-[1.002] border border-transparent cursor-pointer ${
+                                            selectedInvoices.includes(invoice.id || '') ? 'bg-[#f0f9ff]' :
+                                            invoice.status === 'Atrasado' ? 'bg-rose-50/40 dark:bg-rose-900/10 hover:bg-rose-50/70' :
+                                            invoice.status === 'Pago' ? 'bg-emerald-50/30 dark:bg-emerald-900/10 hover:bg-emerald-50/60' :
+                                            'bg-slate-50 dark:bg-slate-700/30 hover:bg-white dark:hover:bg-slate-700'
+                                        }`} onClick={() => setSelectedInvoiceForAnalysis(invoice)}>
+                                            {colOrder.filter(k => visibleColumns[k as keyof typeof visibleColumns] !== false).map(colKey => (
+                                                <td key={colKey} className="px-4 py-4 border-y border-slate-100 dark:border-slate-700 bg-inherit align-middle">
+                                                    {colKey === 'select' && (
+                                                        <div onClick={(e) => e.stopPropagation()}>
+                                                            <input type="checkbox" checked={selectedInvoices.includes(invoice.id || '')} onChange={() => toggleSelection(invoice.id || '')} className="rounded border-slate-300 text-[#2e8ba6] focus:ring-[#2e8ba6]" />
                                                         </div>
                                                     )}
-                                                </div>
-                                            </td>
-                                            <td className="px-6 py-5 text-sm font-medium text-slate-600 dark:text-slate-300">{invoice.client}</td>
-                                            <td className="px-6 py-5 text-sm text-slate-500">{new Date(invoice.date).toLocaleDateString()}</td>
-                                            <td className="px-6 py-5" onClick={(e) => e.stopPropagation()}>
-                                                <StatusDropdown invoice={invoice} onUpdate={(updated) => setInvoices(prev => prev.map(inv => inv.id === updated.id ? updated : inv))} />
-                                            </td>
-                                            <td className="px-6 py-5 text-right">
-                                                <div className="flex items-center justify-end gap-1.5">
-                                                    {invoice.type === 'Receita'
-                                                        ? <ArrowUpRight size={14} className="text-emerald-500" />
-                                                        : <ArrowDownRight size={14} className="text-rose-400" />
-                                                    }
-                                                    <span className={`font-bold ${invoice.type === 'Receita' ? 'text-slate-700 dark:text-white' : 'text-rose-500'}`}>
-                                                        {invoice.type === 'Despesa' ? '-' : ''}Kz {invoice.amount.toLocaleString()}
-                                                    </span>
-                                                </div>
-                                            </td>
-                                            <td className="px-6 py-5">
-                                                <div className="flex justify-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                                                    <button onClick={(e) => { e.stopPropagation(); openEditModal(invoice); }} className="p-2 text-slate-400 hover:text-[#2e8ba6] hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg"><Edit3 size={16} /></button>
-                                                    <button onClick={(e) => { e.stopPropagation(); handleDeleteInvoice(invoice.id || '', e); }} className="p-2 text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-900/20 rounded-lg"><Trash2 size={16} /></button>
-                                                </div>
-                                            </td>
+                                                    {colKey === 'client' && (
+                                                        <div className="relative group/preview">
+                                                            <div className="flex items-center gap-3">
+                                                                <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${invoice.type === 'Receita' ? 'bg-[#f0fdf4] text-[#15803d]' : 'bg-rose-50 text-rose-500'}`}>
+                                                                    {invoice.type === 'Receita' ? <ArrowUpRight size={20} /> : <ArrowDownRight size={20} />}
+                                                                </div>
+                                                                <div className="min-w-0">
+                                                                    <p className="font-bold text-slate-700 dark:text-slate-200 text-sm truncate max-w-[140px]" title={invoice.client}>#{invoice.id?.slice(0, 8)}</p>
+                                                                    <div className="flex items-center gap-2">
+                                                                        <p className="text-xs text-slate-400 truncate max-w-[100px]">{invoice.client}</p>
+                                                                        {invoice.fileUrl && <Eye size={12} className="text-slate-300 opacity-0 group-hover/preview:opacity-100 transition-opacity" />}
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                            {/* Preview Tooltip */}
+                                                            {invoice.fileUrl && (
+                                                                <div className="absolute left-full ml-4 top-1/2 -translate-y-1/2 z-50 opacity-0 group-hover/preview:opacity-100 pointer-events-none transition-opacity duration-200 hidden md:block">
+                                                                    <div className="bg-white rounded-xl shadow-2xl border p-2 w-48">
+                                                                        <img src={invoice.fileUrl} alt="Preview" className="w-full h-auto rounded-lg" />
+                                                                    </div>
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    )}
+                                                    {colKey === 'category' && <span className="text-sm font-medium text-slate-600 dark:text-slate-300 truncate block">{invoice.category}</span>}
+                                                    {colKey === 'date' && <span className="text-sm text-slate-500 truncate block">{new Date(invoice.date).toLocaleDateString()}</span>}
+                                                    {colKey === 'status' && (
+                                                        <div onClick={(e) => e.stopPropagation()}>
+                                                            <StatusDropdown invoice={invoice} onUpdate={(updated) => setInvoices(prev => prev.map(inv => inv.id === updated.id ? updated : inv))} />
+                                                        </div>
+                                                    )}
+                                                    {colKey === 'amount' && (
+                                                        <div className="flex items-center justify-end gap-1.5">
+                                                            {invoice.type === 'Receita'
+                                                                ? <ArrowUpRight size={14} className="text-emerald-500" />
+                                                                : <ArrowDownRight size={14} className="text-rose-400" />
+                                                            }
+                                                            <span className={`font-bold ${invoice.type === 'Receita' ? 'text-slate-700 dark:text-white' : 'text-rose-500'}`}>
+                                                                {invoice.type === 'Despesa' ? '-' : ''}Kz {invoice.amount.toLocaleString()}
+                                                            </span>
+                                                        </div>
+                                                    )}
+                                                    {colKey === 'actions' && (
+                                                        <div className="flex justify-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                            <button onClick={(e) => { e.stopPropagation(); openEditModal(invoice); }} className="p-2 text-slate-400 hover:text-[#2e8ba6] hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg"><Edit3 size={16} /></button>
+                                                            <button onClick={(e) => { e.stopPropagation(); handleDeleteInvoice(invoice.id || '', e); }} className="p-2 text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-900/20 rounded-lg"><Trash2 size={16} /></button>
+                                                        </div>
+                                                    )}
+                                                </td>
+                                            ))}
                                         </tr>
                                     ))
                                 )}
