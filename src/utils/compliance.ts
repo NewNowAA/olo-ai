@@ -15,8 +15,8 @@ export const validateNIF = (nif: string): boolean => {
     // Basic cleaning
     const cleanNif = nif.replace(/[^a-zA-Z0-9]/g, '');
 
-    // Length check (Angolan NIF is typically 10 digits/chars)
-    if (cleanNif.length !== 10 && cleanNif !== '999999999') {
+    // Length check (Angolan NIF is typically 10 digits/chars for companies, 14 for individuals - Bilhete de Identidade)
+    if (cleanNif.length !== 10 && cleanNif.length !== 14 && cleanNif !== '999999999') {
         return false;
     }
 

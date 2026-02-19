@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import { useToast } from '../../contexts/ToastContext';
 
 import {
     Plus,
@@ -37,8 +36,6 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
     availableCategories,
     onAddCategory
 }) => {
-    const toast = useToast();
-
     // --- State ---
     const [step, setStep] = useState<'choice' | 'manual' | 'ai'>('choice');
     const [formData, setFormData] = useState<Partial<Invoice>>({
@@ -53,6 +50,7 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
     const [customCategory, setCustomCategory] = useState('');
     const [userId, setUserId] = useState<string | null>(null);
     const [processingStatus, setProcessingStatus] = useState<string | null>(null);
+    const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
 
     // AI Polling
     useEffect(() => {
@@ -116,6 +114,7 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
         setSelectedFile(undefined);
         setCustomCategory('');
         setProcessingInvoiceId(null);
+        setValidationErrors({});
     };
 
     const handleAiUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -132,13 +131,12 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
             if (result.success && result.invoiceId) {
                 setProcessingInvoiceId(result.invoiceId);
             } else {
-                toast.error('Falha ao iniciar processamento: ' + result.message);
+                console.error('Falha ao iniciar processamento: ' + result.message);
                 setIsUploading(false);
             }
 
         } catch (error) {
-            console.error(error);
-            toast.error('Erro ao enviar arquivo.');
+            console.error('Erro ao enviar arquivo.', error);
             setIsUploading(false);
         }
 
@@ -189,6 +187,8 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
 
     const handleSaveInvoice = async () => {
         setIsSaving(true);
+        setValidationErrors({});
+        
         try {
             const totalAmount = formItems.reduce((acc, item) => acc + (item.price * item.quantity), 0);
             const invoiceToSave: Partial<Invoice> = {
@@ -200,31 +200,28 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
             };
 
             // VALIDATION
+            const errors: Record<string, string> = {};
             const validationResult = invoiceSchema.safeParse(invoiceToSave);
+            
             if (!validationResult.success) {
                 const fieldErrors = validationResult.error.flatten().fieldErrors;
-                const fieldNames: Record<string, string> = {
-                    client: 'Cliente/Fornecedor',
-                    amount: 'Valor Total',
-                    date: 'Data',
-                    items: 'Itens'
-                };
-                const errorMessages = Object.entries(fieldErrors)
-                    .map(([field, errs]) => `${fieldNames[field] || field}: ${errs?.join(', ')}`)
-                    .join('\n');
-                toast.error(`Por favor, corrija os seguintes erros:\n${errorMessages}`);
-                setIsSaving(false);
-                return;
+                
+                if (fieldErrors.client) errors.client = fieldErrors.client[0];
+                if (fieldErrors.amount) errors.amount = fieldErrors.amount[0];
+                if (fieldErrors.date) errors.date = fieldErrors.date[0];
+                if (fieldErrors.items) errors.items = "Verifique os itens inseridos.";
             }
-
 
             // Compliance Validation (NIF)
             if (formData.nif && !validateNIF(formData.nif)) {
-                toast.error('NIF inválido. Verifique o número inserido.');
+                errors.nif = 'NIF inválido. Verifique o número inserido.';
+            }
+            
+            if (Object.keys(errors).length > 0) {
+                setValidationErrors(errors);
                 setIsSaving(false);
                 return;
             }
-
 
             if (formData.id) {
                 // Edit / AI Result Update
@@ -252,7 +249,7 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
             onClose();
         } catch (error) {
             console.error('Error saving invoice:', error);
-            toast.error('Erro ao salvar fatura. Verifique os dados.');
+            // Ignore toast.error to avoid browser notifications
         } finally {
             setIsSaving(false);
 
@@ -423,8 +420,9 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
 
                         <div className="grid grid-cols-2 gap-4">
                             <div>
-                                <label className="label-text mb-2 block font-bold text-xs text-slate-500 uppercase">Data</label>
-                                <input type="date" value={formData.date} onChange={(e) => setFormData({ ...formData, date: e.target.value })} className="input-field w-full px-4 py-3 bg-slate-100 rounded-xl" />
+                                <label className="label-text mb-2 block font-bold text-xs text-slate-500 uppercase">Data <span className="text-rose-500">*</span></label>
+                                <input type="date" value={formData.date} onChange={(e) => setFormData({ ...formData, date: e.target.value })} className={`input-field w-full px-4 py-3 bg-slate-100 rounded-xl ${validationErrors.date ? 'border-rose-500 ring-1 ring-rose-500' : ''}`} />
+                                {validationErrors.date && <span className="text-rose-500 text-xs font-medium mt-1 block">{validationErrors.date}</span>}
                             </div>
                             <div>
                                 <label className="label-text mb-2 block font-bold text-xs text-slate-500 uppercase">Status Pagamento</label>
@@ -438,12 +436,14 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
 
                         <div className="grid grid-cols-3 gap-4">
                             <div className="col-span-2">
-                                <label className="label-text mb-2 block font-bold text-xs text-slate-500 uppercase">Cliente / Fornecedor</label>
-                                <input type="text" value={formData.client} onChange={(e) => setFormData({ ...formData, client: e.target.value })} className="input-field w-full px-4 py-3 bg-slate-100 rounded-xl" placeholder="Nome da Empresa" />
+                                <label className="label-text mb-2 block font-bold text-xs text-slate-500 uppercase">Cliente / Fornecedor <span className="text-rose-500">*</span></label>
+                                <input type="text" value={formData.client} onChange={(e) => setFormData({ ...formData, client: e.target.value })} className={`input-field w-full px-4 py-3 bg-slate-100 rounded-xl ${validationErrors.client ? 'border-rose-500 ring-1 ring-rose-500' : ''}`} placeholder="Nome da Empresa" />
+                                {validationErrors.client && <span className="text-rose-500 text-xs font-medium mt-1 block">{validationErrors.client}</span>}
                             </div>
                             <div>
                                 <label className="label-text mb-2 block font-bold text-xs text-slate-500 uppercase">NIF</label>
-                                <input type="text" value={formData.nif || ''} onChange={(e) => setFormData({ ...formData, nif: e.target.value })} className="input-field w-full px-4 py-3 bg-slate-100 rounded-xl" placeholder="000000000" />
+                                <input type="text" value={formData.nif || ''} onChange={(e) => setFormData({ ...formData, nif: e.target.value })} className={`input-field w-full px-4 py-3 bg-slate-100 rounded-xl ${validationErrors.nif ? 'border-rose-500 ring-1 ring-rose-500' : ''}`} placeholder="000000000" />
+                                {validationErrors.nif && <span className="text-rose-500 text-xs font-medium mt-1 block">{validationErrors.nif}</span>}
                             </div>
                         </div>
 
@@ -479,8 +479,9 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
                         </div>
 
                         <div>
-                            <label className="label-text mb-2 block font-bold text-xs text-slate-500 uppercase">Valor Total</label>
-                            <input type="number" value={formData.amount} onChange={(e) => setFormData({ ...formData, amount: parseFloat(e.target.value) })} className="input-field w-full font-bold text-lg px-4 py-3 bg-slate-100 rounded-xl" />
+                            <label className="label-text mb-2 block font-bold text-xs text-slate-500 uppercase">Valor Total <span className="text-rose-500">*</span></label>
+                            <input type="number" value={formData.amount} onChange={(e) => setFormData({ ...formData, amount: parseFloat(e.target.value) || 0 })} className={`input-field w-full font-bold text-lg px-4 py-3 bg-slate-100 rounded-xl ${validationErrors.amount ? 'border-rose-500 ring-1 ring-rose-500' : ''}`} />
+                            {validationErrors.amount && <span className="text-rose-500 text-xs font-medium mt-1 block">{validationErrors.amount}</span>}
                         </div>
 
                         {/* Items */}
@@ -493,8 +494,8 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
                                 {formItems.map((item, idx) => (
                                     <div key={idx} className="flex gap-2 items-start">
                                         <input value={item.name} onChange={(e) => handleItemChange(idx, 'name', e.target.value)} className="input-field flex-1 text-sm py-2 px-3 bg-slate-100 rounded-lg" placeholder="Item" />
-                                        <input type="number" value={item.quantity} onChange={(e) => handleItemChange(idx, 'quantity', parseInt(e.target.value))} className="input-field w-20 text-sm py-2 px-3 bg-slate-100 rounded-lg" placeholder="Qtd" />
-                                        <input type="number" value={item.price} onChange={(e) => handleItemChange(idx, 'price', parseFloat(e.target.value))} className="input-field w-24 text-sm py-2 px-3 bg-slate-100 rounded-lg" placeholder="Preço" />
+                                        <input type="number" value={item.quantity} onChange={(e) => handleItemChange(idx, 'quantity', parseInt(e.target.value) || 0)} className="input-field w-20 text-sm py-2 px-3 bg-slate-100 rounded-lg" placeholder="Qtd" />
+                                        <input type="number" value={item.price} onChange={(e) => handleItemChange(idx, 'price', parseFloat(e.target.value) || 0)} className="input-field w-24 text-sm py-2 px-3 bg-slate-100 rounded-lg" placeholder="Preço" />
                                         <button onClick={() => handleRemoveItem(idx)} className="p-2 text-rose-400 hover:text-rose-600"><Trash2 size={16} /></button>
                                     </div>
                                 ))}
