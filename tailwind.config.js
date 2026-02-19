@@ -19,6 +19,7 @@ export default {
                 'bounce-slow': 'bounce 3s infinite',
                 float: 'float 6s ease-in-out infinite',
                 aurora: "aurora 60s linear infinite",
+                marquee: "marquee 30s linear infinite",
                 first: "moveVertical 30s ease infinite",
                 second: "moveInCircle 20s reverse infinite",
                 third: "moveInCircle 40s linear infinite",
@@ -33,6 +34,10 @@ export default {
                 aurora: {
                     from: { backgroundPosition: "50% 50%, 50% 50%" },
                     to: { backgroundPosition: "350% 50%, 350% 50%" },
+                },
+                marquee: {
+                    "0%": { transform: "translateX(0)" },
+                    "100%": { transform: "translateX(-50%)" },
                 },
                 moveHorizontal: {
                     "0%": { transform: "translateX(-50%) translateY(-10%)" },
@@ -52,5 +57,14 @@ export default {
             }
         },
     },
-    plugins: [],
+    plugins: [
+        function addVariablesForColors({ addBase, theme }) {
+            const { default: flattenColorPalette } = require("tailwindcss/lib/util/flattenColorPalette");
+            let allColors = flattenColorPalette(theme("colors"));
+            let newVars = Object.fromEntries(
+                Object.entries(allColors).map(([key, val]) => [`--${key}`, val])
+            );
+            addBase({ ":root": newVars });
+        },
+    ],
 }
