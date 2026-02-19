@@ -30,7 +30,12 @@ import {
     TrendingUp,
     MoreVertical,
     Edit3,
-    X
+    X,
+    ChevronUp,
+    ChevronLeft,
+    ChevronRight,
+    ChevronFirst,
+    ChevronLast
 } from 'lucide-react';
 import { Invoice, InvoiceStatus, InvoiceType, ExpenseType, ReviewStatus } from '../types';
 import { invoiceService, analyticsService, supabase } from '../services';
@@ -47,6 +52,49 @@ interface BillingProps {
     onNavigate?: (page: 'dashboard' | 'billing' | 'ai' | 'goals' | 'builder' | 'settings' | 'help') => void;
 }
 
+const StatusDropdown = ({ invoice, onUpdate }: { invoice: Invoice; onUpdate: (updatedInvoice: Invoice) => void }) => {
+    const [isOpen, setIsOpen] = useState(false);
+    const statuses: InvoiceStatus[] = ['Pendente', 'Pago', 'Atrasado'];
+
+    const handleChange = async (newStatus: InvoiceStatus) => {
+        try {
+            await invoiceService.updateInvoice(invoice.id!, { status: newStatus });
+            onUpdate({ ...invoice, status: newStatus });
+        } catch (e) {
+            console.error('Status update failed', e);
+        }
+        setIsOpen(false);
+    };
+
+    return (
+        <div className="relative" onClick={e => e.stopPropagation()}>
+            <button onClick={() => setIsOpen(!isOpen)} className={`
+          px-3 py-1 rounded-full text-[10px] font-bold uppercase cursor-pointer
+          hover:ring-2 hover:ring-offset-1 hover:ring-[#73c6df]/30 transition-all
+          ${invoice.status === 'Pago' ? 'bg-[#f0fdf4] text-[#15803d]' : ''}
+          ${invoice.status === 'Pendente' ? 'bg-amber-50 text-amber-600' : ''}
+          ${invoice.status === 'Atrasado' ? 'bg-rose-50 text-rose-500' : ''}
+        `}>
+                <div className={`w-1.5 h-1.5 rounded-full inline-block mr-1.5 ${
+                    invoice.status === 'Pago' ? 'bg-[#15803d]' :
+                    invoice.status === 'Pendente' ? 'bg-amber-500' : 'bg-rose-500'
+                }`}></div>
+                {invoice.status} <ChevronDown size={10} className="inline ml-1 opacity-50" />
+            </button>
+            {isOpen && (
+                <div className="absolute top-full mt-1 left-0 bg-white dark:bg-slate-800 border dark:border-slate-700 rounded-xl shadow-lg z-50 py-1 min-w-[120px]">
+                    {statuses.filter(s => s !== invoice.status).map(s => (
+                        <button key={s} onClick={() => handleChange(s)}
+                            className="w-full text-left px-3 py-1.5 text-xs font-medium hover:bg-slate-50 dark:hover:bg-slate-700 dark:text-slate-300">
+                            {s}
+                        </button>
+                    ))}
+                </div>
+            )}
+        </div>
+    );
+};
+
 const Billing: React.FC<BillingProps> = ({ onNavigate }) => {
     // --- State ---
     const [invoices, setInvoices] = useState<Invoice[]>([]);
@@ -54,6 +102,13 @@ const Billing: React.FC<BillingProps> = ({ onNavigate }) => {
     const [selectedInvoices, setSelectedInvoices] = useState<string[]>([]);
     const [viewMode, setViewMode] = useState<'list' | 'grid'>('list');
     const [searchParams, setSearchParams] = useSearchParams();
+
+    // Pagination & Sorting State
+    const [currentPage, setCurrentPage] = useState(1);
+    const [rowsPerPage, setRowsPerPage] = useState(15);
+    const [sortField, setSortField] = useState<keyof Invoice | string>('date');
+    const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
+    const [isExporting, setIsExporting] = useState(false);
 
     // Hook for centralized filtering and stats
     const { filters, setFilter, filteredInvoices, stats } = useInvoiceFilters(invoices);
@@ -142,6 +197,62 @@ const Billing: React.FC<BillingProps> = ({ onNavigate }) => {
         }
     };
 
+    // Reset pagination when filters change
+    useEffect(() => { setCurrentPage(1); }, [filters]);
+
+    // Derived State: Sorting & Pagination
+    const sortedInvoices = useMemo(() => {
+        return [...filteredInvoices].sort((a, b) => {
+            const valA = (a as any)[sortField];
+            const valB = (b as any)[sortField];
+            const mod = sortDirection === 'asc' ? 1 : -1;
+            if (typeof valA === 'string' && typeof valB === 'string') return valA.localeCompare(valB) * mod;
+            return ((valA as number) - (valB as number)) * mod;
+        });
+    }, [filteredInvoices, sortField, sortDirection]);
+
+    const totalPages = Math.ceil(sortedInvoices.length / rowsPerPage);
+    const paginatedInvoices = sortedInvoices.slice(
+        (currentPage - 1) * rowsPerPage,
+        currentPage * rowsPerPage
+    );
+
+    const handleSort = (field: string) => {
+        if (sortField === field) {
+            setSortDirection(d => d === 'asc' ? 'desc' : 'asc');
+        } else {
+            setSortField(field);
+            setSortDirection('asc');
+        }
+    };
+
+    const handleExportCSV = () => {
+        setIsExporting(true);
+        try {
+            const headers = ['Data', 'Cliente', 'Categoria', 'Tipo', 'Valor', 'Status', 'Revisão'];
+            const rows = sortedInvoices.map(inv => [
+                new Date(inv.date).toLocaleDateString(),
+                inv.client,
+                inv.category,
+                inv.type,
+                inv.amount.toString(),
+                inv.status,
+                inv.review_status || 'Não Revisado'
+            ]);
+
+            const csv = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+            const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `faturas_${new Date().toISOString().split('T')[0]}.csv`;
+            a.click();
+            URL.revokeObjectURL(url);
+        } finally {
+            setIsExporting(false);
+        }
+    };
+
     const loadAnalysis = async () => {
         setIsAnalyzing(true);
         try {
@@ -156,6 +267,33 @@ const Billing: React.FC<BillingProps> = ({ onNavigate }) => {
     };
 
     // Countdown timer
+    // Keyboard Shortcuts
+    useEffect(() => {
+        const handler = (e: KeyboardEvent) => {
+            // Ctrl/Cmd + N = Nova fatura
+            if ((e.ctrlKey || e.metaKey) && e.key === 'n') {
+                e.preventDefault();
+                openNewInvoice();
+            }
+            // Ctrl/Cmd + E = Exportar
+            if ((e.ctrlKey || e.metaKey) && e.key === 'e') {
+                e.preventDefault();
+                handleExportCSV();
+            }
+            // Escape = fechar modais
+            if (e.key === 'Escape') {
+                setIsModalOpen(false);
+                setSelectedInvoiceForAnalysis(null);
+            }
+            // Delete = excluir selecionados
+            if (e.key === 'Delete' && selectedInvoices.length > 0) {
+                handleBulkDelete();
+            }
+        };
+        window.addEventListener('keydown', handler);
+        return () => window.removeEventListener('keydown', handler);
+    }, [selectedInvoices]);
+
     useEffect(() => {
         const computeCountdown = () => {
             const now = new Date();
@@ -252,7 +390,7 @@ const Billing: React.FC<BillingProps> = ({ onNavigate }) => {
                             </span>
                         </div>
                         <p className="text-slate-500 dark:text-slate-400 text-xs font-bold uppercase tracking-wider mb-1">Receita Total</p>
-                        <h3 className="text-2xl font-black text-slate-800 dark:text-white">${stats.totalRevenue.toLocaleString()}</h3>
+                        <h3 className="text-2xl font-black text-slate-800 dark:text-white">Kz {stats.totalRevenue.toLocaleString()}</h3>
                     </div>
                 </div>
 
@@ -269,7 +407,7 @@ const Billing: React.FC<BillingProps> = ({ onNavigate }) => {
                             </span>
                         </div>
                         <p className="text-slate-500 dark:text-slate-400 text-xs font-bold uppercase tracking-wider mb-1">Despesas</p>
-                        <h3 className="text-2xl font-black text-slate-800 dark:text-white">${stats.totalExpenses.toLocaleString()}</h3>
+                        <h3 className="text-2xl font-black text-slate-800 dark:text-white">Kz {stats.totalExpenses.toLocaleString()}</h3>
                     </div>
                 </div>
 
@@ -283,7 +421,7 @@ const Billing: React.FC<BillingProps> = ({ onNavigate }) => {
                             </div>
                         </div>
                         <p className="text-cyan-100 text-xs font-bold uppercase tracking-wider mb-1">Lucro Líquido</p>
-                        <h3 className="text-3xl font-black text-white">${(stats.totalRevenue - stats.totalExpenses).toLocaleString()}</h3>
+                        <h3 className="text-3xl font-black text-white">Kz {(stats.totalRevenue - stats.totalExpenses).toLocaleString()}</h3>
                     </div>
                 </div>
 
@@ -300,7 +438,7 @@ const Billing: React.FC<BillingProps> = ({ onNavigate }) => {
                             </span>
                         </div>
                         <p className="text-slate-500 dark:text-slate-400 text-xs font-bold uppercase tracking-wider mb-1">Pendente</p>
-                        <h3 className="text-2xl font-black text-slate-800 dark:text-white">${stats.pendingAmount.toLocaleString()}</h3>
+                        <h3 className="text-2xl font-black text-slate-800 dark:text-white">Kz {stats.pendingAmount.toLocaleString()}</h3>
                     </div>
                 </div>
             </div>
@@ -365,7 +503,7 @@ const Billing: React.FC<BillingProps> = ({ onNavigate }) => {
             </div>
 
             {/* Controls */}
-            <div className="flex flex-col lg:flex-row justify-between gap-6 items-end lg:items-center sticky top-0 bg-slate-50/80 dark:bg-slate-900/80 backdrop-blur-xl z-30 py-4 -mx-4 px-4 border-b border-slate-200/50 dark:border-slate-700/50">
+            <div className="flex flex-col lg:flex-row justify-between gap-6 items-end lg:items-center sticky top-0 bg-slate-50/80 dark:bg-slate-900/80 backdrop-blur-xl z-30 py-4 -mx-4 px-4 border-b border-slate-200/50 dark:border-slate-700/50 mt-8 mb-6">
                 <FilterControls
                     dateRange={filters.dateRange}
                     customStartDate={filters.customStartDate}
@@ -378,10 +516,13 @@ const Billing: React.FC<BillingProps> = ({ onNavigate }) => {
                     searchText={filters.searchText}
                     onSearchChange={(text) => setFilter('searchText', text)}
                     availableCategories={availableCategories}
-                    categoryFilter={filters.subcategoryFilter} // Using subcategoryFilter for category dropdown as per previous logic? No, check useInvoiceFilters.
-                    onCategoryChange={(cat) => setFilter('subcategoryFilter', cat)} // Wait, is it subcategoryFilter or filterType? 
+                    categoryFilter={filters.subcategoryFilter}
+                    onCategoryChange={(cat) => setFilter('subcategoryFilter', cat)}
                 />
                 <div className="flex gap-3">
+                    <button onClick={handleExportCSV} disabled={isExporting || filteredInvoices.length === 0} className="px-4 py-2.5 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 font-bold text-sm hover:bg-slate-50 dark:hover:bg-slate-700 flex items-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
+                        <Download size={16} /> Exportar CSV
+                    </button>
                     <div className="flex bg-white dark:bg-slate-800 p-1 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700">
                         <button onClick={() => setViewMode('list')} className={`p-2 rounded-lg transition-colors ${viewMode === 'list' ? 'bg-slate-100 dark:bg-slate-700 text-[#2e8ba6]' : 'text-slate-400 hover:text-slate-600'}`}><LayoutList size={20} /></button>
                         <button onClick={() => setViewMode('grid')} className={`p-2 rounded-lg transition-colors ${viewMode === 'grid' ? 'bg-slate-100 dark:bg-slate-700 text-[#2e8ba6]' : 'text-slate-400 hover:text-slate-600'}`}><LayoutGrid size={20} /></button>
@@ -398,75 +539,186 @@ const Billing: React.FC<BillingProps> = ({ onNavigate }) => {
                     <Loader2 size={48} className="text-[#2e8ba6] animate-spin mb-4" />
                     <p className="text-slate-400 font-medium animate-pulse">Carregando suas finanças...</p>
                 </div>
-            ) : filteredInvoices.length === 0 ? (
-                <div className="text-center py-20 bg-white dark:bg-slate-800 rounded-[2.5rem] border border-dashed border-slate-300 dark:border-slate-700">
-                    <div className="w-24 h-24 bg-slate-50 dark:bg-slate-700/50 rounded-full flex items-center justify-center mx-auto mb-6">
-                        <FileText size={48} className="text-slate-300" />
-                    </div>
-                    <h3 className="text-xl font-bold text-slate-800 dark:text-white mb-2">Nenhuma fatura encontrada</h3>
-                    <p className="text-slate-500 max-w-md mx-auto mb-8">Não encontramos nenhuma fatura com os filtros atuais. Tente limpar os filtros ou criar uma nova fatura.</p>
-                    <button onClick={openNewInvoice} className="px-6 py-3 bg-[#2e8ba6] text-white rounded-xl font-bold hover:bg-[#257a91] transition-colors">
-                        Criar Primeira Fatura
-                    </button>
-                </div>
             ) : viewMode === 'list' ? (
-                <div className="bg-white dark:bg-slate-800 rounded-[2.5rem] shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden">
+                <div className="bg-white dark:bg-slate-800 rounded-[2.5rem] shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden flex flex-col">
                     <div className="overflow-x-auto">
                         <table className="w-full">
                             <thead className="bg-slate-50 dark:bg-slate-900/50 border-b border-slate-200 dark:border-slate-700">
                                 <tr>
-                                    <th className="px-8 py-5 text-left"><input type="checkbox" className="rounded border-slate-300 text-[#2e8ba6] focus:ring-[#2e8ba6]" onChange={(e) => setSelectedInvoices(e.target.checked ? filteredInvoices.map(i => i.id || '') : [])} checked={selectedInvoices.length === filteredInvoices.length && filteredInvoices.length > 0} /></th>
-                                    <th className="px-6 py-5 text-left text-xs font-bold text-slate-400 uppercase tracking-wider">Documento</th>
-                                    <th className="px-6 py-5 text-left text-xs font-bold text-slate-400 uppercase tracking-wider">Cliente</th>
-                                    <th className="px-6 py-5 text-left text-xs font-bold text-slate-400 uppercase tracking-wider">Data</th>
-                                    <th className="px-6 py-5 text-left text-xs font-bold text-slate-400 uppercase tracking-wider">Status</th>
-                                    <th className="px-6 py-5 text-right text-xs font-bold text-slate-400 uppercase tracking-wider">Valor</th>
+                                    <th className="px-8 py-5 text-left"><input type="checkbox" className="rounded border-slate-300 text-[#2e8ba6] focus:ring-[#2e8ba6]" onChange={(e) => setSelectedInvoices(e.target.checked ? paginatedInvoices.map(i => i.id || '') : [])} checked={selectedInvoices.length === paginatedInvoices.length && paginatedInvoices.length > 0} /></th>
+                                    
+                                    <th className="px-6 py-5 text-left text-xs font-bold text-slate-400 uppercase tracking-wider cursor-pointer hover:text-[#2e8ba6] transition-colors group" onClick={() => handleSort('client')}>
+                                        <div className="flex items-center gap-1">
+                                            Fatura / Cliente
+                                            {sortField === 'client' ? (sortDirection === 'asc' ? <ChevronUp size={14} className="text-[#2e8ba6]"/> : <ChevronDown size={14} className="text-[#2e8ba6]"/>) : <ArrowUpDown size={14} className="opacity-0 group-hover:opacity-50 transition-opacity" />}
+                                        </div>
+                                    </th>
+
+                                    <th className="px-6 py-5 text-left text-xs font-bold text-slate-400 uppercase tracking-wider cursor-pointer hover:text-[#2e8ba6] transition-colors group" onClick={() => handleSort('category')}>
+                                        <div className="flex items-center gap-1">
+                                            Categoria
+                                            {sortField === 'category' ? (sortDirection === 'asc' ? <ChevronUp size={14} className="text-[#2e8ba6]"/> : <ChevronDown size={14} className="text-[#2e8ba6]"/>) : <ArrowUpDown size={14} className="opacity-0 group-hover:opacity-50 transition-opacity" />}
+                                        </div>
+                                    </th>
+
+                                    <th className="px-6 py-5 text-left text-xs font-bold text-slate-400 uppercase tracking-wider cursor-pointer hover:text-[#2e8ba6] transition-colors group" onClick={() => handleSort('date')}>
+                                        <div className="flex items-center gap-1">
+                                            Data
+                                            {sortField === 'date' ? (sortDirection === 'asc' ? <ChevronUp size={14} className="text-[#2e8ba6]"/> : <ChevronDown size={14} className="text-[#2e8ba6]"/>) : <ArrowUpDown size={14} className="opacity-0 group-hover:opacity-50 transition-opacity" />}
+                                        </div>
+                                    </th>
+
+                                    <th className="px-6 py-5 text-left text-xs font-bold text-slate-400 uppercase tracking-wider cursor-pointer hover:text-[#2e8ba6] transition-colors group" onClick={() => handleSort('status')}>
+                                        <div className="flex items-center gap-1">
+                                            Status
+                                            {sortField === 'status' ? (sortDirection === 'asc' ? <ChevronUp size={14} className="text-[#2e8ba6]"/> : <ChevronDown size={14} className="text-[#2e8ba6]"/>) : <ArrowUpDown size={14} className="opacity-0 group-hover:opacity-50 transition-opacity" />}
+                                        </div>
+                                    </th>
+
+                                    <th className="px-6 py-5 text-right text-xs font-bold text-slate-400 uppercase tracking-wider cursor-pointer hover:text-[#2e8ba6] transition-colors group" onClick={() => handleSort('amount')}>
+                                        <div className="flex items-center justify-end gap-1">
+                                            Valor
+                                            {sortField === 'amount' ? (sortDirection === 'asc' ? <ChevronUp size={14} className="text-[#2e8ba6]"/> : <ChevronDown size={14} className="text-[#2e8ba6]"/>) : <ArrowUpDown size={14} className="opacity-0 group-hover:opacity-50 transition-opacity" />}
+                                        </div>
+                                    </th>
+
                                     <th className="px-6 py-5 text-center text-xs font-bold text-slate-400 uppercase tracking-wider">Ações</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
-                                {filteredInvoices.map((invoice) => (
-                                    <tr key={invoice.id} className="group hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors cursor-pointer" onClick={() => setSelectedInvoiceForAnalysis(invoice)}>
-                                        <td className="px-8 py-5" onClick={(e) => e.stopPropagation()}>
-                                            <input type="checkbox" checked={selectedInvoices.includes(invoice.id || '')} onChange={() => toggleSelection(invoice.id || '')} className="rounded border-slate-300 text-[#2e8ba6] focus:ring-[#2e8ba6]" />
-                                        </td>
-                                        <td className="px-6 py-5">
-                                            <div className="flex items-center gap-3">
-                                                <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${invoice.type === 'Receita' ? 'bg-[#f0fdf4] text-[#15803d]' : 'bg-rose-50 text-rose-500'}`}>
-                                                    {invoice.type === 'Receita' ? <ArrowUpRight size={20} /> : <ArrowDownRight size={20} />}
+                                {paginatedInvoices.length === 0 ? (
+                                    <tr>
+                                        <td colSpan={8} className="py-20 text-center">
+                                            <div className="flex flex-col items-center gap-4">
+                                                <div className="w-16 h-16 rounded-full bg-slate-100 dark:bg-slate-700/50 flex items-center justify-center">
+                                                    <FileText size={28} className="text-slate-300" />
                                                 </div>
                                                 <div>
-                                                    <p className="font-bold text-slate-700 dark:text-slate-200 text-sm">#{invoice.id?.slice(0, 8)}</p>
-                                                    <p className="text-xs text-slate-400">{invoice.category}</p>
+                                                    <p className="text-sm font-bold text-slate-500 dark:text-slate-400">Nenhuma fatura encontrada</p>
+                                                    <p className="text-xs text-slate-400 mt-1">
+                                                        {filters.searchText || filters.filterType !== 'Todos'
+                                                            ? 'Tente ajustar os filtros de pesquisa.'
+                                                            : 'Clique em "Nova Fatura" para começar.'}
+                                                    </p>
                                                 </div>
-                                            </div>
-                                        </td>
-                                        <td className="px-6 py-5 text-sm font-medium text-slate-600 dark:text-slate-300">{invoice.client}</td>
-                                        <td className="px-6 py-5 text-sm text-slate-500">{new Date(invoice.date).toLocaleDateString()}</td>
-                                        <td className="px-6 py-5">
-                                            <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wide inline-flex items-center gap-1.5 ${
-                                                invoice.status === 'Pago' ? 'bg-[#f0fdf4] text-[#15803d]' : 
-                                                invoice.status === 'Pendente' ? 'bg-amber-50 text-amber-600' : 'bg-rose-50 text-rose-600'
-                                            }`}>
-                                                <div className={`w-1.5 h-1.5 rounded-full ${
-                                                    invoice.status === 'Pago' ? 'bg-[#15803d]' : 
-                                                    invoice.status === 'Pendente' ? 'bg-amber-500' : 'bg-rose-500'
-                                                }`}></div>
-                                                {invoice.status}
-                                            </span>
-                                        </td>
-                                        <td className="px-6 py-5 text-right font-bold text-slate-700 dark:text-white">${invoice.amount.toLocaleString()}</td>
-                                        <td className="px-6 py-5">
-                                            <div className="flex justify-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                                                <button onClick={(e) => { e.stopPropagation(); openEditModal(invoice); }} className="p-2 text-slate-400 hover:text-[#2e8ba6] hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg"><Edit3 size={16} /></button>
-                                                <button onClick={(e) => { e.stopPropagation(); handleDeleteInvoice(invoice.id || '', e); }} className="p-2 text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-900/20 rounded-lg"><Trash2 size={16} /></button>
+                                                {!filters.searchText && filters.filterType === 'Todos' && (
+                                                    <button onClick={openNewInvoice}
+                                                        className="mt-2 px-4 py-2 bg-[#73c6df] text-white rounded-xl text-xs font-bold hover:bg-[#5dbad6] transition-colors">
+                                                        + Adicionar Primeira Fatura
+                                                    </button>
+                                                )}
                                             </div>
                                         </td>
                                     </tr>
-                                ))}
+                                ) : (
+                                    paginatedInvoices.map((invoice) => (
+                                        <tr key={invoice.id} className="group hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors cursor-pointer" onClick={() => setSelectedInvoiceForAnalysis(invoice)}>
+                                            <td className="px-8 py-5" onClick={(e) => e.stopPropagation()}>
+                                                <input type="checkbox" checked={selectedInvoices.includes(invoice.id || '')} onChange={() => toggleSelection(invoice.id || '')} className="rounded border-slate-300 text-[#2e8ba6] focus:ring-[#2e8ba6]" />
+                                            </td>
+                                            <td className="px-6 py-5">
+                                                <div className="relative group/preview">
+                                                    <div className="flex items-center gap-3">
+                                                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${invoice.type === 'Receita' ? 'bg-[#f0fdf4] text-[#15803d]' : 'bg-rose-50 text-rose-500'}`}>
+                                                            {invoice.type === 'Receita' ? <ArrowUpRight size={20} /> : <ArrowDownRight size={20} />}
+                                                        </div>
+                                                        <div>
+                                                            <p className="font-bold text-slate-700 dark:text-slate-200 text-sm">#{invoice.id?.slice(0, 8)}</p>
+                                                            <div className="flex items-center gap-2">
+                                                                <p className="text-xs text-slate-400">{invoice.category}</p>
+                                                                {invoice.fileUrl && <Eye size={12} className="text-slate-300 opacity-0 group-hover/preview:opacity-100 transition-opacity" />}
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                    {/* Preview Tooltip */}
+                                                    {invoice.fileUrl && (
+                                                        <div className="absolute left-full ml-4 top-1/2 -translate-y-1/2 z-50 opacity-0 group-hover/preview:opacity-100 pointer-events-none transition-opacity duration-200 hidden md:block">
+                                                            <div className="bg-white rounded-xl shadow-2xl border p-2 w-48">
+                                                                <img src={invoice.fileUrl} alt="Preview" className="w-full h-auto rounded-lg" />
+                                                            </div>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </td>
+                                            <td className="px-6 py-5 text-sm font-medium text-slate-600 dark:text-slate-300">{invoice.client}</td>
+                                            <td className="px-6 py-5 text-sm text-slate-500">{new Date(invoice.date).toLocaleDateString()}</td>
+                                            <td className="px-6 py-5" onClick={(e) => e.stopPropagation()}>
+                                                <StatusDropdown invoice={invoice} onUpdate={(updated) => setInvoices(prev => prev.map(inv => inv.id === updated.id ? updated : inv))} />
+                                            </td>
+                                            <td className="px-6 py-5 text-right">
+                                                <div className="flex items-center justify-end gap-1.5">
+                                                    {invoice.type === 'Receita'
+                                                        ? <ArrowUpRight size={14} className="text-emerald-500" />
+                                                        : <ArrowDownRight size={14} className="text-rose-400" />
+                                                    }
+                                                    <span className={`font-bold ${invoice.type === 'Receita' ? 'text-slate-700 dark:text-white' : 'text-rose-500'}`}>
+                                                        {invoice.type === 'Despesa' ? '-' : ''}Kz {invoice.amount.toLocaleString()}
+                                                    </span>
+                                                </div>
+                                            </td>
+                                            <td className="px-6 py-5">
+                                                <div className="flex justify-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                    <button onClick={(e) => { e.stopPropagation(); openEditModal(invoice); }} className="p-2 text-slate-400 hover:text-[#2e8ba6] hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg"><Edit3 size={16} /></button>
+                                                    <button onClick={(e) => { e.stopPropagation(); handleDeleteInvoice(invoice.id || '', e); }} className="p-2 text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-900/20 rounded-lg"><Trash2 size={16} /></button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    ))
+                                )}
                             </tbody>
                         </table>
                     </div>
+                    {/* Pagination Footer */}
+                    {paginatedInvoices.length > 0 && (
+                        <div className="flex items-center justify-between p-6 border-t border-slate-100 dark:border-slate-700 bg-white dark:bg-slate-800">
+                            <span className="text-xs text-slate-400 font-medium">
+                                {(currentPage - 1) * rowsPerPage + 1}–{Math.min(currentPage * rowsPerPage, filteredInvoices.length)} de {filteredInvoices.length}
+                            </span>
+                            <div className="flex items-center gap-1">
+                                <button
+                                    disabled={currentPage === 1}
+                                    onClick={() => setCurrentPage(1)}
+                                    className="p-2 rounded-lg text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                                >
+                                    <ChevronFirst size={16} />
+                                </button>
+                                <button
+                                    disabled={currentPage === 1}
+                                    onClick={() => setCurrentPage(p => p - 1)}
+                                    className="p-2 rounded-lg text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                                >
+                                    <ChevronLeft size={16} />
+                                </button>
+                                <span className="text-xs font-bold text-slate-600 dark:text-slate-300 px-2">
+                                    Página {currentPage} de {totalPages}
+                                </span>
+                                <button
+                                    disabled={currentPage === totalPages}
+                                    onClick={() => setCurrentPage(p => p + 1)}
+                                    className="p-2 rounded-lg text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                                >
+                                    <ChevronRight size={16} />
+                                </button>
+                                <button
+                                    disabled={currentPage === totalPages}
+                                    onClick={() => setCurrentPage(totalPages)}
+                                    className="p-2 rounded-lg text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                                >
+                                    <ChevronLast size={16} />
+                                </button>
+                            </div>
+                            <select
+                                value={rowsPerPage}
+                                onChange={e => { setRowsPerPage(+e.target.value); setCurrentPage(1); }}
+                                className="text-xs border border-slate-200 dark:border-slate-600 rounded-lg px-2 py-1 bg-white dark:bg-slate-700 text-slate-600 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-[#73c6df]/50"
+                            >
+                                <option value={10}>10 por página</option>
+                                <option value={15}>15 por página</option>
+                                <option value={20}>20 por página</option>
+                                <option value={50}>50 por página</option>
+                            </select>
+                        </div>
+                    )}
                 </div>
             ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -494,7 +746,7 @@ const Billing: React.FC<BillingProps> = ({ onNavigate }) => {
                                         invoice.status === 'Pendente' ? 'bg-amber-50 text-amber-600' : 'bg-rose-50 text-rose-600'
                                     }`}>{invoice.status}</span>
                                 </div>
-                                <span className="text-2xl font-black text-slate-800 dark:text-white">${invoice.amount.toLocaleString()}</span>
+                                <span className="text-2xl font-black text-slate-800 dark:text-white">Kz {invoice.amount.toLocaleString()}</span>
                              </div>
                         </div>
                     ))}
