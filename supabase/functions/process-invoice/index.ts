@@ -2,16 +2,7 @@
 import { createClient } from 'npm:@supabase/supabase-js@2'
 import { GoogleGenerativeAI } from 'npm:@google/generative-ai'
 
-// Helper for large file Base64 encoding (avoids stack overflow)
-function arrayBufferToBase64(buffer: ArrayBuffer) {
-    let binary = '';
-    const bytes = new Uint8Array(buffer);
-    const len = bytes.byteLength;
-    for (let i = 0; i < len; i++) {
-        binary += String.fromCharCode(bytes[i]);
-    }
-    return btoa(binary);
-}
+import { encodeBase64 } from "jsr:@std/encoding@1/base64"
 
 // Allow all origins for development and preview environments
 // In production, this is still safe because we require a valid Supabase Auth token
@@ -97,7 +88,7 @@ Deno.serve(async (req: Request) => {
 
         // 3. Prepare for Gemini (Native Base64 implementation)
         const arrayBuffer = await fileData.arrayBuffer()
-        const base64Data = arrayBufferToBase64(arrayBuffer)
+        const base64Data = encodeBase64(arrayBuffer)
 
         // Initialize Gemini
         const apiKey = Deno.env.get('GOOGLE_GENERATIVE_AI_API_KEY')
@@ -109,38 +100,37 @@ Deno.serve(async (req: Request) => {
         const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash-001' })
 
         // Prompt from n8n Workflow
-        const prompt = `
-    ### ROLE: Auditor Financeiro Sénior e Especialista em OCR (Angola)
+        const prompt = `### ROLE: Auditor Financeiro Sénior e Especialista em OCR (Angola)
 
-    ### OBJETIVO:
-    Extrair dados de documentos fiscais com precisão absoluta. Se não houver 100% de certeza visual de um dado, não tente adivinhar.
+### OBJETIVO:
+Extrair dados de documentos fiscais com precisão absoluta. Se não houver 100% de certeza visual de um dado, não tente adivinhar.
 
-    ### REGRAS DE VERIFICAÇÃO (ANTI-ALUCINAÇÃO):
-    1. INTEGRIDADE VISUAL: Antes de extrair, verifique se a imagem está focada e se os bordos do documento são visíveis. Se estiver ilegível, defina "needs_new_image": true.
-    2. VALOR TOTAL: O "total_amount" deve ser o valor final. Se houver discrepância entre subtotal + impostos e o total visível, use null e avise no "ai_advice".
-    3. NIF: O NIF deve ter exatamente 9 dígitos (ou formato angolano válido). Se houver ruído visual que impeça a leitura clara de um dos dígitos, use null.
-    4. DATA: Use apenas datas explicitamente escritas. Não use a data de "hoje" como fallback para a data da fatura.
-    "CONFIDENCE_LEVEL": Valor de 0 a 100 baseado na clareza da imagem.
+### REGRAS DE VERIFICAÇÃO (ANTI-ALUCINAÇÃO):
+1. INTEGRIDADE VISUAL: Antes de extrair, verifique se a imagem está focada e se os bordos do documento são visíveis. Se estiver ilegível, defina "needs_new_image": true.
+2. VALOR TOTAL: O "total_amount" deve ser o valor final. Se houver discrepância entre subtotal + impostos e o total visível, use null e avise no "ai_advice".
+3. NIF: O NIF deve ter exatamente 9 dígitos. Se houver ruído visual que impeça a leitura clara de um dos dígitos, use null.
+4. DATA: Use apenas datas explicitamente escritas. Não use a data de "hoje" como fallback para a data da fatura.
 
-    ### ESTRUTURA DE UMA FATURA:
-    - Na parte superior da fatura geralmente vem o vendor_name, invoice_number, issue_date e currency.
-    - HEADER: Codigo, Nome, quantidade, preço, IVA, Total.
-    - Após produtos: total da fatura.
-    - Apos o total vem outros dados de compliance com AGT (AT-CUD).
+### ESTRUTURA DE UMA FATURA:
+- Na parte superior da fatura geralmente vem o vendor_name, invoice_number, issue_date e currency.
+-De seguida vem o *HEADER* que geralmente vem o Codigo do artigo, Nome do artigo (as vezes pode ser chamado de descrição), quantidade, preço, IVA e o Total daquele produto.
+- Após todos os produtos vem o total da fatura.
+- Apos o total vem outros dados de compliance com AGT.
 
-    ### MAPEAMENTO DE CAMPOS (JSON):
-    - "vendor_name": OBRIGATÓRIO. O nome da empresa/entidade no topo. Tente encontrar LOGOTIPO ou cabeçalho. Se não encontrar, tente inferir pelo rodapé. Retorne "Desconhecido" APENAS se impossível.
-    - "invoice_number": Número da fatura.
-    - "vendor_nif": NIF. Importante para validação.
-    - "total_amount": Valor final a pagar.
-    - "currency": [AKZ, EUR, USD].
-    - "issue_date": YYYY-MM-DD.
-    - "items": Lista detalhada.
-    - "missing_fields": Liste quais campos não encontrou.
-
-    **IMPORTANTE SOBRE VENDOR_NAME:**
-    Procure por texto em negrito ou com fonte maior na parte superior esquerda ou central. Geralmente é a primeira linha.
-    `
+### MAPEAMENTO DE CAMPOS (JSON):
+- "invoice_number": Número da fatura ou transação o Numero da fatura geralmente vem escrito "FR N.". Use null se ilegível.
+- "vendor_name": Nome oficial esta na parte superior da fatura. Se estiver cortado, use null.
+- "vendor_nif": NIF. Importante para validação.
+- "total_amount": Apenas números (ex: 1250.50). Proibido inventar.
+- "currency": Sigla [AKZ (como moeda predefinida e será outra moeda caso diga explicitamente na fatura), EUR, USD]
+- "issue_date": YYYY-MM-DD. Use null se não encontrar.
+- "atcud": Código visível ou null.
+- "category": [Tecnologia, Alimentação, Serviços, Logística, Outros].
+- "is_agt_valid": true se houver selo AGT ou menção a software validado.
+- "confidence_level": Valor de 0 a 100 baseado na clareza da imagem.
+- "needs_new_image": booleano. Defina true se a imagem for impossível de auditar com certeza.
+- "items": "Lista exata de produtos: [{ "description": "Nome", "quantity": 1, "total_price": 0.00, "unit_price": 0.00, "tax_amount": 0.00 }]"
+`
 
         console.log("Sending to Gemini...")
         let result;

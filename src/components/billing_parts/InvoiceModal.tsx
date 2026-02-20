@@ -275,8 +275,8 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
                         ) : (
                             <button 
                                 onClick={handleSaveInvoice} 
-                                disabled={!formData.client || formData.client.trim().length === 0 || !formData.date || !formData.amount || formData.amount <= 0}
-                                className={`px-8 py-3 rounded-xl font-bold flex items-center gap-2 transition-transform ${(!formData.client || formData.client.trim().length === 0 || !formData.date || !formData.amount || formData.amount <= 0) ? 'bg-slate-200 text-slate-400 cursor-not-allowed' : 'bg-[#2e8ba6] text-white shadow-lg hover:bg-[#257a91] active:scale-95'}`}
+                                disabled={!formData.client || formData.client.trim().length === 0 || !formData.amount || formData.amount <= 0}
+                                className={`px-8 py-3 rounded-xl font-bold flex items-center gap-2 transition-transform ${(!formData.client || formData.client.trim().length === 0 || !formData.amount || formData.amount <= 0) ? 'bg-slate-200 text-slate-400 cursor-not-allowed' : 'bg-[#2e8ba6] text-white shadow-lg hover:bg-[#257a91] active:scale-95'}`}
                             >
                                 <Save size={18} /> Salvar Fatura
                             </button>
@@ -424,10 +424,9 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
 
                         <div className="grid grid-cols-2 gap-4">
                             <div>
-                                <label className="label-text mb-2 block font-bold text-xs text-slate-500 uppercase">Data <span className="text-rose-500">*</span></label>
-                                <input type="date" value={formData.date} onChange={(e) => setFormData({ ...formData, date: e.target.value })} className={`input-field w-full px-4 py-3 bg-slate-100 rounded-xl ${(validationErrors.date || !formData.date) ? 'border-rose-500 ring-1 ring-rose-500' : ''}`} />
-                                <p className="text-[10px] text-slate-400 mt-1">Obrigatório. Insira a data de emissão.</p>
-                                {validationErrors.date && <span className="text-rose-500 text-[10px] font-bold mt-1 block">{validationErrors.date}</span>}
+                                <label className="label-text mb-2 block font-bold text-xs text-slate-500 uppercase">Data</label>
+                                <input type="date" value={formData.date || ''} onChange={(e) => setFormData({ ...formData, date: e.target.value })} className="input-field w-full px-4 py-3 bg-slate-100 rounded-xl" />
+                                <p className="text-[10px] text-slate-400 mt-1">Opcional. Se vazio, assume a data de hoje.</p>
                             </div>
                             <div>
                                 <label className="label-text mb-2 block font-bold text-xs text-slate-500 uppercase">Status Pagamento</label>
@@ -439,17 +438,23 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
                             </div>
                         </div>
 
-                        <div className="grid grid-cols-3 gap-4">
-                            <div className="col-span-2">
+                        <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
+                            <div className="col-span-2 lg:col-span-1">
                                 <label className="label-text mb-2 block font-bold text-xs text-slate-500 uppercase">Cliente / Fornecedor <span className="text-rose-500">*</span></label>
                                 <input type="text" value={formData.client} onChange={(e) => setFormData({ ...formData, client: e.target.value })} className={`input-field w-full px-4 py-3 bg-slate-100 rounded-xl ${(validationErrors.client || !formData.client || formData.client.trim().length === 0) ? 'border-rose-500 ring-1 ring-rose-500' : ''}`} placeholder="Nome da Empresa" />
                                 <p className="text-[10px] text-slate-400 mt-1">Obrigatório. Mínimo 2 caracteres.</p>
                                 {validationErrors.client && <span className="text-rose-500 text-[10px] font-bold mt-1 block">{validationErrors.client}</span>}
                             </div>
-                            <div>
+                            <div className="lg:col-span-1">
+                                <label className="label-text mb-2 block font-bold text-xs text-slate-500 uppercase">Nº da Fatura <span className="text-rose-500">*</span></label>
+                                <input type="text" value={formData.invoiceNumber || ''} onChange={(e) => setFormData({ ...formData, invoiceNumber: e.target.value })} className="input-field w-full px-4 py-3 bg-slate-100 rounded-xl" placeholder="Deixe vazio para auto-gerar" />
+                                <p className="text-[10px] text-slate-400 mt-1">Será gerado se deixado em branco.</p>
+                            </div>
+                            <div className="lg:col-span-1">
                                 <label className="label-text mb-2 block font-bold text-xs text-slate-500 uppercase">NIF</label>
                                 <input type="text" value={formData.nif || ''} onChange={(e) => setFormData({ ...formData, nif: e.target.value })} className={`input-field w-full px-4 py-3 bg-slate-100 rounded-xl ${validationErrors.nif ? 'border-rose-500 ring-1 ring-rose-500' : ''}`} placeholder="000000000" />
                                 {validationErrors.nif && <span className="text-rose-500 text-xs font-medium mt-1 block">{validationErrors.nif}</span>}
+                                <p className="text-[10px] text-slate-400 mt-1">Opcional.</p>
                             </div>
                         </div>
 

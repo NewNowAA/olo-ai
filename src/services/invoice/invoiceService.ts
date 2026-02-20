@@ -125,7 +125,7 @@ export const invoiceService = {
             expense_type: invoice.expense_type,
             review_status: invoice.review_status,
             file_url: fileUrl,
-            invoice_number: invoice.id?.startsWith('INV') ? invoice.id : `INV-${Date.now()}`,
+            invoice_number: invoice.invoiceNumber && invoice.invoiceNumber.trim() !== '' ? invoice.invoiceNumber : (invoice.id?.startsWith('INV') ? invoice.id : `INV-${Date.now()}`),
             currency: 'AOA',
             user_id: user?.id,
             nif: invoice.nif,
@@ -173,7 +173,8 @@ export const invoiceService = {
         if (updates.review_status) dbUpdates.review_status = updates.review_status;
         if (updates.type) dbUpdates.expense_or_income = updates.type;
         if (updates.fileUrl) dbUpdates.file_url = updates.fileUrl; // Allow updating file URL
-        if (updates.nif) dbUpdates.nif = updates.nif;
+        if (updates.nif !== undefined) dbUpdates.nif = updates.nif;
+        if (updates.invoiceNumber !== undefined) dbUpdates.invoice_number = updates.invoiceNumber;
         
         // Recalculate hash if critical fields change (simplified for now, ideally strictly immutable)
         if (updates.amount || updates.date) {
