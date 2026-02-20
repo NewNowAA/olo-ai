@@ -141,13 +141,13 @@ export const invoiceService = {
         if (invError) throw invError;
 
         if (invoice.items && invoice.items.length > 0) {
-            const itemsData = invoice.items.map(item => ({
+            const itemsData = invoice.items.map((item, index) => ({
                 invoice_id: newInvoice.id,
-                description: item.name,
-                quantity: item.quantity,
-                unit_price: item.price,
-                total_price: item.quantity * item.price,
-                tax_amount: item.vat
+                description: item.name && item.name.trim() !== '' ? item.name : (item.description || `Artigo ${index + 1}`),
+                quantity: item.quantity ?? 1,
+                unit_price: item.price ?? 0,
+                total_price: (item.quantity ?? 1) * (item.price ?? 0),
+                tax_amount: item.vat ?? 0
             }));
 
             const { error: itemsError } = await supabase
