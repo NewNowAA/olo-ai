@@ -86,18 +86,20 @@ Deno.serve(async (req: Request) => {
         // --- FETCH DATA CONTEXT (Common for both actions) ---
         
         // 1. Invoices
-        const { data: invoices } = await supabase
+        const { data: invoices, error: err } = await supabase
             .from('invoices')
-            .select('vendor_name, total_amount, issue_date, category, status, type, invoice_products(name, quantity, unit_price, total_price)')
+            .select('vendor_name, total_amount, issue_date, category, status, expense_or_income, invoice_products(name, quantity, unit_price, total_price)')
             .eq('user_id', user.id)
             .order('issue_date', { ascending: false })
             .limit(action === 'daily_analysis' ? 50 : 40)
 
+        if (err) console.error("Error fetching invoices:", err);
+
         let invoiceContext = 'Sem dados de faturas disponíveis.'
         
         if (invoices && invoices.length > 0) {
-            const totalRevenue = invoices.filter((i: any) => i.type === 'Receita').reduce((sum, i) => sum + (i.total_amount || 0), 0);
-            const totalExpenses = invoices.filter((i: any) => i.type === 'Despesa').reduce((sum, i) => sum + (i.total_amount || 0), 0);
+            const totalRevenue = invoices.filter((i: any) => i.expense_or_income === 'Receita').reduce((sum, i) => sum + (i.total_amount || 0), 0);
+            const totalExpenses = invoices.filter((i: any) => i.expense_or_income === 'Despesa').reduce((sum, i) => sum + (i.total_amount || 0), 0);
             
             // Calculate Top Items
             const itemStats: Record<string, {count: number, total: number}> = {};

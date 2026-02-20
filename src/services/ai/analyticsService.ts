@@ -3,7 +3,7 @@ import { geminiService } from './geminiService';
 import { invoiceService } from '../invoice/invoiceService';
 
 export const analyticsService = {
-    async getDailyAnalysis(): Promise<string> {
+    async getDailyAnalysis(forceRefresh: boolean = false): Promise<string> {
         try {
             const user = (await supabase.auth.getUser()).data.user;
             if (!user) return '';
@@ -13,12 +13,12 @@ export const analyticsService = {
             // 1. Check if analysis already exists for today
             const { data: existing } = await supabase
                 .from('daily_analytics')
-                .select('analysis_text')
+                .select('id, analysis_text')
                 .eq('user_id', user.id)
                 .eq('date', today)
                 .maybeSingle();
 
-            if (existing) {
+            if (!forceRefresh && existing && !existing.analysis_text.startsWith("Erro") && !existing.analysis_text.startsWith("Falha")) {
                 return existing.analysis_text;
             }
 
@@ -50,17 +50,20 @@ export const analyticsService = {
             }
 
             // 3. Save to DB
-            const { error } = await supabase.from('daily_analytics').insert({
-                user_id: user.id,
-                date: today,
-                analysis_text: analysis
-            });
-
-            if (error) {
-                console.error("Error saving analytics:", error);
-                // Return generated even if save fails
+            if (existing) {
+                const { error } = await supabase.from('daily_analytics').update({
+                    analysis_text: analysis
+                }).eq('id', existing.id);
+                if (error) console.error("Error updating analytics:", error);
+            } else {
+                const { error } = await supabase.from('daily_analytics').insert({
+                    user_id: user.id,
+                    date: today,
+                    analysis_text: analysis
+                });
+                if (error) console.error("Error saving analytics:", error);
             }
-
+                // Return generated even if save fails
             return analysis;
         } catch (error) {
             console.error('Analytics Service Error (Final):', error);

@@ -29,6 +29,7 @@ const Goals: React.FC<GoalsProps> = ({ lastUpdated }) => {
         kpi: 'Receita',
         start_date: new Date().toISOString().split('T')[0],
         category: '',
+        target_type: 'currency',
         color: 'bg-[#73c6df]'
     });
 
@@ -158,7 +159,8 @@ const Goals: React.FC<GoalsProps> = ({ lastUpdated }) => {
                     target_value: Number(newGoal.target_value),
                     deadline: newGoal.deadline,
                     type: newGoal.type as any,
-                    kpi: newGoal.kpi || 'Geral'
+                    kpi: newGoal.kpi || 'Geral',
+                    target_type: newGoal.target_type || 'currency'
                 });
             } else {
                 // Create new
@@ -167,7 +169,8 @@ const Goals: React.FC<GoalsProps> = ({ lastUpdated }) => {
                     target_value: Number(newGoal.target_value),
                     deadline: newGoal.deadline,
                     type: newGoal.type as any,
-                    kpi: newGoal.kpi || 'Geral'
+                    kpi: newGoal.kpi || 'Geral',
+                    target_type: newGoal.target_type || 'currency'
                 });
             }
             await loadGoals();
@@ -177,7 +180,8 @@ const Goals: React.FC<GoalsProps> = ({ lastUpdated }) => {
                 kpi: 'Receita',
                 color: 'bg-[#73c6df]',
                 start_date: new Date().toISOString().split('T')[0],
-                category: ''
+                category: '',
+                target_type: 'currency'
             });
         } catch (error) {
             console.error("Error saving goal", error);
@@ -217,7 +221,8 @@ const Goals: React.FC<GoalsProps> = ({ lastUpdated }) => {
             kpi: goal.kpi,
             color: goal.color,
             start_date: goal.start_date,
-            category: goal.category
+            category: goal.category,
+            target_type: goal.target_type || 'currency'
         });
         setIsModalOpen(true);
     };
@@ -228,7 +233,8 @@ const Goals: React.FC<GoalsProps> = ({ lastUpdated }) => {
             kpi: 'Receita',
             color: 'bg-[#73c6df]',
             start_date: new Date().toISOString().split('T')[0],
-            category: ''
+            category: '',
+            target_type: 'currency'
         });
         setIsModalOpen(true);
     };
@@ -331,8 +337,16 @@ const Goals: React.FC<GoalsProps> = ({ lastUpdated }) => {
 
                                 <div className="space-y-4">
                                     <div className="flex justify-between items-end">
-                                        <span className="text-4xl font-extrabold text-slate-800 dark:text-white">${filteredGoals[0].current_value}</span>
-                                        <span className="text-sm font-bold text-slate-500 dark:text-slate-400">Alvo: ${filteredGoals[0].target_value}</span>
+                                        <span className="text-4xl font-extrabold text-slate-800 dark:text-white">
+                                            {filteredGoals[0].target_type === 'percentage' 
+                                                ? `${filteredGoals[0].current_value}%` 
+                                                : `$${filteredGoals[0].current_value}`}
+                                        </span>
+                                        <span className="text-sm font-bold text-slate-500 dark:text-slate-400">
+                                            Alvo: {filteredGoals[0].target_type === 'percentage' 
+                                                ? `${filteredGoals[0].target_value}%` 
+                                                : `$${filteredGoals[0].target_value}`}
+                                        </span>
                                     </div>
                                     <div className="w-full h-4 bg-white/60 dark:bg-slate-700/60 rounded-full overflow-hidden border border-white/50 dark:border-slate-600">
                                         <div className="h-full bg-gradient-to-r from-[#73c6df] to-[#8bd7bf] rounded-full shadow-sm relative transition-all duration-1000" style={{ width: `${filteredGoals[0].progress}%` }}>
@@ -474,6 +488,11 @@ const Goals: React.FC<GoalsProps> = ({ lastUpdated }) => {
                             </div>
                             <span className="text-xs font-bold text-slate-600 dark:text-slate-300">{goal.progress}%</span>
                         </div>
+                        <p className="text-[10px] text-slate-500 mt-2 text-right">
+                            {goal.target_type === 'percentage' 
+                                ? `${goal.current_value}% / ${goal.target_value}%` 
+                                : `$${goal.current_value.toLocaleString()} / $${goal.target_value.toLocaleString()}`}
+                        </p>
                     </div>
                 ))}
 
@@ -551,15 +570,32 @@ const Goals: React.FC<GoalsProps> = ({ lastUpdated }) => {
                                     <div className="flex bg-slate-50 dark:bg-slate-700 p-1 rounded-xl border border-slate-200 dark:border-slate-600">
                                         <button
                                             onClick={() => setNewGoal({ ...newGoal, type: 'Individual' })}
-                                            className={`flex-1 py-2 rounded-lg text-xs font-bold flex items-center justify-center gap-1 ${newGoal.type === 'Individual' ? 'bg-white dark:bg-slate-600 shadow-sm text-[#2e8ba6]' : 'text-slate-400'}`}
+                                            className={`flex-1 py-3 rounded-lg text-xs font-bold flex items-center justify-center gap-1 transition-all ${newGoal.type === 'Individual' ? 'bg-white dark:bg-slate-600 shadow-sm text-[#73c6df]' : 'text-slate-400'}`}
                                         >
                                             <User size={12} /> Indiv.
                                         </button>
                                         <button
                                             onClick={() => setNewGoal({ ...newGoal, type: 'Conjunta' })}
-                                            className={`flex-1 py-2 rounded-lg text-xs font-bold flex items-center justify-center gap-1 ${newGoal.type === 'Conjunta' ? 'bg-white dark:bg-slate-600 shadow-sm text-[#2e8ba6]' : 'text-slate-400'}`}
+                                            className={`flex-1 py-3 rounded-lg text-xs font-bold flex items-center justify-center gap-1 transition-all ${newGoal.type === 'Conjunta' ? 'bg-white dark:bg-slate-600 shadow-sm text-[#73c6df]' : 'text-slate-400'}`}
                                         >
                                             <Users size={12} /> Time
+                                        </button>
+                                    </div>
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest mb-2">Formato do Alvo</label>
+                                    <div className="flex bg-slate-50 dark:bg-slate-700 p-1 rounded-xl border border-slate-200 dark:border-slate-600">
+                                        <button
+                                            onClick={() => setNewGoal({ ...newGoal, target_type: 'currency' })}
+                                            className={`flex-1 py-3 rounded-lg text-xs font-bold transition-all ${newGoal.target_type === 'currency' ? 'bg-white dark:bg-slate-600 shadow-sm text-[#73c6df]' : 'text-slate-400'}`}
+                                        >
+                                            Valor ($/Kz)
+                                        </button>
+                                        <button
+                                            onClick={() => setNewGoal({ ...newGoal, target_type: 'percentage' })}
+                                            className={`flex-1 py-3 rounded-lg text-xs font-bold transition-all ${newGoal.target_type === 'percentage' ? 'bg-white dark:bg-slate-600 shadow-sm text-[#73c6df]' : 'text-slate-400'}`}
+                                        >
+                                            Percentagem (%)
                                         </button>
                                     </div>
                                 </div>

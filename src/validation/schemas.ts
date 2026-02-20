@@ -42,6 +42,7 @@ export const goalSchema = z.object({
   }),
   category: z.string().optional(),
   type: z.enum(['Individual', 'Conjunta']).optional(),
+  target_type: z.enum(['currency', 'percentage']).optional(),
   kpi: z.string().optional(),
   color: z.string().optional(),
   status: z.enum(['active', 'completed', 'archived']).optional(),

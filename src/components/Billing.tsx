@@ -291,10 +291,10 @@ const Billing: React.FC<BillingProps> = ({ onNavigate }) => {
         }
     };
 
-    const loadAnalysis = async () => {
+    const loadAnalysis = async (forceRefresh: boolean = false) => {
         setIsAnalyzing(true);
         try {
-            const text = await analyticsService.getDailyAnalysis();
+            const text = await analyticsService.getDailyAnalysis(forceRefresh);
             setAiAnalysis(text);
             setAnalysisTimestamp(new Date());
         } catch (e) {
@@ -459,7 +459,7 @@ const Billing: React.FC<BillingProps> = ({ onNavigate }) => {
                 <div className="flex items-center gap-2 shrink-0">
                     <span className="text-[9px] text-slate-400 tabular-nums hidden sm:inline">{countdown}</span>
                     <button
-                        onClick={loadAnalysis}
+                        onClick={() => loadAnalysis(true)}
                         disabled={isAnalyzing}
                         className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors disabled:opacity-30"
                         title="Atualizar análise"

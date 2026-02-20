@@ -140,6 +140,11 @@ export const invoiceService = {
 
         if (invError) throw invError;
 
+        // Automatically Generate and Save Public URL
+        const publicUrl = `${window.location.origin}/invoice/public/${newInvoice.id}`;
+        await supabase.from('invoices').update({ public_url: publicUrl }).eq('id', newInvoice.id);
+        newInvoice.public_url = publicUrl;
+
         if (invoice.items && invoice.items.length > 0) {
             const itemsData = invoice.items.map((item, index) => ({
                 invoice_id: newInvoice.id,

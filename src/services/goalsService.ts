@@ -12,6 +12,7 @@ export interface Goal {
     color: string;
     start_date?: string; // Optional for backward compatibility, but UI will enforce
     category?: string; // Optional filter
+    target_type?: 'currency' | 'percentage';
     progress?: number; // Calculated field
 }
 
@@ -50,6 +51,7 @@ export const goalsService = {
                 status: 'active',
                 start_date: goal.start_date || new Date().toISOString().split('T')[0], // Default to today
                 category: goal.category || null,
+                target_type: goal.target_type || 'currency',
                 color: 'bg-[#73c6df]' // Default color
             }])
             .select()

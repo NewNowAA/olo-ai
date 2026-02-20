@@ -15,6 +15,7 @@
 
 html {
     scroll-behavior: smooth;
+    font-size: 80%; /* Scales down all text, padding, margins, sizing globally by 20% to make the UI denser */
 }
 
 body {

@@ -23,6 +23,7 @@ import { organizationService, Organization } from '../services/organizationServi
 import { userService, UserProfile } from '../services/userService';
 import { supabase } from '../services/supabase/client';
 import { Modal } from './common/Modal/Modal';
+import toast from 'react-hot-toast';
 
 interface SettingsProps {
   darkMode: boolean;
@@ -35,6 +36,11 @@ const Settings: React.FC<SettingsProps> = ({ darkMode, toggleDarkMode, aiFrequen
   const [activeTab, setActiveTab] = useState<'profile' | 'team' | 'billing' | 'preferences' | 'company'>('company');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+
+  // New states for Telegram token generation
+  const [generatingToken, setGeneratingToken] = useState(false);
+  const [telegramToken, setTelegramToken] = useState<string | null>(null);
+  const [telegramTokenExpiry, setTelegramTokenExpiry] = useState<Date | null>(null);
 
   // Data States
   const [org, setOrg] = useState<Organization | null>(null);
@@ -107,6 +113,21 @@ const Settings: React.FC<SettingsProps> = ({ darkMode, toggleDarkMode, aiFrequen
             whatsapp_id: userProfile.whatsapp_id || '',
             telegram_id: userProfile.telegram_id || ''
         });
+
+        // Check if there is an active telegram link token
+        if (userProfile.link_token && userProfile.token_expires_at) {
+            const expiryDate = new Date(userProfile.token_expires_at);
+            if (expiryDate > new Date()) {
+                setTelegramToken(userProfile.link_token);
+                setTelegramTokenExpiry(expiryDate);
+            } else {
+                // Clean up expired token
+                await supabase.from('users').update({
+                    link_token: null,
+                    token_expires_at: null
+                }).eq('id', userProfile.id);
+            }
+        }
 
         if (userProfile.org_id) {
           const [orgData, teamData] = await Promise.all([
@@ -186,9 +207,10 @@ const Settings: React.FC<SettingsProps> = ({ darkMode, toggleDarkMode, aiFrequen
           whatsapp_id: profileForm.whatsapp_id,
           telegram_id: profileForm.telegram_id
       });
-      console.log('Perfil atualizado com sucesso!');
+      toast.success("Perfil atualizado com sucesso!");
     } catch (error) {
       console.error('Erro ao atualizar perfil.', error);
+      toast.error("Erro ao salvar perfil");
     } finally {
       setSaving(false);
     }
@@ -216,6 +238,43 @@ const Settings: React.FC<SettingsProps> = ({ darkMode, toggleDarkMode, aiFrequen
         setSaving(false);
     }
   };
+
+  const handleGenerateTelegramToken = async () => {
+    if (!profile) return;
+    setGeneratingToken(true);
+    try {
+        // Generate a random 8-character uppercase alphanumeric token
+        const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+        let token = '';
+        for (let i = 0; i < 8; i++) {
+            token += characters.charAt(Math.floor(Math.random() * characters.length));
+        }
+
+        // Expiry time (e.g., 15 minutes from now)
+        const expiresAt = new Date();
+        expiresAt.setMinutes(expiresAt.getMinutes() + 15);
+
+        const { error } = await supabase
+            .from('users')
+            .update({ 
+                link_token: token,
+                token_expires_at: expiresAt.toISOString()
+            })
+            .eq('id', profile.id);
+
+        if (error) throw error;
+
+        setTelegramToken(token);
+        setTelegramTokenExpiry(expiresAt);
+        toast.success("Código Telegram gerado com sucesso! É válido por 15 minutos.");
+
+    } catch (error) {
+        console.error("Error generating Telegram token", error);
+        toast.error("Erro ao gerar código do Telegram.");
+    } finally {
+        setGeneratingToken(false);
+    }
+};
 
   const handleInviteUser = async () => {
       if (!profile?.org_id) return;
@@ -820,14 +879,52 @@ const Settings: React.FC<SettingsProps> = ({ darkMode, toggleDarkMode, aiFrequen
                               </div>
                           </div>
                           <div>
-                              <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest mb-2">Telegram Username</label>
-                              <input 
-                                type="text" 
-                                value={profileForm.telegram_id}
-                                onChange={(e) => setProfileForm({...profileForm, telegram_id: e.target.value})}
-                                className="w-full px-4 py-3 bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-xl dark:text-white"
-                                placeholder="@username"
-                              />
+                              <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest mb-2">Integração Telegram</label>
+                              <div className="flex gap-4 items-center">
+                                  {telegramToken ? (
+                                      <>
+                                          <div className="flex-1 px-4 py-3 bg-slate-50 dark:bg-slate-700/50 border border-emerald-500/30 dark:border-emerald-500/30 rounded-xl dark:text-white flex justify-between items-center">
+                                            <div>
+                                              <span className="text-xs text-slate-500 block mb-1">CÓDIGO DE LIGAÇÃO</span>
+                                              <span className="font-mono font-bold tracking-widest text-lg text-emerald-600 dark:text-emerald-400">{telegramToken}</span>
+                                            </div>
+                                            {telegramTokenExpiry && (
+                                              <div className="text-right">
+                                                 <span className="text-[10px] text-slate-400 block uppercase">Expira às</span>
+                                                 <span className="text-xs font-bold text-slate-600 dark:text-slate-300">{telegramTokenExpiry.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
+                                              </div>
+                                            )}
+                                          </div>
+                                          <a 
+                                            href={`https://t.me/Lumea_ia_bot?start=${telegramToken}`}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="px-6 py-4 bg-[#2AABEE] text-white rounded-xl font-bold hover:bg-[#229ED9] transition-colors shadow-sm whitespace-nowrap flex items-center gap-2 h-full"
+                                          >
+                                              Abrir Telegram
+                                          </a>
+                                      </>
+                                  ) : (
+                                    <>
+                                        <div className="flex-1 px-4 py-3 bg-slate-50 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-600 rounded-xl dark:text-slate-400 text-sm flex items-center">
+                                            Nenhum código gerado.
+                                        </div>
+                                        <button 
+                                            onClick={handleGenerateTelegramToken}
+                                            disabled={generatingToken}
+                                            className="px-6 py-3 bg-[#2AABEE] text-white rounded-xl font-bold hover:bg-[#229ED9] transition-colors shadow-sm whitespace-nowrap flex items-center gap-2"
+                                        >
+                                            {generatingToken ? <Loader2 className="animate-spin" size={16}/> : null}
+                                            Gerar Código Telegram
+                                        </button>
+                                    </>
+                                  )}
+                              </div>
+                              <p className="text-[10px] text-slate-400 mt-2">
+                                  {telegramToken 
+                                      ? "Clique no botão ou envie a mensagem '/start CODIGO' no Telegram. Este código expira em 15 minutos." 
+                                      : "Gere um código seguro temporário para vincular o seu Telegram ao aplicativo."}
+                              </p>
                           </div>
                           <div>
                               <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest mb-2">Email</label>

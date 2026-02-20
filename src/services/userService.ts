@@ -11,6 +11,8 @@ export interface UserProfile {
   mobile_number?: string;
   whatsapp_id?: string;
   telegram_id?: string;
+  link_token?: string;
+  token_expires_at?: string;
 }
 
 export interface InviteUserPayload {

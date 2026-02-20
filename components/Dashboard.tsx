@@ -128,12 +128,12 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate, lastUpdated }) => {
     loadData();
   }, []);
 
-  const loadData = async () => {
+  const loadData = async (forceRefreshAi: boolean = false) => {
     setIsLoading(true);
     try {
       const [invData, analysisText] = await Promise.all([
         invoiceService.getInvoices(),
-        analyticsService.getDailyAnalysis()
+        analyticsService.getDailyAnalysis(forceRefreshAi)
       ]);
       setInvoices(invData);
       setAiAnalysis(analysisText);
@@ -239,7 +239,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate, lastUpdated }) => {
 
         <div className="flex items-center gap-3">
           {/* Refresh Button */}
-          <button onClick={loadData} className="px-4 py-2.5 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 font-bold text-sm hover:bg-slate-50 dark:hover:bg-slate-700 transition-all flex items-center gap-2">
+          <button onClick={() => loadData(true)} className="px-4 py-2.5 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 font-bold text-sm hover:bg-slate-50 dark:hover:bg-slate-700 transition-all flex items-center gap-2">
             <RefreshCw size={16} className={isLoading ? 'animate-spin' : ''} /> Atualizar
           </button>
 
@@ -287,7 +287,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate, lastUpdated }) => {
             <DateFilter />
 
             {/* Metric Grid - Real Data */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6">
               <MetricCard
                 lastUpdated={lastUpdated}
                 data={{ title: 'Total de Faturas', value: metrics.totalInvoices.toString(), change: '+0%', isPositive: true, trend: 'stable', icon: Receipt, colorClass: 'bg-blue-50 text-blue-500 dark:bg-blue-900/30 dark:text-blue-300' }}
@@ -424,7 +424,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate, lastUpdated }) => {
             <DateFilter />
 
             {/* Revenue Metrics */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="grid grid-cols-2 gap-3 sm:gap-6">
               <RevenueMetricCard
                 title="Receita Total"
                 value={`$${metrics.totalRev.toLocaleString()}`}
@@ -467,7 +467,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate, lastUpdated }) => {
             <DateFilter />
 
             {/* Expense Metrics */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="grid grid-cols-2 gap-3 sm:gap-6">
               <ExpenseMetricCard
                 title="Despesas Totais"
                 value={`$${metrics.totalExp.toLocaleString()}`}
