@@ -147,7 +147,7 @@ Deno.serve(async (req: Request) => {
         for (let attempt = 1; attempt <= 3; attempt++) {
             try {
                 result = await model.generateContent([
-                    prompt,
+                    { text: prompt },
                     {
                         inlineData: {
                             data: base64Data,
@@ -157,10 +157,14 @@ Deno.serve(async (req: Request) => {
                 ])
                 break; // Success
             } catch (geminiError: any) {
-                console.error(`Gemini attempt ${attempt}/3 failed:`, geminiError.message);
+                console.error(`Gemini attempt ${attempt}/3 failed:`, geminiError);
                 if (attempt === 3) throw geminiError;
                 await new Promise(resolve => setTimeout(resolve, 2000 * attempt)); // Backoff
             }
+        }
+
+        if (!result) {
+            throw new Error("Failed to get response from Gemini after 3 attempts");
         }
 
         const responseText = result.response.text()
@@ -200,12 +204,12 @@ Deno.serve(async (req: Request) => {
             : "Aprovação automática"
 
         // Helper to clean currency strings (e.g., "1.200,50" -> 1200.5)
-        function cleanCurrency(value: string | number | null | undefined): number {
-            if (!value) return 0;
+        function cleanCurrency(value: any): number {
+            if (value === null || value === undefined) return 0;
             if (typeof value === 'number') return value;
 
             // Remove currency symbols and whitespace
-            let clean = value.replace(/[^\d.,-]/g, '').trim();
+            let clean = String(value).replace(/[^\d.,-]/g, '').trim();
 
             // Check if comma is used as decimal separator (e.g., "123,45" or "1.234,56")
             if (clean.includes(',') && !clean.includes('.')) {
