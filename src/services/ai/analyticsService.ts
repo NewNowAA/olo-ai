@@ -44,6 +44,11 @@ export const analyticsService = {
 
             const analysis = await fetchWithRetry(() => geminiService.generateDailyAnalysis(recentInvoices));
 
+            // Validate that we are not accidentally caching an error string that bypassed the throw
+            if (!analysis || analysis.startsWith("Erro") || analysis.startsWith("Falha")) {
+                throw new Error("Analysis generation returned an error string, aborting cache.");
+            }
+
             // 3. Save to DB
             const { error } = await supabase.from('daily_analytics').insert({
                 user_id: user.id,
