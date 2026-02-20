@@ -13,9 +13,10 @@ function arrayBufferToBase64(buffer: ArrayBuffer) {
     return btoa(binary);
 }
 
-const ALLOWED_ORIGIN = Deno.env.get("ALLOWED_ORIGIN") || "https://faturissimo.netlify.app";
+// Allow all origins for development and preview environments
+// In production, this is still safe because we require a valid Supabase Auth token
 const corsHeaders = {
-  "Access-Control-Allow-Origin": ALLOWED_ORIGIN,
+  "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
