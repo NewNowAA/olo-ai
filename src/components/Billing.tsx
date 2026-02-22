@@ -30,6 +30,7 @@ import {
     TrendingUp,
     MoreVertical,
     Edit3,
+    GripVertical,
     X,
     ChevronUp,
     ChevronLeft,
@@ -125,6 +126,15 @@ const Billing: React.FC<BillingProps> = ({ onNavigate }) => {
     const [selectedInvoices, setSelectedInvoices] = useState<string[]>([]);
     const [viewMode, setViewMode] = useState<'list' | 'grid'>('list');
     const [searchParams, setSearchParams] = useSearchParams();
+
+    // Mobile responsive hook
+    const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+    useEffect(() => {
+        const handler = () => setIsMobile(window.innerWidth < 768);
+        window.addEventListener('resize', handler);
+        return () => window.removeEventListener('resize', handler);
+    }, []);
+    const effectiveViewMode = isMobile ? 'grid' : viewMode;
 
     // Pagination & Sorting State
     const [currentPage, setCurrentPage] = useState(1);
@@ -498,10 +508,10 @@ const Billing: React.FC<BillingProps> = ({ onNavigate }) => {
                     <button onClick={handleExportCSV} disabled={isExporting || filteredInvoices.length === 0} className="h-9 px-4 rounded-xl border text-[12px] font-medium flex items-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed transition-colors" style={{ backgroundColor: 'var(--card)', borderColor: 'var(--border)', color: 'var(--t2)', fontFamily: "'Outfit', sans-serif" }}>
                         <Download size={14} /> Exportar CSV
                     </button>
-                    <div className="flex p-0.5 rounded-xl h-9 items-center" style={{ backgroundColor: 'var(--card)', border: '1px solid var(--border)' }}>
+                    {!isMobile && (<div className="flex p-0.5 rounded-xl h-9 items-center" style={{ backgroundColor: 'var(--card)', border: '1px solid var(--border)' }}>
                         <button onClick={() => setViewMode('list')} className="p-1.5 rounded-lg transition-colors h-full aspect-square flex items-center justify-center" style={{ backgroundColor: viewMode === 'list' ? 'var(--blue-a)' : 'transparent', color: viewMode === 'list' ? 'var(--blue)' : 'var(--t3)' }}><LayoutList size={16} /></button>
                         <button onClick={() => setViewMode('grid')} className="p-1.5 rounded-lg transition-colors h-full aspect-square flex items-center justify-center" style={{ backgroundColor: viewMode === 'grid' ? 'var(--blue-a)' : 'transparent', color: viewMode === 'grid' ? 'var(--blue)' : 'var(--t3)' }}><LayoutGrid size={16} /></button>
-                    </div>
+                    </div>)}
                     <div className="relative">
                         <button 
                             onClick={() => setIsColumnMenuOpen(!isColumnMenuOpen)} 
@@ -543,8 +553,8 @@ const Billing: React.FC<BillingProps> = ({ onNavigate }) => {
                     <Loader2 size={36} className="animate-spin mb-4" style={{ color: 'var(--blue)' }} />
                     <p className="text-[13px] animate-pulse" style={{ color: 'var(--t3)', fontFamily: "'Outfit', sans-serif" }}>Carregando suas finanças...</p>
                 </div>
-            ) : viewMode === 'list' ? (
-                <div className="card-glass p-4 md:p-6 min-h-[500px] flex flex-col">
+            ) : effectiveViewMode === 'list' ? (
+                <div className="card-glass min-h-[500px] flex flex-col" style={{ padding: 0, overflow: 'hidden' }}>
                     <div className="overflow-x-auto rounded-xl" style={{ border: '1px solid var(--border)' }}>
                         <table className="w-full border-separate border-spacing-y-0" style={{ tableLayout: 'fixed' }}>
                             <thead style={{ backgroundColor: 'var(--input-bg)', borderBottom: '1px solid var(--border)' }}>
@@ -570,6 +580,7 @@ const Billing: React.FC<BillingProps> = ({ onNavigate }) => {
                                                 'Ações'
                                             ) : (
                                                 <div className="flex items-center gap-1 select-none">
+                                                    {colKey !== 'select' && colKey !== 'actions' && <GripVertical size={10} className="opacity-20 shrink-0" />}
                                                     {colKey === 'client' ? 'Fatura / Cliente' :
                                                      colKey === 'category' ? 'Categoria' :
                                                      colKey === 'date' ? 'Data' :

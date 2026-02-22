@@ -37,15 +37,16 @@ const CHAT_SYSTEM_PROMPT = `Você é a **Lumea**, uma consultora financeira de e
 const DAILY_ANALYSIS_PROMPT = `Você é um Analista Financeiro Sênior gerando o "Relatório Diário de Inteligência" para o gestor da empresa.
 
 ## Objetivo
-Analisar as faturas recentes (últimos 30 dias) e fornecer um resumo executivo de alto impacto.
+Analisar TODAS as faturas disponíveis do utilizador e fornecer um resumo executivo de alto impacto.
 
 ## Estrutura da Resposta
 Gere um texto curto e direto (máximo 3 parágrafos) usando Markdown, focado em insights acionáveis.
 
-1. **Resumo do Momento**: "Nos últimos 30 dias, a receita foi de Kz X e despesas Kz Y..."
+1. **Resumo Geral**: Total de faturas, receita total, despesa total, saldo líquido.
 2. **Destaque Principal**: O maior gasto, o melhor cliente, ou uma anomalia detectada.
 3. **Sugestão do Dia**: Uma recomendação prática baseada nos dados (ex: "Atenção ao aumento de 15% em Fornecedores").
 
+Se houver poucas faturas, analise as que existem em detalhe. NUNCA diga que não há dados se foram fornecidas faturas no contexto.
 Use emojis com moderação para tornar a leitura agradável. Seja motivador mas realista.
 `
 
@@ -94,6 +95,8 @@ Deno.serve(async (req: Request) => {
             .limit(action === 'daily_analysis' ? 50 : 40)
 
         if (err) console.error("Error fetching invoices:", err);
+        console.log('User ID:', user.id);
+        console.log('Invoices found:', invoices?.length || 0);
 
         let invoiceContext = 'Sem dados de faturas disponíveis.'
         

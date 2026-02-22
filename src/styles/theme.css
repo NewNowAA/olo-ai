@@ -84,9 +84,22 @@ body {
 ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
 ::-webkit-scrollbar-thumb:hover { background: var(--t3); }
 
-/* --- Safe Areas (iOS notch) --- */
+/* --- Safe Areas (iOS notch + mobile) --- */
 .safe-area {
   padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+.safe-area-container {
+  padding-left: max(16px, env(safe-area-inset-left));
+  padding-right: max(16px, env(safe-area-inset-right));
+  padding-bottom: max(20px, env(safe-area-inset-bottom));
+}
+
+@media (max-width: 768px) {
+  .main-content {
+    padding: 16px;
+    padding-bottom: calc(80px + env(safe-area-inset-bottom));
+  }
 }
 
 /* --- Glass Card --- */
@@ -99,15 +112,22 @@ body {
   transition: background-color 0.2s ease;
 }
 
+/* --- @property for animated border angle --- */
+@property --border-angle {
+  syntax: '<angle>';
+  initial-value: 0deg;
+  inherits: false;
+}
+
 /* --- Border Glow Card --- */
 .card-glow {
   position: relative;
   background: var(--card);
-  border-radius: 16px;
+  border-radius: 14px;
   border: 1px solid var(--border);
-  overflow: hidden;
   animation: fadeUp 0.5s ease backwards;
 }
+
 .card-glow::before {
   content: '';
   position: absolute;
@@ -120,11 +140,21 @@ body {
   mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
   mask-composite: exclude;
   pointer-events: none;
-  transition: background 0.3s ease;
+  opacity: 0.7;
+  transition: all 0.3s ease;
 }
+
 .card-glow:hover::before {
-  background: conic-gradient(from 0deg, var(--accent-color, var(--blue)), transparent 25%, transparent 75%, var(--accent-color, var(--blue)));
-  animation: borderRotate 2s linear infinite;
+  opacity: 1;
+  padding: 1.5px;
+  background: conic-gradient(
+    from var(--border-angle, 0deg),
+    var(--accent-color, var(--blue)) 0%,
+    transparent 15%,
+    transparent 85%,
+    var(--accent-color, var(--blue)) 100%
+  );
+  animation: borderSpin 3s linear infinite;
 }
 
 /* --- Skeleton Loading --- */
@@ -144,9 +174,8 @@ body {
   0% { opacity: 0; transform: translateY(6px); }
   100% { opacity: 1; transform: translateY(0); }
 }
-@keyframes borderRotate {
-  0% { rotate: 0deg; }
-  100% { rotate: 360deg; }
+@keyframes borderSpin {
+  to { --border-angle: 360deg; }
 }
 @keyframes shimmer {
   0% { background-position: 200% 0; }
