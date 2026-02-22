@@ -3,68 +3,32 @@
 
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Lumea Financial</title>
-  <title>Lumea Financial</title>
-  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>GEFACT.AI — Gestão Inteligente de Faturas</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
   <style>
-    :root {
-      --color-teal-primary: #73c6df;
-      --color-mint-secondary: #8bd7bf;
-    }
-
-    body {
-      font-family: 'Plus Jakarta Sans', sans-serif;
-      background-color: #f8fafc;
-    }
-
+    /* Legacy compat - moved to theme.css, kept minimal fallback */
     .custom-gradient {
-      background: linear-gradient(135deg, #73c6df 0%, #8bd7bf 100%);
+      background: linear-gradient(135deg, #1042FF 0%, #00B8FD 100%);
     }
-
     .custom-text-gradient {
-      background: linear-gradient(135deg, #73c6df 0%, #2dd4bf 100%);
+      background: linear-gradient(135deg, #1042FF 0%, #00B8FD 100%);
       -webkit-background-clip: text;
       background-clip: text;
       -webkit-text-fill-color: transparent;
     }
-
-    /* Hide scrollbar for clean UI */
-    .no-scrollbar::-webkit-scrollbar {
-      display: none;
-    }
-
-    .no-scrollbar {
-      -ms-overflow-style: none;
-      scrollbar-width: none;
-    }
-
-    /* Floating Animation for Background Blobs */
+    .no-scrollbar::-webkit-scrollbar { display: none; }
+    .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
     @keyframes float {
-      0% {
-        transform: translate(0px, 0px) scale(1);
-      }
-
-      33% {
-        transform: translate(30px, -50px) scale(1.1);
-      }
-
-      66% {
-        transform: translate(-20px, 20px) scale(0.9);
-      }
-
-      100% {
-        transform: translate(0px, 0px) scale(1);
-      }
+      0% { transform: translate(0px, 0px) scale(1); }
+      33% { transform: translate(30px, -50px) scale(1.1); }
+      66% { transform: translate(-20px, 20px) scale(0.9); }
+      100% { transform: translate(0px, 0px) scale(1); }
     }
-
-    .animate-float {
-      animation: float 15s ease-in-out infinite;
-    }
-
-    .animate-float-delayed {
-      animation: float 18s ease-in-out infinite reverse;
-    }
+    .animate-float { animation: float 15s ease-in-out infinite; }
+    .animate-float-delayed { animation: float 18s ease-in-out infinite reverse; }
   </style>
 
 </head>

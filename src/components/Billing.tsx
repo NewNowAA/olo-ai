@@ -36,8 +36,11 @@ import {
     ChevronRight,
     ChevronFirst,
     ChevronLast,
-    Settings
+    Settings,
+    Receipt, // Added Receipt icon
+    Wallet // Added Wallet icon
 } from 'lucide-react';
+import KPICard from './KPICard'; // Added KPICard import
 import { Invoice, InvoiceStatus, InvoiceType, ExpenseType, ReviewStatus } from '../types';
 import { invoiceService, analyticsService, supabase } from '../services';
 import { pdfService } from '../services/pdfService';
@@ -439,114 +442,43 @@ const Billing: React.FC<BillingProps> = ({ onNavigate }) => {
 
     // --- Render ---
     return (
-        <div className="p-6 md:p-12 lg:p-14 max-w-[1600px] mx-auto min-h-screen pb-24 relative space-y-12">
+        <div className="p-6 md:p-8 max-w-[1600px] mx-auto min-h-screen pb-24 relative space-y-8">
             <Breadcrumbs />
             
             {/* Breathing line */}
-            <div className="h-px bg-gradient-to-r from-transparent via-slate-200 dark:via-slate-700 to-transparent" />
+            <div className="h-px" style={{ background: 'linear-gradient(to right, transparent, var(--border), transparent)' }} />
 
             {/* AI Insight — Barra compacta */}
-            <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-gradient-to-r from-slate-50 to-[#73c6df]/5 border border-slate-100 dark:border-slate-700 dark:from-slate-800 dark:to-slate-800">
-                <div className="w-8 h-8 rounded-lg bg-[#73c6df]/10 flex items-center justify-center shrink-0">
-                    <BrainCircuit size={16} className={`text-[#2e8ba6] ${isAnalyzing ? 'animate-pulse' : ''}`} />
+            <div className="card-glass flex items-center gap-3 px-4 py-3" style={{ borderLeft: '3px solid var(--blue)' }}>
+                <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0" style={{ backgroundColor: 'var(--blue-a)' }}>
+                    <BrainCircuit size={16} style={{ color: 'var(--blue)' }} className={isAnalyzing ? 'animate-pulse' : ''} />
                 </div>
-                <p className="text-xs text-slate-600 dark:text-slate-300 flex-1 truncate leading-relaxed">
+                <p className="text-[12px] flex-1 truncate leading-relaxed" style={{ color: 'var(--t2)', fontFamily: "'Outfit', sans-serif" }}>
                     {aiAnalysis && !aiAnalysis.startsWith('Erro')
                         ? aiAnalysis.slice(0, 280)
-                        : <span className="italic text-slate-400">Adicione faturas para gerar insights com IA.</span>
+                        : <span style={{ color: 'var(--t3)', fontStyle: 'italic' }}>Adicione faturas para gerar insights com IA.</span>
                     }
                 </p>
                 <div className="flex items-center gap-2 shrink-0">
-                    <span className="text-[9px] text-slate-400 tabular-nums hidden sm:inline">{countdown}</span>
-                    <button
-                        onClick={() => loadAnalysis(true)}
-                        disabled={isAnalyzing}
-                        className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors disabled:opacity-30"
-                        title="Atualizar análise"
-                    >
-                        <RefreshCw size={14} className={`text-slate-400 ${isAnalyzing ? 'animate-spin text-[#73c6df]' : ''}`} />
+                    <span className="text-[9px] tabular-nums hidden sm:inline" style={{ color: 'var(--t3)', fontFamily: "'JetBrains Mono', monospace" }}>{countdown}</span>
+                    <button onClick={() => loadAnalysis(true)} disabled={isAnalyzing} className="p-1.5 rounded-lg transition-colors disabled:opacity-30" title="Atualizar análise">
+                        <RefreshCw size={14} style={{ color: isAnalyzing ? 'var(--blue)' : 'var(--t3)' }} className={isAnalyzing ? 'animate-spin' : ''} />
                     </button>
                 </div>
             </div>
 
             {/* Controls */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 lg:gap-10">
-                 {/* Total Revenue */}
-                 <div className="bg-white dark:bg-slate-800 p-6 rounded-[2rem] shadow-sm border border-slate-100 dark:border-slate-700 relative overflow-hidden group">
-                    <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-500/5 rounded-full blur-3xl group-hover:bg-emerald-500/10 transition-colors"></div>
-                    <div className="relative">
-                        <div className="flex justify-between items-start mb-4">
-                            <div className="p-3 bg-emerald-100 dark:bg-emerald-900/30 rounded-2xl text-emerald-600 dark:text-emerald-400">
-                                <TrendingUp size={24} />
-                            </div>
-                            <span className={`flex items-center text-xs font-bold px-2 py-1 rounded-lg ${stats.trends?.revenueChange >= 0 ? 'text-emerald-600 bg-emerald-50 dark:bg-emerald-900/20' : 'text-rose-600 bg-rose-50 dark:bg-rose-900/20'}`}>
-                                {stats.trends?.revenueChange > 0 ? '+' : ''}{stats.trends?.revenueChange?.toFixed(1) || '0.0'}% 
-                                {stats.trends?.revenueChange >= 0 ? <ArrowUpRight size={14} className="ml-1" /> : <ArrowDownRight size={14} className="ml-1" />}
-                            </span>
-                        </div>
-                        <p className="text-slate-500 dark:text-slate-400 text-xs font-bold uppercase tracking-wider mb-1">Receita Total</p>
-                        <h3 className="text-2xl font-black text-slate-800 dark:text-white">Kz {stats.totalRevenue.toLocaleString()}</h3>
-                    </div>
-                </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                <KPICard label="Receita Total" value={stats.totalRevenue >= 1000000 ? `${(stats.totalRevenue / 1000000).toFixed(1)}M` : stats.totalRevenue >= 1000 ? `${(stats.totalRevenue / 1000).toFixed(0)}K` : stats.totalRevenue.toLocaleString()} unit="Kz" change={`${(stats.trends?.revenueChange || 0) > 0 ? '+' : ''}${(stats.trends?.revenueChange || 0).toFixed(1)}%`} changeType={(stats.trends?.revenueChange || 0) >= 0 ? 'up' : 'down'} changeSubtext="vs período anterior" accentColor="var(--green)" delay={0} icon={<Banknote size={18} />} />
+                <KPICard label="Despesas" value={stats.totalExpenses >= 1000000 ? `${(stats.totalExpenses / 1000000).toFixed(1)}M` : stats.totalExpenses >= 1000 ? `${(stats.totalExpenses / 1000).toFixed(0)}K` : stats.totalExpenses.toLocaleString()} unit="Kz" change={`${(stats.trends?.expensesChange || 0) > 0 ? '+' : ''}${(stats.trends?.expensesChange || 0).toFixed(1)}%`} changeType={(stats.trends?.expensesChange || 0) >= 0 ? 'up' : 'down'} changeSubtext="vs período anterior" accentColor="var(--pink)" delay={80} icon={<ArrowDownRight size={18} />} />
+                <KPICard label="Lucro Líquido" value={(stats.totalRevenue - stats.totalExpenses) >= 1000000 ? `${((stats.totalRevenue - stats.totalExpenses) / 1000000).toFixed(1)}M` : (stats.totalRevenue - stats.totalExpenses) >= 1000 ? `${((stats.totalRevenue - stats.totalExpenses) / 1000).toFixed(0)}K` : (stats.totalRevenue - stats.totalExpenses).toLocaleString()} unit="Kz" change={`${(stats.trends?.profitChange || 0) > 0 ? '+' : ''}${(stats.trends?.profitChange || 0).toFixed(1)}%`} changeType={(stats.trends?.profitChange || 0) >= 0 ? 'up' : 'down'} changeSubtext="vs período anterior" accentColor="var(--cyan)" delay={160} icon={<Wallet size={18} />} />
+                <KPICard label="Pendente" value={stats.pendingAmount >= 1000 ? `${(stats.pendingAmount / 1000).toFixed(0)}K` : stats.pendingAmount.toLocaleString()} unit="Kz" change={`${invoices.filter(i => i.status === 'Pendente').length} faturas`} changeType="flat" accentColor="var(--amber)" delay={240} icon={<Clock size={18} />} />
+            </div>
 
-                {/* Total Expenses */}
-                <div className="bg-white dark:bg-slate-800 p-6 rounded-[2rem] shadow-sm border border-slate-100 dark:border-slate-700 relative overflow-hidden group">
-                    <div className="absolute top-0 right-0 w-32 h-32 bg-rose-500/5 rounded-full blur-3xl group-hover:bg-rose-500/10 transition-colors"></div>
-                    <div className="relative">
-                        <div className="flex justify-between items-start mb-4">
-                            <div className="p-3 bg-rose-100 dark:bg-rose-900/30 rounded-2xl text-rose-600 dark:text-rose-400">
-                                <ArrowDownRight size={24} />
-                            </div>
-                            <span className={`flex items-center text-xs font-bold px-2 py-1 rounded-lg ${stats.trends?.expensesChange <= 0 ? 'text-emerald-600 bg-emerald-50 dark:bg-emerald-900/20' : 'text-rose-600 bg-rose-50 dark:bg-rose-900/20'}`}>
-                                {stats.trends?.expensesChange > 0 ? '+' : ''}{stats.trends?.expensesChange?.toFixed(1) || '0.0'}%
-                                {stats.trends?.expensesChange <= 0 ? <ArrowDownRight size={14} className="ml-1" /> : <ArrowUpRight size={14} className="ml-1" />}
-                            </span>
-                        </div>
-                        <p className="text-slate-500 dark:text-slate-400 text-xs font-bold uppercase tracking-wider mb-1">Despesas</p>
-                        <h3 className="text-2xl font-black text-slate-800 dark:text-white">Kz {stats.totalExpenses.toLocaleString()}</h3>
-                    </div>
-                </div>
-
-                {/* Net Profit */}
-                <div className="bg-gradient-to-br from-[#2e8ba6] to-[#1a6b85] p-6 rounded-[2rem] shadow-lg shadow-[#2e8ba6]/20 relative overflow-hidden text-white group">
-                    <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full blur-3xl group-hover:bg-white/20 transition-colors"></div>
-                    <div className="relative">
-                        <div className="flex justify-between items-start mb-4">
-                            <div className="p-3 bg-white/20 rounded-2xl backdrop-blur-sm">
-                                <DollarSign size={24} className="text-white" />
-                            </div>
-                            <span className="flex items-center text-xs font-bold text-white bg-white/20 px-2 py-1 rounded-lg backdrop-blur-sm">
-                                {stats.trends?.profitChange > 0 ? '+' : ''}{stats.trends?.profitChange?.toFixed(1) || '0.0'}%
-                                {stats.trends?.profitChange >= 0 ? <ArrowUpRight size={14} className="ml-1" /> : <ArrowDownRight size={14} className="ml-1" />}
-                            </span>
-                        </div>
-                        <p className="text-cyan-100 text-xs font-bold uppercase tracking-wider mb-1">Lucro Líquido</p>
-                        <h3 className="text-3xl font-black text-white">Kz {(stats.totalRevenue - stats.totalExpenses).toLocaleString()}</h3>
-                    </div>
-                </div>
-
-                {/* Pending */}
-                <div className="bg-white dark:bg-slate-800 p-6 rounded-[2rem] shadow-sm border border-slate-100 dark:border-slate-700 relative overflow-hidden group">
-                    <div className="absolute top-0 right-0 w-32 h-32 bg-amber-500/5 rounded-full blur-3xl group-hover:bg-amber-500/10 transition-colors"></div>
-                    <div className="relative">
-                        <div className="flex justify-between items-start mb-4">
-                            <div className="p-3 bg-amber-100 dark:bg-amber-900/30 rounded-2xl text-amber-600 dark:text-amber-400">
-                                <Clock size={24} />
-                            </div>
-                            <span className="text-xs font-bold text-amber-600 bg-amber-50 dark:bg-amber-900/20 px-2 py-1 rounded-lg">
-                                {invoices.filter(i => i.status === 'Pendente').length} faturas
-                            </span>
-                        </div>
-                        <p className="text-slate-500 dark:text-slate-400 text-xs font-bold uppercase tracking-wider mb-1">Pendente</p>
-                        <h3 className="text-2xl font-black text-slate-800 dark:text-white">Kz {stats.pendingAmount.toLocaleString()}</h3>
-                    </div>
-                </div>
-                </div>
-
-            <div className="h-px bg-gradient-to-r from-transparent via-slate-200 dark:via-slate-700 to-transparent" />
+            <div className="h-px" style={{ background: 'linear-gradient(to right, transparent, var(--border), transparent)' }} />
 
             {/* Controls */}
-            <div className="flex flex-col lg:flex-row justify-between gap-6 items-start lg:items-center sticky top-0 bg-slate-50/80 dark:bg-slate-900/80 backdrop-blur-xl z-30 py-8 -mx-4 px-4 border-b border-slate-200/50 dark:border-slate-700/50 mt-16 mb-12">
+            <div className="flex flex-col lg:flex-row justify-between gap-4 items-start lg:items-center sticky top-0 z-30 py-4 -mx-4 px-4 mt-4 mb-4" style={{ backgroundColor: 'var(--bg)', backdropFilter: 'blur(16px)', borderBottom: '1px solid var(--border)' }}>
                 <FilterControls
                     dateRange={filters.dateRange}
                     customStartDate={filters.customStartDate}
@@ -563,23 +495,24 @@ const Billing: React.FC<BillingProps> = ({ onNavigate }) => {
                     onCategoryChange={(cat) => setFilter('subcategoryFilter', cat)}
                 />
                 <div className="flex gap-3 h-11 items-center">
-                    <button onClick={handleExportCSV} disabled={isExporting || filteredInvoices.length === 0} className="h-9 px-4 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 font-bold text-sm hover:bg-slate-50 dark:hover:bg-slate-700 flex items-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
-                        <Download size={16} /> Exportar CSV
+                    <button onClick={handleExportCSV} disabled={isExporting || filteredInvoices.length === 0} className="h-9 px-4 rounded-xl border text-[12px] font-medium flex items-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed transition-colors" style={{ backgroundColor: 'var(--card)', borderColor: 'var(--border)', color: 'var(--t2)', fontFamily: "'Outfit', sans-serif" }}>
+                        <Download size={14} /> Exportar CSV
                     </button>
-                    <div className="flex bg-white dark:bg-slate-800 p-0.5 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 h-9 items-center">
-                        <button onClick={() => setViewMode('list')} className={`p-1.5 rounded-lg transition-colors h-full aspect-square flex items-center justify-center ${viewMode === 'list' ? 'bg-slate-100 dark:bg-slate-700 text-[#2e8ba6]' : 'text-slate-400 hover:text-slate-600'}`}><LayoutList size={18} /></button>
-                        <button onClick={() => setViewMode('grid')} className={`p-1.5 rounded-lg transition-colors h-full aspect-square flex items-center justify-center ${viewMode === 'grid' ? 'bg-slate-100 dark:bg-slate-700 text-[#2e8ba6]' : 'text-slate-400 hover:text-slate-600'}`}><LayoutGrid size={18} /></button>
+                    <div className="flex p-0.5 rounded-xl h-9 items-center" style={{ backgroundColor: 'var(--card)', border: '1px solid var(--border)' }}>
+                        <button onClick={() => setViewMode('list')} className="p-1.5 rounded-lg transition-colors h-full aspect-square flex items-center justify-center" style={{ backgroundColor: viewMode === 'list' ? 'var(--blue-a)' : 'transparent', color: viewMode === 'list' ? 'var(--blue)' : 'var(--t3)' }}><LayoutList size={16} /></button>
+                        <button onClick={() => setViewMode('grid')} className="p-1.5 rounded-lg transition-colors h-full aspect-square flex items-center justify-center" style={{ backgroundColor: viewMode === 'grid' ? 'var(--blue-a)' : 'transparent', color: viewMode === 'grid' ? 'var(--blue)' : 'var(--t3)' }}><LayoutGrid size={16} /></button>
                     </div>
                     <div className="relative">
                         <button 
                             onClick={() => setIsColumnMenuOpen(!isColumnMenuOpen)} 
-                            className="h-9 px-4 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 font-bold text-sm hover:bg-slate-50 dark:hover:bg-slate-700 flex items-center gap-2 transition-colors"
+                            className="h-9 px-4 rounded-xl border text-[12px] font-medium flex items-center gap-2 transition-colors"
+                            style={{ backgroundColor: 'var(--card)', borderColor: 'var(--border)', color: 'var(--t2)', fontFamily: "'Outfit', sans-serif" }}
                         >
-                            <Settings size={16} /> Colunas
+                            <Settings size={14} /> Colunas
                         </button>
                         {isColumnMenuOpen && (
-                            <div className="absolute top-full right-0 mt-2 w-48 bg-white dark:bg-slate-800 rounded-xl shadow-xl border border-slate-100 dark:border-slate-700 p-2 z-50">
-                                <p className="text-xs font-bold text-slate-400 uppercase tracking-wider px-3 py-2">Exibir Colunas</p>
+                            <div className="absolute top-full right-0 mt-2 w-48 rounded-xl shadow-xl p-2 z-50" style={{ backgroundColor: 'var(--card)', border: '1px solid var(--border)', backdropFilter: 'blur(16px)' }}>
+                                <p className="text-[10px] font-semibold uppercase tracking-wider px-3 py-2" style={{ color: 'var(--t3)', fontFamily: "'Outfit', sans-serif" }}>Exibir Colunas</p>
                             {ALL_COLUMNS.filter(c => !c.locked).map(col => (
                                     <label key={col.key} className="flex items-center gap-3 px-3 py-2 hover:bg-slate-50 dark:hover:bg-slate-700 rounded-lg cursor-pointer">
                                         <input 
@@ -598,8 +531,8 @@ const Billing: React.FC<BillingProps> = ({ onNavigate }) => {
                         {isColumnMenuOpen && <div className="fixed inset-0 z-40" onClick={() => setIsColumnMenuOpen(false)}></div>}
                     </div>
 
-                    <button onClick={openNewInvoice} className="h-9 px-6 bg-[#2e8ba6] hover:bg-[#257a91] text-white rounded-xl font-bold shadow-lg shadow-[#2e8ba6]/20 flex items-center gap-2 transition-all active:scale-95">
-                        <Plus size={20} /> Nova Fatura
+                    <button onClick={openNewInvoice} className="h-9 px-5 text-white rounded-xl text-[12px] font-semibold shadow-lg flex items-center gap-2 transition-all active:scale-95" style={{ backgroundColor: 'var(--blue)', fontFamily: "'Outfit', sans-serif" }}>
+                        <Plus size={16} /> Nova Fatura
                     </button>
                 </div>
             </div>
@@ -607,22 +540,22 @@ const Billing: React.FC<BillingProps> = ({ onNavigate }) => {
             {/* Content View */}
             {isLoading ? (
                 <div className="flex flex-col items-center justify-center h-96">
-                    <Loader2 size={48} className="text-[#2e8ba6] animate-spin mb-4" />
-                    <p className="text-slate-400 font-medium animate-pulse">Carregando suas finanças...</p>
+                    <Loader2 size={36} className="animate-spin mb-4" style={{ color: 'var(--blue)' }} />
+                    <p className="text-[13px] animate-pulse" style={{ color: 'var(--t3)', fontFamily: "'Outfit', sans-serif" }}>Carregando suas finanças...</p>
                 </div>
             ) : viewMode === 'list' ? (
-                <div className="bg-white dark:bg-slate-800 rounded-[2rem] p-6 md:p-10 shadow-sm border border-slate-100 dark:border-slate-700 min-h-[500px] flex flex-col">
-                    <div className="overflow-x-auto rounded-[2rem] border border-slate-100 dark:border-slate-700">
+                <div className="card-glass p-4 md:p-6 min-h-[500px] flex flex-col">
+                    <div className="overflow-x-auto rounded-xl" style={{ border: '1px solid var(--border)' }}>
                         <table className="w-full border-separate border-spacing-y-0" style={{ tableLayout: 'fixed' }}>
-                            <thead className="bg-slate-50 dark:bg-slate-900/50 border-b border-slate-200 dark:border-slate-700">
+                            <thead style={{ backgroundColor: 'var(--input-bg)', borderBottom: '1px solid var(--border)' }}>
                                 <tr>
                                     {colOrder.filter(k => visibleColumns[k as keyof typeof visibleColumns] !== false).map(colKey => (
                                         <th
                                             key={colKey}
-                                            style={{ width: colWidths[colKey], minWidth: 60 }}
-                                            className={`relative group/resize px-4 py-5 text-left text-xs font-bold text-slate-400 uppercase tracking-wider 
+                                            style={{ width: colWidths[colKey], minWidth: 60, color: 'var(--t3)', fontFamily: "'Outfit', sans-serif" }}
+                                            className={`relative group/resize px-4 py-4 text-left text-[10.5px] font-semibold uppercase tracking-[0.8px] 
                                                 ${dragCol === colKey ? 'opacity-40' : ''} 
-                                                ${colKey !== 'select' && colKey !== 'actions' ? 'cursor-grab active:cursor-grabbing hover:bg-slate-100/50 dark:hover:bg-slate-800/50' : ''}`}
+                                                ${colKey !== 'select' && colKey !== 'actions' ? 'cursor-grab active:cursor-grabbing' : ''}`}
                                             draggable={colKey !== 'select' && colKey !== 'actions'}
                                             onDragStart={() => onDragStartCol(colKey)}
                                             onDragOver={(e) => onDragOverCol(e, colKey)}
@@ -655,7 +588,7 @@ const Billing: React.FC<BillingProps> = ({ onNavigate }) => {
                                     ))}
                                 </tr>
                             </thead>
-                            <tbody className="divide-y divide-slate-100 dark:divide-slate-700 bg-white dark:bg-slate-800">
+                            <tbody style={{ backgroundColor: 'var(--card)' }}>
                                 {paginatedInvoices.length === 0 ? (
                                     <tr>
                                         <td colSpan={colOrder.filter(k => visibleColumns[k as keyof typeof visibleColumns] !== false).length} className="py-20 text-center">
@@ -865,34 +798,27 @@ const Billing: React.FC<BillingProps> = ({ onNavigate }) => {
 
             {/* --- BULK ACTIONS FLOATING BAR --- */}
             {selectedInvoices.length > 0 && (
-                <div className="fixed bottom-8 left-1/2 -translate-x-1/2 z-40 bg-slate-900 dark:bg-slate-800 text-white px-6 py-3 rounded-full shadow-2xl shadow-slate-900/20 flex items-center gap-6 animate-in slide-in-from-bottom-10 fade-in duration-300 border border-slate-700/50">
-                    <span className="font-bold text-sm flex items-center gap-2">
-                        <div className="w-5 h-5 rounded-full bg-[#73c6df] text-slate-900 flex items-center justify-center text-[10px] font-black">
+                <div className="fixed bottom-8 left-1/2 -translate-x-1/2 z-40 px-6 py-3 rounded-full shadow-2xl flex items-center gap-5 animate-in slide-in-from-bottom-10 fade-in duration-300" style={{ backgroundColor: 'var(--bg)', border: '1px solid var(--border)', backdropFilter: 'blur(20px)' }}>
+                    <span className="text-[12px] font-medium flex items-center gap-2" style={{ color: 'var(--t1)', fontFamily: "'Outfit', sans-serif" }}>
+                        <div className="w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold text-white" style={{ backgroundColor: 'var(--blue)' }}>
                             {selectedInvoices.length}
                         </div>
                         selecionados
                     </span>
-                    <div className="h-4 w-px bg-slate-700"></div>
-                    <button
-                        onClick={handleBulkDelete}
-                        className="flex items-center gap-2 text-rose-400 hover:text-rose-300 font-bold text-sm transition-colors group"
-                    >
-                        <Trash2 size={16} className="group-hover:scale-110 transition-transform" /> Excluir
+                    <div className="h-4 w-px" style={{ backgroundColor: 'var(--border)' }} />
+                    <button onClick={handleBulkDelete} className="flex items-center gap-2 text-[12px] font-medium transition-colors group" style={{ color: 'var(--red)', fontFamily: "'Outfit', sans-serif" }}>
+                        <Trash2 size={14} className="group-hover:scale-110 transition-transform" /> Excluir
                     </button>
-                    <button
-                        onClick={() => setSelectedInvoices([])}
-                        className="p-1 hover:bg-slate-700 rounded-full transition-colors ml-2"
-                        title="Limpar seleção"
-                    >
-                        <X size={14} className="text-slate-500 hover:text-white" />
+                    <button onClick={() => setSelectedInvoices([])} className="p-1 rounded-full transition-colors ml-2" title="Limpar seleção">
+                        <X size={13} style={{ color: 'var(--t3)' }} />
                     </button>
                 </div>
             )}
 
             <style>{`
-                .label-text { @apply text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest; }
-                .input-field { @apply px-4 py-3 bg-slate-100 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#73c6df]/30 dark:text-white transition-all font-medium; }
-                .custom-gradient { @apply bg-gradient-to-br from-[#73c6df] to-[#2e8ba6]; }
+                .label-text { font-size: 11px; font-weight: 600; color: var(--t2); text-transform: uppercase; letter-spacing: 0.8px; font-family: 'Outfit', sans-serif; }
+                .input-field { padding: 10px 16px; background: var(--input-bg); border: 1px solid var(--border); border-radius: 12px; color: var(--t1); font-family: 'Outfit', sans-serif; font-size: 13px; transition: all 0.2s; }
+                .input-field:focus { outline: none; border-color: var(--blue); box-shadow: 0 0 0 3px var(--blue-a); }
             `}</style>
         </div>
     );

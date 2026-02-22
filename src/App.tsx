@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
+import { ThemeProvider, useTheme } from './contexts/ThemeContext';
 import Sidebar from './components/Sidebar';
 import MobileNav from './components/MobileNav';
 import Header from './components/Header';
@@ -31,8 +32,10 @@ const App: React.FC = () => {
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   // currentPage state removed in favor of Router
 
+  // Theme
+  const { theme, toggleTheme, isDark } = useTheme();
+
   // Global Settings State
-  const [darkMode, setDarkMode] = useState(false);
   const [aiFrequency, setAiFrequency] = useState('realtime');
   const [lastUpdated, setLastUpdated] = useState(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
 
@@ -68,14 +71,7 @@ const App: React.FC = () => {
     return () => subscription.unsubscribe();
   }, []);
 
-  // Dark mode effect
-  useEffect(() => {
-    if (darkMode) {
-      document.documentElement.classList.add('dark');
-    } else {
-      document.documentElement.classList.remove('dark');
-    }
-  }, [darkMode]);
+  // Dark mode effect handled by ThemeProvider (sets data-theme + dark class)
 
   // Auth Handlers
   const handleLogin = () => {
@@ -98,10 +94,10 @@ const App: React.FC = () => {
   // Loading state
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: 'var(--bg)' }}>
         <div className="flex flex-col items-center gap-4">
-          <div className="w-12 h-12 border-4 border-[#73c6df] border-t-transparent rounded-full animate-spin"></div>
-          <p className="text-slate-500 font-medium">A carregar...</p>
+          <div className="w-12 h-12 border-4 border-brand-blue border-t-transparent rounded-full animate-spin"></div>
+          <p className="font-medium" style={{ color: 'var(--t2)' }}>A carregar...</p>
         </div>
       </div>
     );
@@ -155,21 +151,22 @@ const App: React.FC = () => {
   // --- Render Main Application (Dashboard) ---
 
   return (
-    <div className={`flex min-h-screen transition-colors duration-300 ${darkMode ? 'dark bg-slate-900' : 'bg-[#f8fafc]'}`}>
+    <div className="flex min-h-screen transition-colors duration-300" style={{ backgroundColor: 'var(--bg)', color: 'var(--t1)' }}>
+      {/* Ambient Glow */}
+      <div className="ambient-glow-1" />
+      <div className="ambient-glow-2" />
+
       <Sidebar
         isCollapsed={isSidebarCollapsed}
         toggleSidebar={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
         onLogout={handleLogout}
       />
-      <main className="flex-1 overflow-y-auto h-screen relative scroll-smooth no-scrollbar dark:text-slate-100 pb-20 md:pb-0">
+      <main className="flex-1 overflow-y-auto h-screen relative scroll-smooth no-scrollbar pb-20 md:pb-0">
         <MobileNav />
-        {/* Background Ambient Blurs for depth - Adjusted for Dark Mode */}
-        <div className="fixed top-0 right-0 w-[500px] h-[500px] bg-[#73c6df]/10 dark:bg-[#73c6df]/5 blur-[120px] rounded-full -mr-64 -mt-64 pointer-events-none z-0"></div>
-        <div className="fixed bottom-0 left-64 w-[400px] h-[400px] bg-[#8bd7bf]/20 dark:bg-[#8bd7bf]/10 blur-[100px] rounded-full -ml-32 -mb-32 pointer-events-none z-0"></div>
 
         <div className="relative z-10 w-full max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8">
           <OnboardingTour />
-          <Header darkMode={darkMode} />
+          <Header />
 
           <ErrorBoundary>
             <Routes>
@@ -187,8 +184,8 @@ const App: React.FC = () => {
               } />
               <Route path="/settings" element={
                 <Settings
-                  darkMode={darkMode}
-                  toggleDarkMode={() => setDarkMode(!darkMode)}
+                  darkMode={isDark}
+                  toggleDarkMode={toggleTheme}
                   aiFrequency={aiFrequency}
                   setAiFrequency={setAiFrequency}
                 />
@@ -207,4 +204,11 @@ const App: React.FC = () => {
   );
 };
 
-export default App;
+// Wrap App in ThemeProvider
+const AppWithTheme: React.FC = () => (
+  <ThemeProvider>
+    <App />
+  </ThemeProvider>
+);
+
+export default AppWithTheme;

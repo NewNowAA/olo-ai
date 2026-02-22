@@ -1,40 +1,45 @@
 @import "tailwindcss";
+@import "./styles/theme.css";
 
-:root {
-    --color-teal-primary: #73c6df;
-    --color-mint-secondary: #8bd7bf;
-}
+@theme {
+  --font-sans: 'Outfit', sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
 
-body {
-    @apply bg-slate-50 text-slate-800 font-sans;
+  --color-brand-blue: #1042FF;
+  --color-brand-pink: #E94C76;
+  --color-brand-navy: #00002C;
+  --color-brand-cyan: #00B8FD;
+
+  --color-teal-primary: #73c6df;
+  --color-teal-secondary: #8bd7bf;
+
+  --animate-fade-up: fadeUp 0.5s ease backwards;
+  --animate-fade-in: fadeIn 0.25s ease backwards;
+  --animate-border-rotate: borderRotate 2s linear infinite;
+
+  @keyframes fadeUp {
+    0% { opacity: 0; transform: translateY(12px); }
+    100% { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes fadeIn {
+    0% { opacity: 0; transform: translateY(6px); }
+    100% { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes borderRotate {
+    0% { rotate: 0deg; }
+    100% { rotate: 360deg; }
+  }
 }
 
 @layer utilities {
-    .text-balance {
-        text-wrap: balance;
-    }
+  .text-balance {
+    text-wrap: balance;
+  }
 }
 
 @keyframes scan {
-    0% {
-        top: 0%;
-        opacity: 0;
-    }
-
-    10% {
-        opacity: 1;
-    }
-
-    90% {
-        opacity: 1;
-    }
-
-    100% {
-        top: 100%;
-        opacity: 0;
-    }
-}
-
-.custom-text-gradient {
-    @apply bg-gradient-to-br from-[#73c6df] to-[#2dd4bf] bg-clip-text text-transparent;
+  0% { top: 0%; opacity: 0; }
+  10% { opacity: 1; }
+  90% { opacity: 1; }
+  100% { top: 100%; opacity: 0; }
 }
