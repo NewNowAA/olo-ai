@@ -881,7 +881,17 @@ const Settings: React.FC<SettingsProps> = ({ darkMode, toggleDarkMode, aiFrequen
                           <div>
                               <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest mb-2">Integração Telegram</label>
                               <div className="flex gap-4 items-center">
-                                  {telegramToken ? (
+                                  {profile?.telegram_id ? (
+                                      <div className="flex-1 px-4 py-3 bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 rounded-xl flex items-center gap-3">
+                                          <div className="w-8 h-8 rounded-full bg-emerald-100 dark:bg-emerald-800 text-emerald-600 dark:text-emerald-400 flex items-center justify-center">
+                                              <Check size={16} strokeWidth={3} />
+                                          </div>
+                                          <div>
+                                              <p className="text-sm font-bold text-slate-800 dark:text-white">Conectado ao Telegram</p>
+                                              <p className="text-xs text-slate-500 dark:text-slate-400">ID: {profile.telegram_id}</p>
+                                          </div>
+                                      </div>
+                                  ) : telegramToken ? (
                                       <>
                                           <div className="flex-1 px-4 py-3 bg-slate-50 dark:bg-slate-700/50 border border-emerald-500/30 dark:border-emerald-500/30 rounded-xl dark:text-white flex justify-between items-center">
                                             <div>
@@ -896,7 +906,7 @@ const Settings: React.FC<SettingsProps> = ({ darkMode, toggleDarkMode, aiFrequen
                                             )}
                                           </div>
                                           <a 
-                                            href={`https://t.me/Lumea_ia_bot?start=${telegramToken}`}
+                                            href={`https://t.me/Alphabethy_bot?start=${telegramToken}`}
                                             target="_blank"
                                             rel="noopener noreferrer"
                                             className="px-6 py-4 bg-[#2AABEE] text-white rounded-xl font-bold hover:bg-[#229ED9] transition-colors shadow-sm whitespace-nowrap flex items-center gap-2 h-full"
@@ -907,7 +917,7 @@ const Settings: React.FC<SettingsProps> = ({ darkMode, toggleDarkMode, aiFrequen
                                   ) : (
                                     <>
                                         <div className="flex-1 px-4 py-3 bg-slate-50 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-600 rounded-xl dark:text-slate-400 text-sm flex items-center">
-                                            Nenhum código gerado.
+                                            Telegram não ligado.
                                         </div>
                                         <button 
                                             onClick={handleGenerateTelegramToken}
@@ -915,16 +925,18 @@ const Settings: React.FC<SettingsProps> = ({ darkMode, toggleDarkMode, aiFrequen
                                             className="px-6 py-3 bg-[#2AABEE] text-white rounded-xl font-bold hover:bg-[#229ED9] transition-colors shadow-sm whitespace-nowrap flex items-center gap-2"
                                         >
                                             {generatingToken ? <Loader2 className="animate-spin" size={16}/> : null}
-                                            Gerar Código Telegram
+                                            🔗 Ligar ao Telegram
                                         </button>
                                     </>
                                   )}
                               </div>
-                              <p className="text-[10px] text-slate-400 mt-2">
-                                  {telegramToken 
-                                      ? "Clique no botão ou envie a mensagem '/start CODIGO' no Telegram. Este código expira em 15 minutos." 
-                                      : "Gere um código seguro temporário para vincular o seu Telegram ao aplicativo."}
-                              </p>
+                              {!profile?.telegram_id && (
+                                  <p className="text-[10px] text-slate-400 mt-2">
+                                      {telegramToken 
+                                          ? "Clique no botão ou envie a mensagem '/start CODIGO' no Telegram. Este código expira em 15 minutos." 
+                                          : "Gere um código seguro temporário para vincular o seu Telegram ao aplicativo."}
+                                  </p>
+                              )}
                           </div>
                           <div>
                               <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest mb-2">Email</label>

@@ -42,6 +42,7 @@ export interface AuthResult {
     error?: string;
     userId?: string;
     orgId?: string;
+    linkToken?: string;
 }
 
 /**
@@ -97,6 +98,10 @@ export async function registerUser(data: RegisterData): Promise<AuthResult> {
 
         const orgId = orgData.id;
 
+        // Generate link token for Telegram deep link
+        const linkToken = crypto.randomUUID();
+        const tokenExpiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(); // 24h
+
         // 3. Create user profile in public.users table (Use upsert to handle potential triggers)
         const { error: userError } = await supabase
             .from('users')
@@ -109,11 +114,12 @@ export async function registerUser(data: RegisterData): Promise<AuthResult> {
                 email: data.email,
                 mobile_number: data.phone,
                 preferred_channels: data.channels,
-                whatsapp_id: data.whatsappNumber,
-                telegram_id: data.telegramUsername,
+                whatsapp_id: data.whatsappNumber || null,
+                telegram_id: null,
                 chat_number: data.whatsappNumber || data.phone, // Bind chat_number here
                 user_role: 'admin', // Creator is admin
-                password: 'managed_by_supabase_auth', // Placeholder for n8n compatibility
+                link_token: linkToken,
+                token_expires_at: tokenExpiresAt,
             });
 
         if (userError) {
@@ -128,7 +134,8 @@ export async function registerUser(data: RegisterData): Promise<AuthResult> {
         return {
             success: true,
             userId: authUserId,
-            orgId: orgId
+            orgId: orgId,
+            linkToken: linkToken,
         };
     } catch (error) {
         console.error('Registration error:', error);

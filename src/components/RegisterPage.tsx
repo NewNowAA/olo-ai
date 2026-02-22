@@ -12,6 +12,7 @@ const RegisterPage: React.FC<RegisterPageProps> = ({ onLoginRequest, onBack }) =
     const totalSteps = 4;
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [linkToken, setLinkToken] = useState<string | null>(null);
     const [emailError, setEmailError] = useState<string | null>(null);
     const [phoneError, setPhoneError] = useState<string | null>(null);
     const [isCheckingEmail, setIsCheckingEmail] = useState(false);
@@ -258,6 +259,9 @@ const RegisterPage: React.FC<RegisterPageProps> = ({ onLoginRequest, onBack }) =
         setIsLoading(false);
 
         if (result.success) {
+            if (result.linkToken) {
+                setLinkToken(result.linkToken);
+            }
             setStep(totalSteps + 1); // Go to success screen
         } else {
             setError(result.error || 'Erro ao criar conta');
@@ -634,6 +638,27 @@ const RegisterPage: React.FC<RegisterPageProps> = ({ onLoginRequest, onBack }) =
                     </div>
                     <h2 className="text-3xl font-extrabold text-slate-900">Conta Criada!</h2>
                     <p className="text-slate-500 leading-relaxed font-medium">Tudo pronto para automatizar as suas finanças. Bem-vindo ao faturAI.</p>
+
+                    {linkToken && formData.channels.includes('telegram') && (
+                        <div className="mt-6 p-6 bg-blue-50/50 border border-blue-100 rounded-2xl text-left shadow-sm">
+                            <h3 className="text-sm font-bold text-slate-800 flex items-center gap-2 mb-2">
+                                <MessageSquare size={16} className="text-[#0088cc]" />
+                                Conectar Telegram
+                            </h3>
+                            <p className="text-xs text-slate-500 mb-4">
+                                Clique no botão abaixo para ligar o seu Telegram à conta faturAI. Este código de ligação especial expira em 24h.
+                            </p>
+                            <a
+                                href={`https://t.me/Alphabethy_bot?start=${linkToken}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="w-full py-3 bg-[#0088cc] text-white font-bold rounded-xl hover:bg-[#0077b3] transition-colors shadow-md flex items-center justify-center gap-2 text-sm"
+                            >
+                                Ligar ao Telegram agora
+                            </a>
+                        </div>
+                    )}
+
                     <button
                         onClick={onLoginRequest}
                         className="w-full py-4 bg-gradient-to-r from-[#73c6df] to-[#8bd7bf] text-white font-extrabold rounded-2xl hover:brightness-110 transition-all shadow-xl hover:shadow-[#73c6df]/30 mt-4"
