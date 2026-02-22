@@ -856,27 +856,35 @@ const Settings: React.FC<SettingsProps> = ({ darkMode, toggleDarkMode, aiFrequen
                                 className="w-full px-4 py-3 bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-xl dark:text-white" 
                               />
                           </div>
-                          <div className="grid grid-cols-2 gap-4">
-                              <div>
-                                  <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest mb-2">Telemóvel</label>
-                                  <input 
-                                    type="tel" 
-                                    value={profileForm.mobile_number}
-                                    onChange={(e) => setProfileForm({...profileForm, mobile_number: e.target.value})}
-                                    className="w-full px-4 py-3 bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-xl dark:text-white"
-                                    placeholder="+244..."
-                                  />
+                          <div>
+                              <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest mb-2">Telemóvel</label>
+                              <input 
+                                type="tel" 
+                                value={profileForm.mobile_number}
+                                onChange={(e) => setProfileForm({...profileForm, mobile_number: e.target.value})}
+                                className="w-full px-4 py-3 bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-xl dark:text-white"
+                                placeholder="+244..."
+                              />
+                          </div>
+                          <div>
+                              <div className="flex justify-between items-center mb-2">
+                                  <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest">Integração WhatsApp</label>
+                                  <span className="px-2 py-0.5 bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 rounded flex items-center text-[10px] font-bold uppercase tracking-wider">Brevemente</span>
                               </div>
-                              <div>
-                                  <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest mb-2">WhatsApp ID</label>
-                                  <input 
-                                    type="text" 
-                                    value={profileForm.whatsapp_id}
-                                    onChange={(e) => setProfileForm({...profileForm, whatsapp_id: e.target.value})}
-                                    className="w-full px-4 py-3 bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-xl dark:text-white"
-                                    placeholder="Ex: 244923..."
-                                  />
+                              <div className="flex gap-4 items-center">
+                                  <div className="flex-1 px-4 py-3 bg-slate-50 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-600 rounded-xl dark:text-slate-400 text-sm flex items-center">
+                                      WhatsApp não ligado.
+                                  </div>
+                                  <button 
+                                      disabled
+                                      className="px-6 py-3 bg-[#25D366]/50 text-white rounded-xl font-bold cursor-not-allowed shadow-sm whitespace-nowrap flex items-center gap-2"
+                                  >
+                                      🔗 Ligar ao WhatsApp
+                                  </button>
                               </div>
+                              <p className="text-[10px] text-slate-400 mt-2">
+                                  A ligação oficial com o bot do WhatsApp estará disponível em futuras atualizações.
+                              </p>
                           </div>
                           <div>
                               <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest mb-2">Integração Telegram</label>
