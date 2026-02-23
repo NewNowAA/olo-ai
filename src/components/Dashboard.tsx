@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import {
   Sparkles,
   Receipt,
@@ -22,6 +23,7 @@ import ReactMarkdown from 'react-markdown';
 import { useInvoiceFilters, useChartData } from '../hooks';
 import FilterControls from './Shared/FilterControls';
 import KPICard from './KPICard';
+import KPIDetailModal from './KPIDetailModal';
 
 // --- Main Component ---
 interface DashboardProps {
@@ -31,6 +33,27 @@ interface DashboardProps {
 
 const Dashboard: React.FC<DashboardProps> = ({ onNavigate, lastUpdated }) => {
   const [viewMode, setViewMode] = useState<'full' | 'revenue' | 'expenses'>('full');
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [selectedKPI, setSelectedKPI] = useState<string | null>(null);
+
+  // KPI Deeplink: read ?kpi= from URL on mount
+  useEffect(() => {
+    const kpiParam = searchParams.get('kpi');
+    if (kpiParam && ['invoices', 'revenue', 'expenses', 'profit'].includes(kpiParam)) {
+      setSelectedKPI(kpiParam);
+    }
+  }, []);
+
+  const handleKPIClick = useCallback((kpiId: string) => {
+    setSelectedKPI(kpiId);
+    setSearchParams({ kpi: kpiId }, { replace: true });
+  }, [setSearchParams]);
+
+  const handleKPIClose = useCallback(() => {
+    setSelectedKPI(null);
+    searchParams.delete('kpi');
+    setSearchParams(searchParams, { replace: true });
+  }, [searchParams, setSearchParams]);
 
   // --- PRESERVED: Data States ---
   const [invoices, setInvoices] = useState<Invoice[]>([]);
@@ -217,10 +240,10 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate, lastUpdated }) => {
 
             {/* KPI Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-              <KPICard label="Total Faturas" value={metrics.totalInvoices.toString()} unit="" change={`${metrics.totalInvoices}`} changeType="flat" changeSubtext="registadas" accentColor="var(--blue)" delay={0} icon={<Receipt size={18} />} />
-              <KPICard label="Receita Total" value={fmtKz(metrics.totalRev)} unit="Kz" change={fmtChange(metrics.trends?.revenueChange)} changeType={changeDir(metrics.trends?.revenueChange)} changeSubtext="vs período anterior" accentColor="var(--green)" delay={80} icon={<Banknote size={18} />} />
-              <KPICard label="Despesas" value={fmtKz(metrics.totalExp)} unit="Kz" change={fmtChange(metrics.trends?.expensesChange)} changeType={changeDir(metrics.trends?.expensesChange)} changeSubtext="vs período anterior" accentColor="var(--pink)" delay={160} icon={<ShoppingCart size={18} />} />
-              <KPICard label="Lucro Líquido" value={fmtKz(metrics.netProfit)} unit="Kz" change={fmtChange(metrics.trends?.profitChange)} changeType={changeDir(metrics.trends?.profitChange)} changeSubtext="vs período anterior" accentColor="var(--cyan)" delay={240} icon={<TrendingUp size={18} />} />
+              <KPICard label="Total Faturas" value={metrics.totalInvoices.toString()} unit="" change={`${metrics.totalInvoices}`} changeType="flat" changeSubtext="registadas" accentColor="var(--blue)" delay={0} icon={<Receipt size={18} />} kpiId="invoices" onClick={handleKPIClick} />
+              <KPICard label="Receita Total" value={fmtKz(metrics.totalRev)} unit="Kz" change={fmtChange(metrics.trends?.revenueChange)} changeType={changeDir(metrics.trends?.revenueChange)} changeSubtext="vs período anterior" accentColor="var(--green)" delay={80} icon={<Banknote size={18} />} kpiId="revenue" onClick={handleKPIClick} />
+              <KPICard label="Despesas" value={fmtKz(metrics.totalExp)} unit="Kz" change={fmtChange(metrics.trends?.expensesChange)} changeType={changeDir(metrics.trends?.expensesChange)} changeSubtext="vs período anterior" accentColor="var(--pink)" delay={160} icon={<ShoppingCart size={18} />} kpiId="expenses" onClick={handleKPIClick} />
+              <KPICard label="Lucro Líquido" value={fmtKz(metrics.netProfit)} unit="Kz" change={fmtChange(metrics.trends?.profitChange)} changeType={changeDir(metrics.trends?.profitChange)} changeSubtext="vs período anterior" accentColor="var(--cyan)" delay={240} icon={<TrendingUp size={18} />} kpiId="profit" onClick={handleKPIClick} />
             </div>
 
             {/* Chart Section */}
@@ -373,6 +396,21 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate, lastUpdated }) => {
         </div>
 
       </div>
+
+      {/* KPI Detail Modal */}
+      {selectedKPI && (
+        <KPIDetailModal
+          kpiId={selectedKPI}
+          invoices={filteredInvoices}
+          onClose={handleKPIClose}
+          trendChange={
+            selectedKPI === 'revenue' ? metrics.trends?.revenueChange :
+            selectedKPI === 'expenses' ? metrics.trends?.expensesChange :
+            selectedKPI === 'profit' ? metrics.trends?.profitChange :
+            undefined
+          }
+        />
+      )}
     </div>
   );
 };

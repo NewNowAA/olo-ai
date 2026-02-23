@@ -11,10 +11,12 @@ interface KPICardProps {
   accentColor?: string;
   delay?: number;
   icon?: React.ReactNode;
+  kpiId?: string;
+  onClick?: (kpiId: string) => void;
 }
 
 const KPICard: React.FC<KPICardProps> = ({
-  label, value, unit = 'Kz', change, changeType, changeSubtext, accentColor, delay = 0, icon,
+  label, value, unit = 'Kz', change, changeType, changeSubtext, accentColor, delay = 0, icon, kpiId, onClick,
 }) => {
   const changeIcon = changeType === 'up' ? <ArrowUpRight size={12} /> :
     changeType === 'down' ? <ArrowDownRight size={12} /> : <Minus size={12} />;
@@ -24,13 +26,16 @@ const KPICard: React.FC<KPICardProps> = ({
   const changeBg = changeType === 'up' ? 'var(--green-a)' :
     changeType === 'down' ? 'var(--red-a)' : 'var(--input-bg)';
 
+  const isClickable = !!onClick && !!kpiId;
+
   return (
     <div
-      className="card-glow p-5"
+      className={`card-glow p-5 ${isClickable ? 'cursor-pointer hover:scale-[1.02] active:scale-[0.98] transition-transform' : ''}`}
       style={{
         '--accent-color': accentColor || 'var(--blue)',
         animationDelay: `${delay}ms`,
       } as React.CSSProperties}
+      onClick={isClickable ? () => onClick(kpiId!) : undefined}
     >
       <div className="flex items-center justify-between mb-3">
         <span className="text-[11px] font-medium uppercase tracking-[0.5px]"
@@ -71,3 +76,4 @@ const KPICard: React.FC<KPICardProps> = ({
 };
 
 export default KPICard;
+
