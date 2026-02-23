@@ -625,7 +625,7 @@ const Billing: React.FC<BillingProps> = ({ onNavigate }) => {
                                             invoice.status === 'Atrasado' ? 'bg-rose-50/40 dark:bg-rose-900/10 hover:bg-rose-50/70' :
                                             invoice.status === 'Pago' ? 'bg-emerald-50/30 dark:bg-emerald-900/10 hover:bg-emerald-50/60' :
                                             'bg-slate-50 dark:bg-slate-700/30 hover:bg-white dark:hover:bg-slate-700'
-                                        }`} onClick={() => setSelectedInvoiceForAnalysis(invoice)}>
+                                        }`} onClick={() => { setSelectedInvoiceForAnalysis(invoice); setSearchParams({ invoiceId: invoice.id || '' }, { replace: true }); }}>
                                             {colOrder.filter(k => visibleColumns[k as keyof typeof visibleColumns] !== false).map(colKey => (
                                                 <td key={colKey} className="px-4 py-4 border-y border-slate-100 dark:border-slate-700 bg-inherit align-middle">
                                                     {colKey === 'select' && (
@@ -744,7 +744,7 @@ const Billing: React.FC<BillingProps> = ({ onNavigate }) => {
             ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                     {filteredInvoices.map((invoice) => (
-                        <div key={invoice.id} className="bg-white dark:bg-slate-800 p-6 rounded-[2rem] shadow-sm border border-slate-200 dark:border-slate-700 hover:shadow-lg transition-all group flex flex-col cursor-pointer" onClick={() => setSelectedInvoiceForAnalysis(invoice)}>
+                        <div key={invoice.id} className="bg-white dark:bg-slate-800 p-6 rounded-[2rem] shadow-sm border border-slate-200 dark:border-slate-700 hover:shadow-lg transition-all group flex flex-col cursor-pointer" onClick={() => { setSelectedInvoiceForAnalysis(invoice); setSearchParams({ invoiceId: invoice.id || '' }, { replace: true }); }}>
                              <div className="flex justify-between items-start mb-6">
                                 <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${invoice.type === 'Receita' ? 'bg-[#f0fdf4] text-[#15803d]' : 'bg-rose-50 text-rose-500'}`}>
                                     {invoice.type === 'Receita' ? <TrendingUp size={24} /> : <ArrowDownRight size={24} />}

@@ -137,9 +137,9 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate, lastUpdated }) => {
             {labels[type]}
           </span>
         </div>
-        <div className="text-[12px] leading-[1.6]" style={{ color: 'var(--t2)', fontFamily: "'Outfit', sans-serif" }}>
+        <div className="text-[12px] leading-[1.6]" style={{ color: 'var(--t2)', fontFamily: "'Outfit', sans-serif", overflowWrap: 'break-word', wordBreak: 'break-word' }}>
           {aiAnalysis ? (
-            <ReactMarkdown>{aiAnalysis.slice(0, 250) + (aiAnalysis.length > 250 ? '...' : '')}</ReactMarkdown>
+            <ReactMarkdown>{aiAnalysis.slice(0, 500) + (aiAnalysis.length > 500 ? '...' : '')}</ReactMarkdown>
           ) : (
             <p style={{ color: 'var(--t3)' }}>A carregar análise IA...</p>
           )}
