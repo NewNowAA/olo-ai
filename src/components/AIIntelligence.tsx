@@ -15,7 +15,6 @@ import {
     History,
     Trash2,
     Layout,
-    Menu,
     X
 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
@@ -52,7 +51,7 @@ const AIIntelligence: React.FC = () => {
     const [messages, setMessages] = useState<Message[]>([]);
     const [conversations, setConversations] = useState<Conversation[]>([]);
     const [activeConvId, setActiveConvId] = useState<string | null>(null);
-    const [isHistoryOpen, setIsHistoryOpen] = useState(true); // Default open on desktop
+    const [isHistoryOpen, setIsHistoryOpen] = useState(true);
     const scrollRef = useRef<HTMLDivElement>(null);
     const { addToast } = useToast();
 
@@ -64,7 +63,6 @@ const AIIntelligence: React.FC = () => {
 
     useEffect(() => {
         fetchConversations();
-        // Responsive sidebar check
         if (window.innerWidth < 768) setIsHistoryOpen(false);
     }, []);
 
@@ -114,9 +112,7 @@ const AIIntelligence: React.FC = () => {
         setIsLoading(true);
 
         try {
-            // Build history from existing messages
             const historyForApi = messages.map(m => ({ sender: m.sender, text: m.text }));
-
             const aiText = await geminiService.askConsultant(text.trim(), historyForApi);
 
             const aiMsg: Message = {
@@ -129,13 +125,11 @@ const AIIntelligence: React.FC = () => {
             const finalMessages = [...newMessages, aiMsg];
             setMessages(finalMessages);
 
-            // Persist to Supabase
             if (activeConvId) {
                 await supabase
                     .from('chat_conversations')
                     .update({ messages: finalMessages, updated_at: new Date().toISOString() })
                     .eq('id', activeConvId);
-                // Update local list to move to top
                 fetchConversations();
             } else {
                 const title = text.trim().slice(0, 30) + (text.length > 30 ? '...' : '');
@@ -147,7 +141,7 @@ const AIIntelligence: React.FC = () => {
                 
                 if (data && !error) {
                     setActiveConvId(data.id);
-                    fetchConversations(); // Refresh list
+                    fetchConversations();
                 }
             }
 
@@ -184,21 +178,26 @@ const AIIntelligence: React.FC = () => {
     return (
         <div className="p-4 md:p-8 max-w-[1800px] mx-auto h-[calc(100vh-80px)] flex flex-col gap-6">
 
-            {/* Header & Toggle */}
+            {/* Header */}
             <div className="flex items-center justify-between">
                 <div className="flex items-center gap-4">
-                    <button onClick={() => setIsHistoryOpen(!isHistoryOpen)} className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-colors">
-                        <Layout size={24} className="text-slate-600 dark:text-slate-300" />
+                    <button 
+                        onClick={() => setIsHistoryOpen(!isHistoryOpen)} 
+                        className="p-2 rounded-xl transition-colors"
+                        style={{ color: 'var(--t2)' }}
+                    >
+                        <Layout size={24} />
                     </button>
                     <div>
-                        <h1 className="text-2xl font-extrabold text-slate-800 dark:text-white tracking-tight flex items-center gap-2">
+                        <h1 className="text-2xl font-extrabold tracking-tight flex items-center gap-2" style={{ color: 'var(--t1)' }}>
                            <Sparkles size={24} className="text-[#73c6df]"/> Lumea AI
                         </h1>
                     </div>
                 </div>
                  <button
                     onClick={handleNewChat}
-                    className="flex items-center gap-2 px-4 py-2 bg-[#73c6df] text-white rounded-xl text-sm font-bold hover:opacity-90 transition-all shadow-sm"
+                    className="flex items-center gap-2 px-5 py-2.5 text-white rounded-xl text-sm font-bold transition-all shadow-lg active:scale-95"
+                    style={{ background: 'linear-gradient(135deg, #2e8ba6, #73c6df)', fontFamily: "'Outfit', sans-serif" }}
                 >
                     <MessageSquarePlus size={18} />
                     <span className="hidden sm:inline">Nova Conversa</span>
@@ -208,41 +207,48 @@ const AIIntelligence: React.FC = () => {
             <div className="flex flex-1 gap-6 overflow-hidden relative">
                 
                 {/* Sidebar (History) */}
-                <div className={`
-                    absolute md:static inset-y-0 left-0 z-30 w-72 bg-white dark:bg-slate-800 rounded-[2rem] shadow-xl md:shadow-none border border-slate-100 dark:border-slate-700
-                    transform transition-transform duration-300 ease-in-out flex flex-col overflow-hidden
-                    ${isHistoryOpen ? 'translate-x-0' : '-translate-x-[110%] md:w-0 md:opacity-0 md:border-none p-0'}
-                `}>
-                    <div className="p-4 border-b border-slate-100 dark:border-slate-700 flex justify-between items-center bg-slate-50/50 dark:bg-slate-900/50 backdrop-blur-sm">
-                        <h3 className="font-bold text-slate-700 dark:text-slate-200 text-sm flex items-center gap-2">
+                <div 
+                    className={`
+                        absolute md:static inset-y-0 left-0 z-30 w-72 rounded-[2rem] backdrop-blur-xl
+                        transform transition-transform duration-300 ease-in-out flex flex-col overflow-hidden
+                        ${isHistoryOpen ? 'translate-x-0' : '-translate-x-[110%] md:w-0 md:opacity-0 md:border-none p-0'}
+                    `}
+                    style={{ 
+                        backgroundColor: 'var(--card)', 
+                        border: '1px solid var(--border)',
+                        boxShadow: '0 8px 32px rgba(0,0,0,0.08)'
+                    }}
+                >
+                    <div className="p-4 flex justify-between items-center" style={{ borderBottom: '1px solid var(--border)' }}>
+                        <h3 className="font-bold text-sm flex items-center gap-2" style={{ color: 'var(--t2)' }}>
                             <History size={16} /> Histórico
                         </h3>
-                        <button onClick={() => setIsHistoryOpen(false)} className="md:hidden p-1 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-lg">
+                        <button onClick={() => setIsHistoryOpen(false)} className="md:hidden p-1 rounded-lg" style={{ color: 'var(--t3)' }}>
                             <X size={16} />
                         </button>
                     </div>
                     <div className="flex-1 overflow-y-auto p-3 space-y-2">
                         {conversations.length === 0 ? (
                             <div className="text-center py-10 px-4">
-                                <p className="text-xs text-slate-400">Nenhuma conversa guardada nos últimos 15 dias.</p>
+                                <p className="text-xs" style={{ color: 'var(--t3)' }}>Nenhuma conversa guardada nos últimos 15 dias.</p>
                             </div>
                         ) : (
                             conversations.map(conv => (
                                 <div 
                                     key={conv.id} 
                                     onClick={() => loadConversation(conv)}
-                                    className={`
-                                        group relative p-3 rounded-xl cursor-pointer transition-all border
-                                        ${activeConvId === conv.id 
-                                            ? 'bg-slate-100 dark:bg-slate-700 border-slate-200 dark:border-slate-600 shadow-sm' 
-                                            : 'border-transparent hover:bg-slate-50 dark:hover:bg-slate-700/50 text-slate-600 dark:text-slate-400'}
-                                    `}
+                                    className="group relative p-3 rounded-xl cursor-pointer transition-all"
+                                    style={{ 
+                                        backgroundColor: activeConvId === conv.id ? 'var(--blue-a)' : 'transparent',
+                                        border: activeConvId === conv.id ? '1px solid var(--blue)' : '1px solid transparent'
+                                    }}
                                 >
-                                    <p className="text-xs font-bold truncate pr-6 text-slate-700 dark:text-slate-200">{conv.title || 'Conversa sem título'}</p>
-                                    <p className="text-[10px] text-slate-400 mt-1">{new Date(conv.updated_at).toLocaleDateString()}</p>
+                                    <p className="text-xs font-bold truncate pr-6" style={{ color: 'var(--t1)' }}>{conv.title || 'Conversa sem título'}</p>
+                                    <p className="text-[10px] mt-1" style={{ color: 'var(--t3)' }}>{new Date(conv.updated_at).toLocaleDateString()}</p>
                                     <button 
                                         onClick={(e) => deleteConversation(e, conv.id)}
-                                        className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-900/20 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity"
+                                        className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity hover:text-rose-500"
+                                        style={{ color: 'var(--t3)' }}
                                     >
                                         <Trash2 size={14} />
                                     </button>
@@ -258,18 +264,25 @@ const AIIntelligence: React.FC = () => {
                 )}
 
                 {/* Main Chat Area */}
-                <div className="flex-1 flex flex-col bg-white/60 dark:bg-slate-800/60 backdrop-blur-xl border border-white/50 dark:border-slate-700/50 rounded-[2.5rem] shadow-sm overflow-hidden relative transition-all">
+                <div 
+                    className="flex-1 flex flex-col rounded-[2.5rem] backdrop-blur-xl overflow-hidden relative transition-all"
+                    style={{ 
+                        backgroundColor: 'var(--card)', 
+                        border: '1px solid var(--border)',
+                    }}
+                >
                     
-                    {/* Chat Header (Internal) - Removed simple title, kept status */}
-                    <div className="p-4 border-b border-white/40 dark:border-slate-700/40 flex items-center justify-between bg-white/40 dark:bg-slate-800/60 backdrop-blur-md">
+                    {/* Chat Header (Internal) */}
+                    <div className="p-4 flex items-center justify-between backdrop-blur-md" style={{ borderBottom: '1px solid var(--border)' }}>
                         <div className="flex items-center gap-3">
                              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#73c6df] to-[#8bd7bf] text-white flex items-center justify-center shadow-lg shadow-[#73c6df]/20">
                                 <Bot size={16} />
                             </div>
                             <div>
-                                <h3 className="font-bold text-slate-800 dark:text-white text-sm">Consultora Financeira</h3>
-                                <p className="text-[10px] text-[#2e8ba6] dark:text-[#73c6df] font-medium flex items-center gap-1">
-                                    <span className="w-1.5 h-1.5 rounded-full bg-[#8bd7bf] animate-pulse"></span> Online • Memória de 15 dias
+                                <h3 className="font-bold text-sm" style={{ color: 'var(--t1)' }}>Consultora Financeira</h3>
+                                <p className="text-[10px] text-[#73c6df] font-medium flex items-center gap-1">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-[#8bd7bf] animate-pulse"></span>
+                                    Online • Memória de 15 dias
                                 </p>
                             </div>
                         </div>
@@ -287,8 +300,8 @@ const AIIntelligence: React.FC = () => {
                                     <Sparkles size={36} />
                                 </div>
                                 <div className="text-center">
-                                    <h2 className="text-2xl font-extrabold text-slate-800 dark:text-white">Olá! Sou a Lumea 👋</h2>
-                                    <p className="text-slate-500 dark:text-slate-400 mt-2 text-sm max-w-md">
+                                    <h2 className="text-2xl font-extrabold" style={{ color: 'var(--t1)' }}>Olá! Sou a Lumea 👋</h2>
+                                    <p className="mt-2 text-sm max-w-md" style={{ color: 'var(--t2)' }}>
                                         Sou a sua consultora financeira de IA. Analiso as suas faturas em tempo real para dar conselhos personalizados sobre o seu negócio.
                                     </p>
                                 </div>
@@ -296,18 +309,22 @@ const AIIntelligence: React.FC = () => {
 
                             {/* Suggested Questions */}
                             <div className="w-full">
-                                <p className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-4 text-center">Comece com uma pergunta</p>
+                                <p className="text-xs font-bold uppercase tracking-widest mb-4 text-center" style={{ color: 'var(--t3)' }}>Comece com uma pergunta</p>
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                     {SUGGESTED_QUESTIONS.map((q, i) => (
                                         <button
                                             key={i}
                                             onClick={() => sendMessage(q.text)}
-                                            className="flex items-center gap-3 p-4 bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-2xl text-left hover:shadow-md hover:scale-[1.02] transition-all group"
+                                            className="flex items-center gap-3 p-4 rounded-2xl text-left transition-all group hover:scale-[1.02]"
+                                            style={{ 
+                                                backgroundColor: 'var(--input-bg)', 
+                                                border: '1px solid var(--border)',
+                                            }}
                                         >
                                             <div className={`w-9 h-9 rounded-xl bg-gradient-to-br ${q.color} text-white flex items-center justify-center shrink-0 shadow-sm group-hover:shadow-md transition-shadow`}>
                                                 <q.icon size={18} />
                                             </div>
-                                            <span className="text-sm font-medium text-slate-600 dark:text-slate-300 leading-tight">{q.text}</span>
+                                            <span className="text-sm font-medium leading-tight" style={{ color: 'var(--t2)' }}>{q.text}</span>
                                         </button>
                                     ))}
                                 </div>
@@ -318,27 +335,38 @@ const AIIntelligence: React.FC = () => {
                         <div className="space-y-6 pb-4">
                             {messages.map((msg) => (
                                 <div key={msg.id} className={`flex gap-3 max-w-2xl ${msg.sender === 'user' ? 'ml-auto flex-row-reverse' : ''}`}>
-                                    <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 mt-1 ${msg.sender === 'user' ? 'bg-slate-800 dark:bg-slate-600 text-white' : 'bg-gradient-to-br from-[#73c6df] to-[#8bd7bf] text-white'}`}>
+                                    <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 mt-1 ${
+                                        msg.sender === 'user' 
+                                            ? 'text-white' 
+                                            : 'bg-gradient-to-br from-[#73c6df] to-[#8bd7bf] text-white'
+                                    }`}
+                                    style={msg.sender === 'user' ? { backgroundColor: 'var(--blue)' } : {}}
+                                    >
                                         {msg.sender === 'user' ? <User size={14} /> : <Sparkles size={14} />}
                                     </div>
                                     <div className={`space-y-1 ${msg.sender === 'user' ? 'text-right' : ''}`}>
-                                        <div className={`
-                                            p-4 rounded-2xl shadow-sm leading-relaxed text-sm
-                                            ${msg.sender === 'user'
-                                                ? 'bg-[#73c6df] text-white rounded-tr-none shadow-[#73c6df]/20'
-                                                : 'bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 text-slate-600 dark:text-slate-300 rounded-tl-none'}
-                                        `}>
+                                        <div 
+                                            className={`p-4 rounded-2xl shadow-sm leading-relaxed text-sm ${
+                                                msg.sender === 'user'
+                                                    ? 'rounded-tr-none text-white'
+                                                    : 'rounded-tl-none'
+                                            }`}
+                                            style={msg.sender === 'user' 
+                                                ? { background: 'linear-gradient(135deg, #2e8ba6, #73c6df)' }
+                                                : { backgroundColor: 'var(--input-bg)', border: '1px solid var(--border)', color: 'var(--t2)' }
+                                            }
+                                        >
                                             {msg.sender === 'user' ? (
                                                 msg.text.split('\n').map((line, i) => (
                                                     <p key={i} className={i > 0 ? 'mt-2' : ''}>{line}</p>
                                                 ))
                                             ) : (
-                                                <div className="prose prose-sm max-w-none text-slate-600 dark:text-slate-300 prose-headings:text-slate-800 dark:prose-headings:text-white prose-strong:text-slate-700 dark:prose-strong:text-slate-200">
+                                                <div className="prose prose-sm max-w-none" style={{ color: 'var(--t2)' }}>
                                                     <ReactMarkdown>{msg.text}</ReactMarkdown>
                                                 </div>
                                             )}
                                         </div>
-                                        <span className="text-[10px] text-slate-400 font-medium px-2">{msg.time}</span>
+                                        <span className="text-[10px] font-medium px-2" style={{ color: 'var(--t3)' }}>{msg.time}</span>
                                     </div>
                                 </div>
                             ))}
@@ -348,9 +376,12 @@ const AIIntelligence: React.FC = () => {
                                     <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#73c6df] to-[#8bd7bf] text-white flex items-center justify-center shrink-0 mt-1">
                                         <Sparkles size={14} />
                                     </div>
-                                    <div className="bg-white/60 dark:bg-slate-800/60 px-4 py-3 rounded-2xl rounded-tl-none border border-white/60 dark:border-slate-700 flex gap-2 items-center">
+                                    <div 
+                                        className="px-4 py-3 rounded-2xl rounded-tl-none flex gap-2 items-center"
+                                        style={{ backgroundColor: 'var(--input-bg)', border: '1px solid var(--border)' }}
+                                    >
                                         <Loader2 size={16} className="animate-spin text-[#73c6df]" />
-                                        <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">A analisar os seus dados...</span>
+                                        <span className="text-xs font-medium" style={{ color: 'var(--t3)' }}>A analisar os seus dados...</span>
                                     </div>
                                 </div>
                             )}
@@ -360,25 +391,30 @@ const AIIntelligence: React.FC = () => {
 
 
                 {/* Input Area */}
-                <div className="p-4 bg-white/60 dark:bg-slate-800/60 border-t border-white/40 dark:border-slate-700/40">
-                    <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-2 flex items-end gap-2 shadow-sm focus-within:ring-2 focus-within:ring-[#73c6df]/30 transition-all">
+                <div className="p-4" style={{ borderTop: '1px solid var(--border)' }}>
+                    <div 
+                        className="rounded-2xl p-2 flex items-end gap-2 shadow-sm transition-all"
+                        style={{ backgroundColor: 'var(--input-bg)', border: '1px solid var(--border)' }}
+                    >
                         <textarea
                             value={inputText}
                             onChange={(e) => setInputText(e.target.value)}
                             onKeyDown={handleKeyDown}
                             rows={1}
                             placeholder="Ex: Qual foi o produto mais vendido este mês?"
-                            className="flex-1 bg-transparent border-none focus:ring-0 text-sm text-slate-700 dark:text-slate-200 py-3 px-3 max-h-32 resize-none placeholder:text-slate-400"
+                            className="flex-1 bg-transparent border-none focus:ring-0 focus:outline-none text-sm py-3 px-3 max-h-32 resize-none"
+                            style={{ color: 'var(--t1)', fontFamily: "'Outfit', sans-serif" }}
                         />
                         <button
                             onClick={() => sendMessage(inputText)}
                             disabled={isLoading || !inputText.trim()}
-                            className="p-2.5 bg-gradient-to-br from-[#2e8ba6] to-[#73c6df] text-white rounded-xl hover:opacity-90 transition-all shadow-md disabled:opacity-40 disabled:cursor-not-allowed"
+                            className="p-2.5 text-white rounded-xl transition-all shadow-md disabled:opacity-40 disabled:cursor-not-allowed active:scale-95"
+                            style={{ background: 'linear-gradient(135deg, #2e8ba6, #73c6df)' }}
                         >
                             <Send size={18} />
                         </button>
                     </div>
-                     <p className="text-center text-[10px] text-slate-400 dark:text-slate-500 mt-2">A Lumea pode cometer erros. Verifique informações importantes.</p>
+                     <p className="text-center text-[10px] mt-2" style={{ color: 'var(--t3)' }}>A Lumea pode cometer erros. Verifique informações importantes.</p>
                 </div>
             </div>
             </div>

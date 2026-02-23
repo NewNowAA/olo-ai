@@ -89,7 +89,7 @@ Deno.serve(async (req: Request) => {
         // 1. Invoices
         const { data: invoices, error: err } = await supabase
             .from('invoices')
-            .select('vendor_name, total_amount, issue_date, category, status, expense_or_income, invoice_products(name, quantity, unit_price, total_price)')
+            .select('vendor_name, total_amount, issue_date, category, status, expense_or_income, invoice_products(description, quantity, unit_price, total_price)')
             .eq('user_id', user.id)
             .order('issue_date', { ascending: false })
             .limit(action === 'daily_analysis' ? 50 : 40)
@@ -97,6 +97,9 @@ Deno.serve(async (req: Request) => {
         if (err) console.error("Error fetching invoices:", err);
         console.log('User ID:', user.id);
         console.log('Invoices found:', invoices?.length || 0);
+        if (invoices && invoices.length > 0) {
+            console.log('First invoice sample:', JSON.stringify(invoices[0]));
+        }
 
         let invoiceContext = 'Sem dados de faturas disponíveis.'
         
@@ -109,7 +112,7 @@ Deno.serve(async (req: Request) => {
             invoices.forEach((inv: any) => {
                 if (inv.invoice_products) {
                     inv.invoice_products.forEach((p: any) => {
-                        const name = p.name || 'Item Desconhecido';
+                        const name = p.description || 'Item Desconhecido';
                         if (!itemStats[name]) itemStats[name] = { count: 0, total: 0 };
                         itemStats[name].count += (p.quantity || 1);
                         itemStats[name].total += (p.total_price || 0);
@@ -134,9 +137,9 @@ ${topItems || 'Sem dados de itens.'}
 ### Lista de Transações (Recentes):
 ${invoices.map((inv: any) => {
     const items = inv.invoice_products && inv.invoice_products.length > 0 
-        ? `\n   > Itens: ${inv.invoice_products.map((p:any) => `${p.quantity}x ${p.name}`).join(', ')}`
+        ? `\n   > Itens: ${inv.invoice_products.map((p:any) => `${p.quantity}x ${p.description}`).join(', ')}`
         : '';
-    return `- ${inv.issue_date}: ${inv.type === 'Receita' ? 'Recebeu de' : 'Pagou a'} ${inv.vendor_name || 'Desconhecido'} (Kz ${inv.total_amount}, ${inv.category})${items}`
+    return `- ${inv.issue_date}: ${inv.expense_or_income === 'Receita' ? 'Recebeu de' : 'Pagou a'} ${inv.vendor_name || 'Desconhecido'} (Kz ${inv.total_amount}, ${inv.category})${items}`
 }).join('\n')}
 `
         }
@@ -150,6 +153,9 @@ ${invoices.map((inv: any) => {
                  if (org) orgContext = `Empresa: ${org.name} (${org.sector}). Obj: ${org.objective_description}`
              }
         }
+
+        console.log('Invoice context length:', invoiceContext.length);
+        console.log('Invoice context preview:', invoiceContext.substring(0, 200));
 
         // --- PREPARE GEMINI REQUEST ---
         const apiKey = Deno.env.get('GOOGLE_GENERATIVE_AI_API_KEY') ?? Deno.env.get('GEMINI_API_KEY') ?? ''
