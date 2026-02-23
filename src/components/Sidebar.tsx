@@ -47,7 +47,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, toggleSidebar, onLogout 
   // --- PRESERVED: Nav items ---
   const principalItems = [
     { id: 'dashboard', path: '/dashboard', icon: LayoutGrid, label: 'Painel' },
-    { id: 'billing',   path: '/billing',   icon: FileText,   label: 'Faturamento', badge: 3 },
+    { id: 'billing',   path: '/billing',   icon: FileText,   label: 'Faturamento' },
     { id: 'ai',        path: '/ai',        icon: MessageSquare, label: 'Consultor IA' },
   ];
   const toolItems = [
@@ -57,8 +57,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, toggleSidebar, onLogout 
   ];
   const systemItems = [
     { id: 'settings', path: '/settings', icon: Settings,    label: 'Configurações' },
-    { id: 'help',     path: '/help',     icon: HelpCircle,  label: 'FAQ' },
-    { id: 'support',  path: '/help',     icon: Headphones,  label: 'Suporte' },
+    { id: 'support',  path: '/help',     icon: Headphones,  label: 'Suporte & FAQ' },
   ];
 
   const isActive = (path: string, id: string) => {
@@ -161,7 +160,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, toggleSidebar, onLogout 
             <>
               <SectionLabel label="Canais" />
               {/* Telegram Card */}
-              <a href="https://t.me/gefact_bot" target="_blank" rel="noopener noreferrer"
+              <a href="https://t.me/FacturAIBot" target="_blank" rel="noopener noreferrer"
                 className="flex items-center gap-3 px-3 py-2.5 rounded-xl mx-0 mb-1 transition-all group cursor-pointer"
                 style={{ backgroundColor: 'var(--cyan-a)' }}>
                 <Send size={16} style={{ color: 'var(--cyan)' }} />

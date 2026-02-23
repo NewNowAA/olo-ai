@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { 
   User, 
   CreditCard, 
@@ -33,9 +34,17 @@ interface SettingsProps {
 }
 
 const Settings: React.FC<SettingsProps> = ({ darkMode, toggleDarkMode, aiFrequency, setAiFrequency }) => {
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<'profile' | 'team' | 'billing' | 'preferences' | 'company'>('company');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [editingSection, setEditingSection] = useState<'company' | 'profile' | 'preferences' | null>(null);
+
+  // Account Deletion State
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deleteStep, setDeleteStep] = useState<1 | 2>(1);
+  const [deleteConfirmText, setDeleteConfirmText] = useState('');
+  const [isDeleting, setIsDeleting] = useState(false);
 
   // New states for Telegram token generation
   const [generatingToken, setGeneratingToken] = useState(false);
@@ -216,6 +225,34 @@ const Settings: React.FC<SettingsProps> = ({ darkMode, toggleDarkMode, aiFrequen
     }
   };
 
+  const handleDeleteAccount = async () => {
+      if (deleteConfirmText !== 'APAGAR') return;
+      setIsDeleting(true);
+      try {
+          if (!profile) return;
+          const isAdmin = profile.user_role === 'admin';
+          
+          if (profile.org_id && isAdmin) {
+              await supabase.from('organizations').delete().eq('id', profile.org_id);
+          }
+          await supabase.from('users').delete().eq('id', profile.id);
+
+          // Invoke the edge function to handle auth.user deletion
+          const { error: invokeError } = await supabase.functions.invoke('delete-account');
+          if (invokeError) {
+              console.error("Erro na Edge Function:", invokeError);
+          }
+
+          await supabase.auth.signOut();
+          navigate('/login');
+      } catch (error) {
+          console.error("Error deleting account", error);
+          toast.error("Erro ao apagar conta.");
+      } finally {
+          setIsDeleting(false);
+      }
+  };
+
   const handleUpdatePreferences = async () => {
     setSaving(true);
     try {
@@ -362,7 +399,8 @@ const Settings: React.FC<SettingsProps> = ({ darkMode, toggleDarkMode, aiFrequen
                                 type="text" 
                                 value={orgForm.name}
                                 onChange={(e) => setOrgForm({...orgForm, name: e.target.value})}
-                                className="w-full px-4 py-3 bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-xl dark:text-white" 
+                                disabled={editingSection !== 'company'}
+                                className="w-full px-4 py-3 bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-xl dark:text-white disabled:opacity-70 disabled:cursor-not-allowed transition-all" 
                               />
                           </div>
                           <div>
@@ -371,8 +409,9 @@ const Settings: React.FC<SettingsProps> = ({ darkMode, toggleDarkMode, aiFrequen
                                 type="text" 
                                 value={orgForm.sector}
                                 onChange={(e) => setOrgForm({...orgForm, sector: e.target.value})}
+                                disabled={editingSection !== 'company'}
                                 placeholder="Ex: E-commerce de Moda, Consultoria TI..."
-                                className="w-full px-4 py-3 bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-xl dark:text-white" 
+                                className="w-full px-4 py-3 bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-xl dark:text-white disabled:opacity-70 disabled:cursor-not-allowed transition-all" 
                               />
                           </div>
                           <div>
@@ -380,9 +419,10 @@ const Settings: React.FC<SettingsProps> = ({ darkMode, toggleDarkMode, aiFrequen
                               <textarea 
                                 value={orgForm.description}
                                 onChange={(e) => setOrgForm({...orgForm, description: e.target.value})}
+                                disabled={editingSection !== 'company'}
                                 rows={4}
                                 placeholder="Descreva o que sua empresa faz, seus principais objetivos e desafios..."
-                                className="w-full px-4 py-3 bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-xl dark:text-white resize-none" 
+                                className="w-full px-4 py-3 bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-xl dark:text-white resize-none disabled:opacity-70 disabled:cursor-not-allowed transition-all" 
                               />
                           </div>
                           <div className="grid grid-cols-2 gap-4">
@@ -392,7 +432,8 @@ const Settings: React.FC<SettingsProps> = ({ darkMode, toggleDarkMode, aiFrequen
                                     type="text" 
                                     value={orgForm.tax_id}
                                     onChange={(e) => setOrgForm({...orgForm, tax_id: e.target.value})}
-                                    className="w-full px-4 py-3 bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-xl dark:text-white" 
+                                    disabled={editingSection !== 'company'}
+                                    className="w-full px-4 py-3 bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-xl dark:text-white disabled:opacity-70 disabled:cursor-not-allowed transition-all" 
                                   />
                               </div>
                               <div>
@@ -400,7 +441,8 @@ const Settings: React.FC<SettingsProps> = ({ darkMode, toggleDarkMode, aiFrequen
                                   <select 
                                     value={orgForm.employee_range}
                                     onChange={(e) => setOrgForm({...orgForm, employee_range: e.target.value})}
-                                    className="w-full px-4 py-3 bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-xl dark:text-white"
+                                    disabled={editingSection !== 'company'}
+                                    className="w-full px-4 py-3 bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-xl dark:text-white disabled:opacity-70 disabled:cursor-not-allowed transition-all"
                                   >
                                       <option value="">Selecione...</option>
                                       <option value="1-10">1-10</option>
@@ -416,18 +458,52 @@ const Settings: React.FC<SettingsProps> = ({ darkMode, toggleDarkMode, aiFrequen
                                 type="text" 
                                 value={orgForm.fiscal_address}
                                 onChange={(e) => setOrgForm({...orgForm, fiscal_address: e.target.value})}
-                                className="w-full px-4 py-3 bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-xl dark:text-white" 
+                                disabled={editingSection !== 'company'}
+                                className="w-full px-4 py-3 bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-xl dark:text-white disabled:opacity-70 disabled:cursor-not-allowed transition-all" 
                               />
                           </div>
 
-                          <button 
-                            onClick={handleUpdateOrg}
-                            disabled={saving}
-                            className="px-6 py-3 bg-[#2e8ba6] text-white rounded-xl font-bold shadow-lg hover:bg-[#257a91] flex items-center gap-2"
-                          >
-                            {saving ? <Loader2 className="animate-spin" size={18}/> : <Save size={18}/>}
-                            Salvar Alterações
-                          </button>
+                          <div className="flex items-center gap-3 pt-4">
+                            {editingSection !== 'company' ? (
+                                <button 
+                                    onClick={() => setEditingSection('company')} 
+                                    className="px-6 py-3 bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-700 dark:text-white rounded-xl font-bold transition-colors flex items-center gap-2"
+                                >
+                                    ✏️ Editar
+                                </button>
+                            ) : (
+                                <>
+                                    <button 
+                                        onClick={() => {
+                                            setEditingSection(null);
+                                            // Restore from org state
+                                            if (org) {
+                                                setOrgForm({
+                                                    name: org.name,
+                                                    sector: org.sector || '',
+                                                    description: org.objective_description || '',
+                                                    tax_id: org.tax_id || '',
+                                                    fiscal_address: org.fiscal_address || '',
+                                                    employee_range: org.employee_range || ''
+                                                });
+                                            }
+                                        }} 
+                                        className="px-6 py-3 border border-slate-200 dark:border-slate-600 rounded-xl text-slate-600 dark:text-slate-300 font-bold hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
+                                    >
+                                        Cancelar
+                                    </button>
+                                    <button 
+                                        onClick={async () => { await handleUpdateOrg(); setEditingSection(null); }}
+                                        disabled={saving}
+                                        className="px-6 py-3 text-white rounded-xl font-bold shadow-lg hover:opacity-90 flex items-center gap-2"
+                                        style={{ backgroundImage: 'linear-gradient(135deg, #2e8ba6, #73c6df)' }}
+                                    >
+                                        {saving ? <Loader2 className="animate-spin" size={18}/> : <Save size={18}/>}
+                                        Guardar
+                                    </button>
+                                </>
+                            )}
+                          </div>
                        </div>
                     </div>
                   )}
@@ -487,7 +563,8 @@ const Settings: React.FC<SettingsProps> = ({ darkMode, toggleDarkMode, aiFrequen
                           <button 
                               onClick={handleInviteUser}
                               disabled={inviting}
-                              className="w-full py-4 bg-[#2e8ba6] text-white font-bold rounded-xl hover:bg-[#257a91] flex justify-center items-center gap-2 mt-4"
+                              className="w-full py-4 text-white font-bold rounded-xl hover:opacity-90 flex justify-center items-center gap-2 mt-4"
+                              style={{ backgroundImage: 'linear-gradient(135deg, #2e8ba6, #73c6df)' }}
                           >
                               {inviting ? <Loader2 className="animate-spin" size={20}/> : <Plus size={20}/>}
                               Enviar Convite
@@ -517,12 +594,13 @@ const Settings: React.FC<SettingsProps> = ({ darkMode, toggleDarkMode, aiFrequen
                                   <div>
                                       <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-1">IBAN</label>
                                       <div className="flex items-center gap-3">
-                                          <code className="text-lg font-mono font-bold text-[#2e8ba6] bg-white dark:bg-slate-800 px-3 py-1 rounded-lg border border-slate-200 dark:border-slate-700 select-all">
+                                          <code className="text-lg font-mono font-bold bg-white dark:bg-slate-800 px-3 py-1 rounded-lg border border-slate-200 dark:border-slate-700 select-all" style={{ color: 'var(--blue)' }}>
                                               AO06 . . . (Provide Full IBAN Here)
                                           </code>
                                           <button 
                                             onClick={() => copyToClipboard("AO06...")}
-                                            className="p-2 text-slate-400 hover:text-[#2e8ba6] transition-colors" 
+                                            className="p-2 transition-colors" 
+                                            style={{ color: 'var(--t3)' }}
                                             title="Copiar IBAN"
                                           >
                                               <Copy size={20} />
@@ -536,18 +614,19 @@ const Settings: React.FC<SettingsProps> = ({ darkMode, toggleDarkMode, aiFrequen
                                   </div>
                               </div>
 
-                              <div className="text-sm text-slate-600 dark:text-slate-400 bg-blue-50 dark:bg-blue-900/20 p-4 rounded-xl flex items-start gap-3">
-                                  <div className="mt-0.5 text-blue-500"><ExternalLink size={16} /></div>
+                              <div className="text-sm text-slate-600 dark:text-slate-400 p-4 rounded-xl flex items-start gap-3" style={{ backgroundColor: 'color-mix(in srgb, var(--blue) 8%, transparent)', border: '1px solid color-mix(in srgb, var(--blue) 15%, transparent)' }}>
+                                  <div className="mt-0.5" style={{ color: 'var(--blue)' }}><ExternalLink size={16} /></div>
                                   <div>
-                                      <p className="font-bold text-blue-700 dark:text-blue-400 mb-1">Próximo Passo:</p>
-                                      <p>Envie o comprovativo de transferência para <strong className="text-blue-600 dark:text-blue-300">financeiro@invoiceapp.com</strong> ou via WhatsApp, indicando o nome da sua empresa.</p>
+                                      <p className="font-bold mb-1" style={{ color: 'var(--blue)' }}>Próximo Passo:</p>
+                                      <p>Envie o comprovativo de transferência para <strong style={{ color: 'var(--blue)' }}>financeiro@invoiceapp.com</strong> ou via WhatsApp, indicando o nome da sua empresa.</p>
                                       <p className="mt-2 text-xs opacity-80">Sua conta será atualizada em até 24h úteis.</p>
                                   </div>
                               </div>
 
                               <button 
                                   onClick={() => setIsUpgradeModalOpen(false)}
-                                  className="w-full py-4 bg-[#2e8ba6] text-white font-bold rounded-xl hover:bg-[#257a91] shadow-lg shadow-blue-500/20 transition-all transform hover:scale-[1.02]"
+                                  className="w-full py-4 text-white font-bold rounded-xl hover:opacity-90 shadow-lg transition-all transform hover:scale-[1.02]"
+                                  style={{ backgroundImage: 'linear-gradient(135deg, #2e8ba6, #73c6df)' }}
                               >
                                   Entendi, farei isso
                               </button>
@@ -564,7 +643,8 @@ const Settings: React.FC<SettingsProps> = ({ darkMode, toggleDarkMode, aiFrequen
                               </div>
                               <button 
                                 onClick={() => setIsInviteModalOpen(true)}
-                                className="px-5 py-2.5 rounded-xl bg-[#2e8ba6] text-white font-bold text-sm hover:bg-[#257a91] transition-all flex items-center gap-2"
+                                className="px-5 py-2.5 rounded-xl text-white font-bold text-sm hover:opacity-90 transition-all flex items-center gap-2"
+                                style={{ backgroundImage: 'linear-gradient(135deg, #2e8ba6, #73c6df)' }}
                               >
                                   <Plus size={18} /> Convidar Membro
                               </button>
@@ -584,7 +664,7 @@ const Settings: React.FC<SettingsProps> = ({ darkMode, toggleDarkMode, aiFrequen
                                           <div>
                                               <h4 className="font-bold text-slate-800 dark:text-white">
                                                 {member.full_name} 
-                                                {member.id === profile?.id && <span className="text-[10px] bg-[#73c6df]/20 text-[#2e8ba6] px-2 py-0.5 rounded-full ml-2">VOCÊ</span>}
+                                                {member.id === profile?.id && <span className="text-[10px] bg-[#73c6df]/20 px-2 py-0.5 rounded-full ml-2" style={{ color: 'var(--blue)' }}>VOCÊ</span>}
                                               </h4>
                                               <p className="text-xs text-slate-500 dark:text-slate-400">{member.email}</p>
                                           </div>
@@ -605,9 +685,9 @@ const Settings: React.FC<SettingsProps> = ({ darkMode, toggleDarkMode, aiFrequen
                           </div>
 
                           <div className="p-6 bg-[#73c6df]/10 dark:bg-[#73c6df]/5 rounded-2xl border border-[#73c6df]/20 flex gap-4 items-start">
-                               <div className="p-2 bg-white dark:bg-slate-800 rounded-full text-[#2e8ba6] shadow-sm"><Shield size={20} /></div>
+                               <div className="p-2 bg-white dark:bg-slate-800 rounded-full shadow-sm" style={{ color: 'var(--blue)' }}><Shield size={20} /></div>
                                <div>
-                                   <h4 className="font-bold text-[#2e8ba6] text-sm">Segurança do Time</h4>
+                                   <h4 className="font-bold text-sm" style={{ color: 'var(--blue)' }}>Segurança do Time</h4>
                                    <p className="text-xs text-slate-600 dark:text-slate-400 mt-1 max-w-xl">
                                        Administradores têm acesso total. Editores podem criar faturas mas não podem alterar configurações de faturamento. Viewers só podem visualizar dashboards.
                                    </p>
@@ -644,7 +724,7 @@ const Settings: React.FC<SettingsProps> = ({ darkMode, toggleDarkMode, aiFrequen
                               </div>
 
                               {/* Pro Plan */}
-                              <div className="p-6 rounded-[2rem] bg-[#2e8ba6] text-white relative overflow-hidden flex flex-col shadow-xl transform md:-translate-y-4">
+                              <div className="p-6 rounded-[2rem] text-white relative overflow-hidden flex flex-col shadow-xl transform md:-translate-y-4" style={{ backgroundImage: 'linear-gradient(135deg, #2e8ba6, #73c6df)' }}>
                                   <div className="absolute top-0 right-0 p-8 opacity-10"><CreditCard size={100} /></div>
                                   <div className="mb-4 relative z-10">
                                       <span className="text-xs font-bold bg-[#73c6df] text-slate-900 px-3 py-1 rounded-full uppercase tracking-wider">Mais Popular</span>
@@ -659,7 +739,7 @@ const Settings: React.FC<SettingsProps> = ({ darkMode, toggleDarkMode, aiFrequen
                                       <li className="flex items-center gap-2 text-sm"><Check size={16} className="text-[#8bd7bf]" /> <span>Exportação PDF/CSV</span></li>
                                   </ul>
 
-                                  <button onClick={() => openUpgradeModal('Pro', '$29/mês')} className="w-full py-3 bg-white text-[#2e8ba6] rounded-xl font-bold hover:bg-slate-100 transition-colors shadow-lg relative z-10">Fazer Upgrade</button>
+                                  <button onClick={() => openUpgradeModal('Pro', '$29/mês')} className="w-full py-3 bg-white rounded-xl font-bold hover:bg-slate-100 transition-colors shadow-lg relative z-10" style={{ color: 'var(--blue)' }}>Fazer Upgrade</button>
                               </div>
 
                               {/* Enterprise Plan */}
@@ -700,7 +780,8 @@ const Settings: React.FC<SettingsProps> = ({ darkMode, toggleDarkMode, aiFrequen
                                    <select 
                                      value={currencyForm}
                                      onChange={(e) => setCurrencyForm(e.target.value)}
-                                     className="w-full px-4 py-3 bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-xl dark:text-white"
+                                     disabled={editingSection !== 'preferences'}
+                                     className="w-full px-4 py-3 bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-xl dark:text-white disabled:opacity-70 disabled:cursor-not-allowed transition-all"
                                    >
                                        <option value="AOA">Kwanza (AOA)</option>
                                        <option value="EUR">Euro (EUR)</option>
@@ -715,7 +796,8 @@ const Settings: React.FC<SettingsProps> = ({ darkMode, toggleDarkMode, aiFrequen
                                    <select 
                                      value={languageForm}
                                      onChange={(e) => setLanguageForm(e.target.value)}
-                                     className="w-full px-4 py-3 bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-xl dark:text-white"
+                                     disabled={editingSection !== 'preferences'}
+                                     className="w-full px-4 py-3 bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-xl dark:text-white disabled:opacity-70 disabled:cursor-not-allowed transition-all"
                                    >
                                        <option value="pt">Português</option>
                                        <option value="en">English (Beta)</option>
@@ -733,8 +815,10 @@ const Settings: React.FC<SettingsProps> = ({ darkMode, toggleDarkMode, aiFrequen
                                    <input 
                                      type="checkbox" 
                                      checked={notificationsForm.email}
+                                     disabled={editingSection !== 'preferences'}
                                      onChange={(e) => setNotificationsForm({...notificationsForm, email: e.target.checked})}
-                                     className="w-5 h-5 accent-[#2e8ba6]" 
+                                     className="w-5 h-5 disabled:opacity-50" 
+                                     style={{ accentColor: 'var(--blue)' }}
                                    />
                                </div>
                                <div className="flex items-center justify-between p-3 bg-white/40 dark:bg-slate-700/40 rounded-xl border border-white/40 dark:border-slate-600">
@@ -742,21 +826,44 @@ const Settings: React.FC<SettingsProps> = ({ darkMode, toggleDarkMode, aiFrequen
                                    <input 
                                      type="checkbox" 
                                      checked={notificationsForm.push}
+                                     disabled={editingSection !== 'preferences'}
                                      onChange={(e) => setNotificationsForm({...notificationsForm, push: e.target.checked})}
-                                     className="w-5 h-5 accent-[#2e8ba6]" 
+                                     className="w-5 h-5 disabled:opacity-50" 
+                                     style={{ accentColor: 'var(--blue)' }}
                                    />
                                </div>
                            </div>
 
-                           <div className="pt-4 border-t border-slate-200 dark:border-slate-700">
-                                <button 
-                                     onClick={handleUpdatePreferences}
-                                     disabled={saving}
-                                     className="px-6 py-3 bg-[#2e8ba6] text-white rounded-xl font-bold shadow-lg hover:bg-[#257a91] flex items-center gap-2"
-                                   >
-                                     {saving ? <Loader2 className="animate-spin" size={18}/> : <Save size={18}/>}
-                                     Salvar Preferências
-                                </button>
+                           <div className="pt-4 border-t border-slate-200 dark:border-slate-700 flex items-center gap-3">
+                                {editingSection !== 'preferences' ? (
+                                    <button 
+                                        onClick={() => setEditingSection('preferences')} 
+                                        className="px-6 py-3 bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-700 dark:text-white rounded-xl font-bold transition-colors flex items-center gap-2"
+                                    >
+                                        ✏️ Editar
+                                    </button>
+                                ) : (
+                                    <>
+                                        <button 
+                                            onClick={() => {
+                                                setEditingSection(null);
+                                                if (org?.currency_default) setCurrencyForm(org.currency_default);
+                                            }} 
+                                            className="px-6 py-3 border border-slate-200 dark:border-slate-600 rounded-xl text-slate-600 dark:text-slate-300 font-bold hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
+                                        >
+                                            Cancelar
+                                        </button>
+                                        <button 
+                                            onClick={async () => { await handleUpdatePreferences(); setEditingSection(null); }}
+                                            disabled={saving}
+                                            className="px-6 py-3 text-white rounded-xl font-bold shadow-lg hover:opacity-90 flex items-center gap-2"
+                                            style={{ backgroundImage: 'linear-gradient(135deg, #2e8ba6, #73c6df)' }}
+                                        >
+                                            {saving ? <Loader2 className="animate-spin" size={18}/> : <Save size={18}/>}
+                                            Guardar
+                                        </button>
+                                    </>
+                                )}
                            </div>
                            
                            {/* Dark Mode Toggle */}
@@ -801,7 +908,8 @@ const Settings: React.FC<SettingsProps> = ({ darkMode, toggleDarkMode, aiFrequen
                                        <button
                                           key={freq}
                                           onClick={() => setAiFrequency(freq)}
-                                          className={`px-4 py-2 rounded-lg text-xs font-bold capitalize transition-all ${aiFrequency === freq ? 'bg-white dark:bg-slate-600 text-[#2e8ba6] shadow-sm' : 'text-slate-500 dark:text-slate-400'}`}
+                                          className={`px-4 py-2 rounded-lg text-xs font-bold capitalize transition-all ${aiFrequency === freq ? 'bg-white dark:bg-slate-600 shadow-sm' : 'text-slate-500 dark:text-slate-400'}`}
+                                          style={aiFrequency === freq ? { color: 'var(--blue)' } : {}}
                                        >
                                            {freq === 'realtime' ? 'Tempo Real' : freq === 'daily' ? 'Diário' : 'Semanal'}
                                        </button>
@@ -852,8 +960,9 @@ const Settings: React.FC<SettingsProps> = ({ darkMode, toggleDarkMode, aiFrequen
                               <input 
                                 type="text" 
                                 value={profileForm.full_name}
+                                disabled={editingSection !== 'profile'}
                                 onChange={(e) => setProfileForm({...profileForm, full_name: e.target.value})}
-                                className="w-full px-4 py-3 bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-xl dark:text-white" 
+                                className="w-full px-4 py-3 bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-xl dark:text-white disabled:opacity-70 disabled:cursor-not-allowed transition-all" 
                               />
                           </div>
                           <div>
@@ -861,8 +970,9 @@ const Settings: React.FC<SettingsProps> = ({ darkMode, toggleDarkMode, aiFrequen
                               <input 
                                 type="tel" 
                                 value={profileForm.mobile_number}
+                                disabled={editingSection !== 'profile'}
                                 onChange={(e) => setProfileForm({...profileForm, mobile_number: e.target.value})}
-                                className="w-full px-4 py-3 bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-xl dark:text-white"
+                                className="w-full px-4 py-3 bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-xl dark:text-white disabled:opacity-70 disabled:cursor-not-allowed transition-all"
                                 placeholder="+244..."
                               />
                           </div>
@@ -955,14 +1065,67 @@ const Settings: React.FC<SettingsProps> = ({ darkMode, toggleDarkMode, aiFrequen
                                 disabled 
                               />
                           </div>
-                          <button 
-                            onClick={handleUpdateProfile}
-                            disabled={saving}
-                            className="w-full py-3 bg-[#2e8ba6] text-white rounded-xl font-bold shadow-lg hover:bg-[#257a91] flex items-center justify-center gap-2"
-                          >
-                            {saving ? <Loader2 className="animate-spin" size={18}/> : null}
-                            Salvar Alterações
-                          </button>
+
+                          <div className="pt-6 flex items-center justify-center gap-3">
+                            {editingSection !== 'profile' ? (
+                                <button 
+                                    onClick={() => setEditingSection('profile')} 
+                                    className="w-full py-3 bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-700 dark:text-white font-bold rounded-xl transition-colors flex items-center justify-center gap-2"
+                                >
+                                    ✏️ Editar
+                                </button>
+                            ) : (
+                                <>
+                                    <button 
+                                        onClick={() => {
+                                            setEditingSection(null);
+                                            if (profile) {
+                                                setProfileForm({
+                                                    full_name: profile.full_name || '',
+                                                    email: profile.email || '',
+                                                    mobile_number: profile.mobile_number || '',
+                                                    whatsapp_id: profile.whatsapp_id || '',
+                                                    telegram_id: profile.telegram_id || ''
+                                                });
+                                            }
+                                        }} 
+                                        className="w-1/2 py-3 border border-slate-200 dark:border-slate-600 rounded-xl text-slate-600 dark:text-slate-300 font-bold hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
+                                    >
+                                        Cancelar
+                                    </button>
+                                    <button 
+                                        onClick={async () => { await handleUpdateProfile(); setEditingSection(null); }}
+                                        disabled={saving}
+                                        className="w-1/2 py-3 text-white rounded-xl font-bold shadow-lg hover:opacity-90 flex flex-nowrap items-center justify-center gap-2"
+                                        style={{ backgroundImage: 'linear-gradient(135deg, #2e8ba6, #73c6df)' }}
+                                    >
+                                        {saving ? <Loader2 className="animate-spin" size={18}/> : <Save size={18}/>}
+                                        Guardar
+                                    </button>
+                                </>
+                            )}
+                          </div>
+                          
+                          {/* DANGER ZONE */}
+                          <div className="mt-12 pt-8 border-t border-red-500/20">
+                              <h3 className="text-lg font-bold text-red-500 mb-2">Zona de Perigo</h3>
+                              <p className="text-sm text-slate-500 dark:text-slate-400 mb-4">
+                                  {profile?.user_role === 'admin' 
+                                      ? "Ao apagar a sua conta, todos os seus dados e a empresa associada serão eliminados permanentemente. Esta ação não pode ser desfeita."
+                                      : "Ao apagar a sua conta, os seus dados pessoais e acesso serão eliminados permanentemente. Esta ação não pode ser desfeita."
+                                  }
+                              </p>
+                              <button
+                                  onClick={() => {
+                                      setShowDeleteModal(true);
+                                      setDeleteStep(1);
+                                      setDeleteConfirmText('');
+                                  }}
+                                  className="px-6 py-3 bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-white rounded-xl font-bold transition-colors"
+                              >
+                                  {profile?.user_role === 'admin' ? "Apagar Conta e Empresa" : "Apagar a Minha Conta"}
+                              </button>
+                          </div>
                       </div>
                   </div>
                )}
@@ -971,6 +1134,71 @@ const Settings: React.FC<SettingsProps> = ({ darkMode, toggleDarkMode, aiFrequen
               )}
           </div>
       </div>
+
+      {/* Delete Account Modal */}
+      <Modal isOpen={showDeleteModal} onClose={() => setShowDeleteModal(false)} title={profile?.user_role === 'admin' ? "Apagar Conta e Empresa" : "Apagar Conta"} maxWidth="max-w-md">
+          <div className="p-6">
+              {deleteStep === 1 ? (
+                  <>
+                      <div className="w-16 h-16 bg-red-100 dark:bg-red-500/20 text-red-500 rounded-full flex items-center justify-center mx-auto mb-4">
+                          <Shield size={32} />
+                      </div>
+                      <h3 className="text-xl font-bold text-center mb-2 text-slate-800 dark:text-white">Tem a certeza absoluta?</h3>
+                      <p className="text-slate-600 dark:text-slate-300 text-center mb-6 text-sm">
+                          {profile?.user_role === 'admin'
+                              ? <>Esta ação irá eliminar permanentemente a sua conta, os dados da sua empresa, todas as faturas e histórico. <strong className="text-red-500">Esta ação não pode ser desfeita.</strong></>
+                              : <>Esta ação irá eliminar permanentemente o seu acesso e os seus dados pessoais associados a esta organização. <strong className="text-red-500">Esta ação não pode ser desfeita.</strong></>
+                          }
+                      </p>
+                      <div className="flex gap-3">
+                          <button 
+                              onClick={() => setShowDeleteModal(false)}
+                              className="flex-1 py-3 bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-700 dark:text-white font-bold rounded-xl transition-colors"
+                          >
+                              Cancelar
+                          </button>
+                          <button 
+                              onClick={() => setDeleteStep(2)}
+                              className="flex-1 py-3 bg-red-500 hover:bg-red-600 text-white font-bold rounded-xl transition-colors shadow-lg shadow-red-500/20"
+                          >
+                              Sim, apagar
+                          </button>
+                      </div>
+                  </>
+              ) : (
+                  <>
+                      <h3 className="text-xl font-bold text-center mb-2 text-slate-800 dark:text-white">Confirmação Final</h3>
+                      <p className="text-slate-600 dark:text-slate-300 text-center mb-6 text-sm">
+                          Para confirmar, digite <strong className="text-red-500 select-all">APAGAR</strong> abaixo.
+                      </p>
+                      <input 
+                          type="text"
+                          value={deleteConfirmText}
+                          onChange={(e) => setDeleteConfirmText(e.target.value)}
+                          placeholder="Digite APAGAR"
+                          className="w-full px-4 py-3 mb-6 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-600 rounded-xl font-bold text-center focus:outline-none focus:ring-2 focus:ring-red-500/50"
+                      />
+                      <div className="flex gap-3">
+                          <button 
+                              onClick={() => setShowDeleteModal(false)}
+                              className="flex-1 py-3 bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-700 dark:text-white font-bold rounded-xl transition-colors"
+                          >
+                              Cancelar
+                          </button>
+                          <button 
+                              onClick={handleDeleteAccount}
+                              disabled={deleteConfirmText !== 'APAGAR' || isDeleting}
+                              className="flex-1 py-3 bg-red-500 hover:bg-red-600 text-white font-bold rounded-xl transition-colors shadow-lg shadow-red-500/20 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                          >
+                              {isDeleting ? <Loader2 size={18} className="animate-spin" /> : null}
+                              Apagar Permanentemente
+                          </button>
+                      </div>
+                  </>
+              )}
+          </div>
+      </Modal>
+
     </div>
   );
 };

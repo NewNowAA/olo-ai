@@ -1,11 +1,26 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Search, Calendar, Bell, Moon, Sun } from 'lucide-react';
 import { useTheme } from '../contexts/ThemeContext';
+import { invoiceService } from '../services/invoice/invoiceService';
+import { Invoice } from '../types/invoice.types';
+import { goalsService, Goal } from '../services/goalsService';
+import GlobalSearch from './GlobalSearch';
+
+interface Notification {
+  id: string;
+  text: string;
+  time: string;
+  unread: boolean;
+}
 
 const Header: React.FC = () => {
   const { theme, toggleTheme, isDark } = useTheme();
   const [showNotifications, setShowNotifications] = useState(false);
   const notifRef = useRef<HTMLDivElement>(null);
+  
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [invoices, setInvoices] = useState<Invoice[]>([]);
+  const [goals, setGoals] = useState<Goal[]>([]);
 
   // Click outside to close notifications
   useEffect(() => {
@@ -18,11 +33,72 @@ const Header: React.FC = () => {
     return () => document.removeEventListener('mousedown', handler);
   }, [showNotifications]);
 
-  const notifications = [
-    { id: 1, text: 'Nova fatura processada por IA', time: '2 min', unread: true },
-    { id: 2, text: 'Relatório mensal disponível', time: '1h', unread: true },
-    { id: 3, text: 'Backup concluído com sucesso', time: '3h', unread: false },
-  ];
+  // Fetch data
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const [invData, goalsData] = await Promise.all([
+          invoiceService.getInvoices(),
+          goalsService.getGoals()
+        ]);
+        setInvoices(invData);
+        setGoals(goalsData);
+      } catch (err) {
+        console.error('Failed to fetch data for notifications', err);
+      }
+    };
+    fetchData();
+  }, []);
+
+  // Generate notifications
+  useEffect(() => {
+    const generateNotifications = () => {
+      const notifs: Notification[] = [];
+      const now = new Date().getTime();
+
+      // Faturas pendentes > 7 dias
+      invoices.filter(inv => inv.status === 'Pendente').forEach(inv => {
+        const days = Math.floor((now - new Date(inv.date).getTime()) / 86400000);
+        if (days >= 7) {
+          notifs.push({
+            id: `pending-${inv.id}`,
+            text: `Fatura #${inv.id?.slice(0, 6)} pendente há ${days} dias`,
+            time: 'Agora',
+            unread: true
+          });
+        }
+      });
+
+      // Metas em risco (deadline <= 7 dias e progress < 100)
+      goals.filter(g => (g.progress || 0) < 100).forEach(g => {
+        const daysLeft = Math.ceil((new Date(g.deadline).getTime() - now) / 86400000);
+        if (daysLeft >= 0 && daysLeft <= 7) {
+          notifs.push({
+            id: `goal-risk-${g.id}`,
+            text: `Meta "${g.title}" termina em ${daysLeft} dias!`,
+            time: 'Agora',
+            unread: true
+          });
+        }
+      });
+
+      // Meta concluída (progress >= 100)
+      goals.filter(g => (g.progress || 0) >= 100).forEach(g => {
+          notifs.push({
+            id: `goal-done-${g.id}`,
+            text: `Parabéns! Meta "${g.title}" concluída`,
+            time: 'Recente',
+            unread: false
+          });
+      });
+
+      setNotifications(notifs);
+    };
+
+    if (invoices.length > 0 || goals.length > 0) {
+      generateNotifications();
+    }
+  }, [invoices, goals]);
 
   const unreadCount = notifications.filter(n => n.unread).length;
 
@@ -31,21 +107,7 @@ const Header: React.FC = () => {
       style={{ backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)' }}>
       {/* Search */}
       <div className="flex items-center gap-4 flex-1 max-w-lg" id="header-search">
-        <div className="relative w-full group">
-          <Search className="absolute left-4 top-1/2 -translate-y-1/2 transition-colors"
-            style={{ color: 'var(--t3)' }} size={18} />
-          <input
-            type="text"
-            className="w-full pl-11 pr-4 py-2.5 border rounded-xl text-[13px] font-sans focus:outline-none focus:ring-2 transition-all"
-            style={{
-              backgroundColor: 'var(--input-bg)',
-              borderColor: 'var(--border)',
-              color: 'var(--t1)',
-              fontFamily: "'Outfit', sans-serif",
-            }}
-            placeholder="Pesquisar faturas, clientes..."
-          />
-        </div>
+        <GlobalSearch />
       </div>
 
       {/* Actions */}

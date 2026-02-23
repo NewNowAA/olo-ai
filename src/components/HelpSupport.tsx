@@ -106,7 +106,7 @@ const HelpSupport: React.FC = () => {
                       <textarea rows={4} className="w-full px-4 py-3 bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#73c6df]/30 font-medium text-sm resize-none dark:text-white" placeholder="Descreva como podemos ajudar..."></textarea>
                   </div>
 
-                  <button className="w-full py-3.5 bg-[#2e8ba6] text-white rounded-xl font-bold hover:bg-[#257a91] shadow-lg flex items-center justify-center gap-2 transition-all">
+                  <button className="w-full py-3.5 text-white rounded-xl font-bold hover:opacity-90 shadow-lg flex items-center justify-center gap-2 transition-all" style={{ backgroundImage: 'linear-gradient(135deg, #2e8ba6, #73c6df)' }}>
                       <Send size={18} /> Enviar Mensagem
                   </button>
               </form>

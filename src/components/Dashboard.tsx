@@ -126,9 +126,16 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate, lastUpdated }) => {
   // --- PRESERVED: AI Card ---
   const AICard = ({ type }: { type: 'full' | 'revenue' | 'expenses' }) => {
     const labels = { full: 'Análise Geral', revenue: 'Inteligência de Receita', expenses: 'Auditoria de Custos' };
+    const [expanded, setExpanded] = useState(false);
+    
+    const truncateInsight = (text: string, max = 500) => {
+      if (text.length <= max) return text;
+      return text.slice(0, max).replace(/\s+\S*$/, '') + '…';
+    };
+
     return (
-      <div className="card-glass p-5 relative overflow-hidden" style={{ borderLeft: '3px solid var(--blue)' }}>
-        <div className="flex items-center gap-2 mb-2">
+      <div className="card-glass p-5 relative overflow-hidden flex flex-col" style={{ borderLeft: '3px solid var(--blue)', maxHeight: expanded ? 'none' : '200px', transition: 'max-height 0.3s ease' }}>
+        <div className="flex items-center gap-2 mb-2 shrink-0">
           <span className="text-[9px] font-bold uppercase tracking-[0.8px] px-2 py-0.5 rounded-full"
             style={{ backgroundColor: 'var(--blue-a)', color: 'var(--blue)', fontFamily: "'Outfit', sans-serif" }}>
             <Sparkles size={10} className="inline mr-1" />AI Insight
@@ -137,9 +144,20 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate, lastUpdated }) => {
             {labels[type]}
           </span>
         </div>
-        <div className="text-[12px] leading-[1.6]" style={{ color: 'var(--t2)', fontFamily: "'Outfit', sans-serif", overflowWrap: 'break-word', wordBreak: 'break-word' }}>
+        <div className="text-[12px] leading-[1.6] flex-1 overflow-y-auto" style={{ color: 'var(--t2)', fontFamily: "'Outfit', sans-serif", overflowWrap: 'break-word', wordBreak: 'break-word', hyphens: 'auto' }}>
           {aiAnalysis ? (
-            <ReactMarkdown>{aiAnalysis.slice(0, 500) + (aiAnalysis.length > 500 ? '...' : '')}</ReactMarkdown>
+            <>
+              <ReactMarkdown>{expanded ? aiAnalysis : truncateInsight(aiAnalysis, 500)}</ReactMarkdown>
+              {aiAnalysis.length > 500 && (
+                <button 
+                  onClick={() => setExpanded(!expanded)} 
+                  className="text-[11px] font-semibold mt-2 hover:underline inline-block"
+                  style={{ color: 'var(--cyan)' }}
+                >
+                  {expanded ? 'Ver menos' : 'Ver mais'}
+                </button>
+              )}
+            </>
           ) : (
             <p style={{ color: 'var(--t3)' }}>A carregar análise IA...</p>
           )}

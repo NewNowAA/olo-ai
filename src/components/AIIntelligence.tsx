@@ -15,7 +15,8 @@ import {
     History,
     Trash2,
     Layout,
-    X
+    X,
+    MessageSquare
 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import { geminiService } from '../services';
@@ -37,12 +38,12 @@ interface Conversation {
 }
 
 const SUGGESTED_QUESTIONS = [
-    { icon: PieChart, text: 'Quais são as minhas maiores despesas este mês?', color: 'from-blue-500 to-cyan-400' },
-    { icon: TrendingUp, text: 'Analisa as tendências das minhas faturas', color: 'from-emerald-500 to-teal-400' },
-    { icon: Scissors, text: 'Onde posso reduzir custos no meu negócio?', color: 'from-orange-500 to-amber-400' },
-    { icon: CalendarClock, text: 'Faz uma previsão financeira para o próximo mês', color: 'from-purple-500 to-violet-400' },
-    { icon: BarChart3, text: 'Quais categorias têm crescido mais?', color: 'from-rose-500 to-pink-400' },
-    { icon: FileText, text: 'Dá-me um resumo financeiro completo', color: 'from-indigo-500 to-blue-400' },
+    { icon: PieChart, text: 'Quais são as minhas maiores despesas este mês?', color: 'linear-gradient(135deg, var(--blue), var(--cyan))' },
+    { icon: TrendingUp, text: 'Analisa as tendências das minhas faturas', color: 'linear-gradient(135deg, #34D399, #10B981)' },
+    { icon: Scissors, text: 'Onde posso reduzir custos?', color: 'linear-gradient(135deg, #FBBF24, #F59E0B)' },
+    { icon: CalendarClock, text: 'Prevê as minhas finanças para o próximo mês', color: 'linear-gradient(135deg, #A78BFA, #8B5CF6)' },
+    { icon: BarChart3, text: 'Quais categorias têm crescido mais?', color: 'linear-gradient(135deg, #FB923C, #F97316)' },
+    { icon: FileText, text: 'Dá-me um resumo financeiro completo', color: 'linear-gradient(135deg, var(--blue), #A78BFA)' },
 ];
 
 const AIIntelligence: React.FC = () => {
@@ -186,18 +187,18 @@ const AIIntelligence: React.FC = () => {
                         className="p-2 rounded-xl transition-colors"
                         style={{ color: 'var(--t2)' }}
                     >
-                        <Layout size={24} />
+                        <MessageSquare size={24} />
                     </button>
                     <div>
                         <h1 className="text-2xl font-extrabold tracking-tight flex items-center gap-2" style={{ color: 'var(--t1)' }}>
-                           <Sparkles size={24} className="text-[#73c6df]"/> Lumea AI
+                           <Sparkles size={24} style={{ color: 'var(--blue)' }}/> Lumea AI
                         </h1>
                     </div>
                 </div>
                  <button
                     onClick={handleNewChat}
                     className="flex items-center gap-2 px-5 py-2.5 text-white rounded-xl text-sm font-bold transition-all shadow-lg active:scale-95"
-                    style={{ background: 'linear-gradient(135deg, #2e8ba6, #73c6df)', fontFamily: "'Outfit', sans-serif" }}
+                    style={{ background: 'linear-gradient(135deg, var(--blue), var(--cyan))', fontFamily: "'Outfit', sans-serif" }}
                 >
                     <MessageSquarePlus size={18} />
                     <span className="hidden sm:inline">Nova Conversa</span>
@@ -209,13 +210,11 @@ const AIIntelligence: React.FC = () => {
                 {/* Sidebar (History) */}
                 <div 
                     className={`
-                        absolute md:static inset-y-0 left-0 z-30 w-72 rounded-[2rem] backdrop-blur-xl
+                        absolute md:static inset-y-0 left-0 z-30 w-72 rounded-[2rem] card-glass
                         transform transition-transform duration-300 ease-in-out flex flex-col overflow-hidden
                         ${isHistoryOpen ? 'translate-x-0' : '-translate-x-[110%] md:w-0 md:opacity-0 md:border-none p-0'}
                     `}
                     style={{ 
-                        backgroundColor: 'var(--card)', 
-                        border: '1px solid var(--border)',
                         boxShadow: '0 8px 32px rgba(0,0,0,0.08)'
                     }}
                 >
@@ -265,25 +264,34 @@ const AIIntelligence: React.FC = () => {
 
                 {/* Main Chat Area */}
                 <div 
-                    className="flex-1 flex flex-col rounded-[2.5rem] backdrop-blur-xl overflow-hidden relative transition-all"
-                    style={{ 
-                        backgroundColor: 'var(--card)', 
-                        border: '1px solid var(--border)',
-                    }}
+                    className="flex-1 flex flex-col rounded-[2.5rem] card-glass overflow-hidden relative transition-all"
                 >
                     
                     {/* Chat Header (Internal) */}
-                    <div className="p-4 flex items-center justify-between backdrop-blur-md" style={{ borderBottom: '1px solid var(--border)' }}>
+                    <div className="p-4 flex flex-col md:flex-row gap-4 items-center justify-between backdrop-blur-md" style={{ borderBottom: '1px solid var(--border)' }}>
                         <div className="flex items-center gap-3">
-                             <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#73c6df] to-[#8bd7bf] text-white flex items-center justify-center shadow-lg shadow-[#73c6df]/20">
-                                <Bot size={16} />
+                             <div className="w-10 h-10 rounded-full text-white flex items-center justify-center shadow-lg" style={{ background: 'linear-gradient(135deg, var(--blue), var(--cyan))' }}>
+                                <Bot size={20} />
                             </div>
                             <div>
                                 <h3 className="font-bold text-sm" style={{ color: 'var(--t1)' }}>Consultora Financeira</h3>
-                                <p className="text-[10px] text-[#73c6df] font-medium flex items-center gap-1">
-                                    <span className="w-1.5 h-1.5 rounded-full bg-[#8bd7bf] animate-pulse"></span>
+                                <p className="text-[10px] font-medium flex items-center gap-1" style={{ color: 'var(--blue)' }}>
+                                    <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ backgroundColor: 'var(--cyan)' }}></span>
                                     Online • Memória de 15 dias
                                 </p>
+                            </div>
+                        </div>
+                        
+                        {/* Quick Stats Bar */}
+                        <div className="flex gap-4 p-2 rounded-xl border border-white/20 dark:border-white/5" style={{ backgroundColor: 'var(--bg)' }}>
+                            <div className="text-center px-2">
+                                <p className="text-[10px] uppercase tracking-wider" style={{ color: 'var(--t3)' }}>Tempo Resp.</p>
+                                <p className="text-sm font-bold" style={{ color: 'var(--blue)' }}>&lt; 2s</p>
+                            </div>
+                            <div className="w-px" style={{ backgroundColor: 'var(--border)' }}></div>
+                            <div className="text-center px-2">
+                                <p className="text-[10px] uppercase tracking-wider" style={{ color: 'var(--t3)' }}>Precisão IA</p>
+                                <p className="text-sm font-bold text-emerald-500">99.8%</p>
                             </div>
                         </div>
                     </div>
@@ -296,7 +304,7 @@ const AIIntelligence: React.FC = () => {
                         <div className="h-full flex flex-col items-center justify-center gap-8 max-w-2xl mx-auto">
                             {/* Avatar */}
                             <div className="flex flex-col items-center gap-4">
-                                <div className="w-20 h-20 rounded-full bg-gradient-to-br from-[#73c6df] to-[#8bd7bf] text-white flex items-center justify-center shadow-xl shadow-[#73c6df]/30">
+                                <div className="w-20 h-20 rounded-full text-white flex items-center justify-center shadow-xl shadow-blue-500/20" style={{ background: 'linear-gradient(135deg, var(--blue), var(--cyan))' }}>
                                     <Sparkles size={36} />
                                 </div>
                                 <div className="text-center">
@@ -315,13 +323,13 @@ const AIIntelligence: React.FC = () => {
                                         <button
                                             key={i}
                                             onClick={() => sendMessage(q.text)}
-                                            className="flex items-center gap-3 p-4 rounded-2xl text-left transition-all group hover:scale-[1.02]"
+                                            className="flex items-center gap-3 p-4 rounded-2xl text-left transition-all group hover:scale-[1.02] card-glow"
                                             style={{ 
                                                 backgroundColor: 'var(--input-bg)', 
                                                 border: '1px solid var(--border)',
                                             }}
                                         >
-                                            <div className={`w-9 h-9 rounded-xl bg-gradient-to-br ${q.color} text-white flex items-center justify-center shrink-0 shadow-sm group-hover:shadow-md transition-shadow`}>
+                                            <div className="w-9 h-9 rounded-xl text-white flex items-center justify-center shrink-0 shadow-sm group-hover:shadow-md transition-shadow" style={{ background: q.color }}>
                                                 <q.icon size={18} />
                                             </div>
                                             <span className="text-sm font-medium leading-tight" style={{ color: 'var(--t2)' }}>{q.text}</span>
@@ -338,9 +346,9 @@ const AIIntelligence: React.FC = () => {
                                     <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 mt-1 ${
                                         msg.sender === 'user' 
                                             ? 'text-white' 
-                                            : 'bg-gradient-to-br from-[#73c6df] to-[#8bd7bf] text-white'
+                                            : 'text-white shadow-md'
                                     }`}
-                                    style={msg.sender === 'user' ? { backgroundColor: 'var(--blue)' } : {}}
+                                    style={msg.sender === 'user' ? { backgroundColor: 'var(--blue)' } : { background: 'linear-gradient(135deg, var(--blue), var(--cyan))' }}
                                     >
                                         {msg.sender === 'user' ? <User size={14} /> : <Sparkles size={14} />}
                                     </div>
@@ -352,7 +360,7 @@ const AIIntelligence: React.FC = () => {
                                                     : 'rounded-tl-none'
                                             }`}
                                             style={msg.sender === 'user' 
-                                                ? { background: 'linear-gradient(135deg, #2e8ba6, #73c6df)' }
+                                                ? { background: 'linear-gradient(135deg, var(--blue), var(--cyan))' }
                                                 : { backgroundColor: 'var(--input-bg)', border: '1px solid var(--border)', color: 'var(--t2)' }
                                             }
                                         >
@@ -373,14 +381,14 @@ const AIIntelligence: React.FC = () => {
 
                             {isLoading && (
                                 <div className="flex gap-3 max-w-2xl">
-                                    <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#73c6df] to-[#8bd7bf] text-white flex items-center justify-center shrink-0 mt-1">
+                                    <div className="w-8 h-8 rounded-full text-white flex items-center justify-center shrink-0 mt-1" style={{ background: 'linear-gradient(135deg, var(--blue), var(--cyan))' }}>
                                         <Sparkles size={14} />
                                     </div>
                                     <div 
                                         className="px-4 py-3 rounded-2xl rounded-tl-none flex gap-2 items-center"
                                         style={{ backgroundColor: 'var(--input-bg)', border: '1px solid var(--border)' }}
                                     >
-                                        <Loader2 size={16} className="animate-spin text-[#73c6df]" />
+                                        <Loader2 size={16} className="animate-spin" style={{ color: 'var(--blue)' }} />
                                         <span className="text-xs font-medium" style={{ color: 'var(--t3)' }}>A analisar os seus dados...</span>
                                     </div>
                                 </div>
@@ -409,7 +417,7 @@ const AIIntelligence: React.FC = () => {
                             onClick={() => sendMessage(inputText)}
                             disabled={isLoading || !inputText.trim()}
                             className="p-2.5 text-white rounded-xl transition-all shadow-md disabled:opacity-40 disabled:cursor-not-allowed active:scale-95"
-                            style={{ background: 'linear-gradient(135deg, #2e8ba6, #73c6df)' }}
+                            style={{ background: 'linear-gradient(135deg, var(--blue), var(--cyan))' }}
                         >
                             <Send size={18} />
                         </button>

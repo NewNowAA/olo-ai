@@ -450,6 +450,13 @@ const Billing: React.FC<BillingProps> = ({ onNavigate }) => {
     };
     const onDragEndCol = () => setDragCol(null);
 
+    const [aiExpanded, setAiExpanded] = useState(false);
+
+    const truncateInsight = (text: string, max = 500) => {
+        if (text.length <= max) return text;
+        return text.slice(0, max).replace(/\s+\S*$/, '') + '…';
+    };
+
     // --- Render ---
     return (
         <div className="p-6 md:p-8 max-w-[1600px] mx-auto min-h-screen pb-24 relative space-y-8">
@@ -463,12 +470,31 @@ const Billing: React.FC<BillingProps> = ({ onNavigate }) => {
                 <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0" style={{ backgroundColor: 'var(--blue-a)' }}>
                     <BrainCircuit size={16} style={{ color: 'var(--blue)' }} className={isAnalyzing ? 'animate-pulse' : ''} />
                 </div>
-                <p className="text-[12px] flex-1 truncate leading-relaxed" style={{ color: 'var(--t2)', fontFamily: "'Outfit', sans-serif" }}>
-                    {aiAnalysis && !aiAnalysis.startsWith('Erro')
-                        ? aiAnalysis.slice(0, 280)
-                        : <span style={{ color: 'var(--t3)', fontStyle: 'italic' }}>Adicione faturas para gerar insights com IA.</span>
-                    }
-                </p>
+                <div className="flex-1 min-w-0 flex flex-col items-start" style={{ transition: 'max-height 0.3s ease' }}>
+                    <p className="text-[12px] leading-relaxed w-full" style={{ color: 'var(--t2)', fontFamily: "'Outfit', sans-serif", overflowWrap: 'break-word', wordBreak: 'break-word', hyphens: 'auto' }}>
+                        {aiAnalysis && !aiAnalysis.startsWith('Erro')
+                            ? (
+                                <>
+                                    <div className="inline">
+                                        <ReactMarkdown>
+                                            {aiExpanded ? aiAnalysis : truncateInsight(aiAnalysis, 500)}
+                                        </ReactMarkdown>
+                                    </div>
+                                    {aiAnalysis.length > 500 && (
+                                        <button 
+                                            onClick={() => setAiExpanded(!aiExpanded)} 
+                                            className="text-[11px] font-semibold hover:underline ml-2"
+                                            style={{ color: 'var(--cyan)' }}
+                                        >
+                                            {aiExpanded ? 'Ver menos' : 'Ver mais'}
+                                        </button>
+                                    )}
+                                </>
+                            )
+                            : <span style={{ color: 'var(--t3)', fontStyle: 'italic' }}>Adicione faturas para gerar insights com IA.</span>
+                        }
+                    </p>
+                </div>
                 <div className="flex items-center gap-2 shrink-0">
                     <span className="text-[9px] tabular-nums hidden sm:inline" style={{ color: 'var(--t3)', fontFamily: "'JetBrains Mono', monospace" }}>{countdown}</span>
                     <button onClick={() => loadAnalysis(true)} disabled={isAnalyzing} className="p-1.5 rounded-lg transition-colors disabled:opacity-30" title="Atualizar análise">
@@ -554,7 +580,7 @@ const Billing: React.FC<BillingProps> = ({ onNavigate }) => {
                     <p className="text-[13px] animate-pulse" style={{ color: 'var(--t3)', fontFamily: "'Outfit', sans-serif" }}>Carregando suas finanças...</p>
                 </div>
             ) : effectiveViewMode === 'list' ? (
-                <div className="card-glass min-h-[500px] flex flex-col" style={{ padding: 0, overflow: 'hidden' }}>
+                <div className="card-glass flex flex-col" style={{ padding: 0, overflow: 'hidden' }}>
                     <div className="overflow-x-auto rounded-xl" style={{ border: '1px solid var(--border)' }}>
                         <table className="w-full border-separate border-spacing-y-0" style={{ tableLayout: 'fixed' }}>
                             <thead style={{ backgroundColor: 'var(--input-bg)', borderBottom: '1px solid var(--border)' }}>
@@ -562,8 +588,16 @@ const Billing: React.FC<BillingProps> = ({ onNavigate }) => {
                                     {colOrder.filter(k => visibleColumns[k as keyof typeof visibleColumns] !== false).map(colKey => (
                                         <th
                                             key={colKey}
-                                            style={{ width: colWidths[colKey], minWidth: 60, color: 'var(--t3)', fontFamily: "'Outfit', sans-serif" }}
-                                            className={`relative group/resize px-4 py-4 text-left text-[10.5px] font-semibold uppercase tracking-[0.8px] 
+                                            style={{ 
+                                                width: colWidths[colKey], 
+                                                minWidth: '80px', 
+                                                color: 'var(--t2)', 
+                                                fontFamily: "'Outfit', sans-serif",
+                                                borderRight: colKey === 'actions' ? 'none' : '1px solid var(--border)',
+                                                overflow: 'hidden',
+                                                resize: 'horizontal'
+                                            }}
+                                            className={`relative group/resizeth px-4 py-4 text-left text-[10.5px] font-semibold uppercase tracking-[0.8px] 
                                                 ${dragCol === colKey ? 'opacity-40' : ''} 
                                                 ${colKey !== 'select' && colKey !== 'actions' ? 'cursor-grab active:cursor-grabbing' : ''}`}
                                             draggable={colKey !== 'select' && colKey !== 'actions'}
@@ -586,12 +620,12 @@ const Billing: React.FC<BillingProps> = ({ onNavigate }) => {
                                                      colKey === 'date' ? 'Data' :
                                                      colKey === 'status' ? 'Status' :
                                                      colKey === 'amount' ? 'Valor' : colKey}
-                                                    {sortField === colKey ? (sortDirection === 'asc' ? <ChevronUp size={14} className="text-[#2e8ba6]"/> : <ChevronDown size={14} className="text-[#2e8ba6]"/>) : <ArrowUpDown size={14} className="opacity-0 group-hover/resize:opacity-50 transition-opacity" />}
+                                                    {sortField === colKey ? (sortDirection === 'asc' ? <ChevronUp size={14} className="text-[#2e8ba6]"/> : <ChevronDown size={14} className="text-[#2e8ba6]"/>) : <ArrowUpDown size={14} className="opacity-0 group-hover/resizeth:opacity-50 transition-opacity" />}
                                                 </div>
                                             )}
                                             {/* Resizer Handle */}
                                             <div
-                                                className="absolute right-0 top-0 bottom-0 w-1.5 cursor-col-resize opacity-0 group-hover/resize:opacity-100 hover:bg-[#73c6df] transition-opacity z-10"
+                                                className="absolute right-0 top-1/4 bottom-1/4 w-[3px] cursor-col-resize bg-transparent hover:bg-[rgba(16,66,255,0.2)] transition-colors z-10"
                                                 onMouseDown={(e) => { e.stopPropagation(); onResizeStart(colKey, e.clientX); }}
                                                 onClick={(e) => e.stopPropagation()} 
                                             />
@@ -599,7 +633,7 @@ const Billing: React.FC<BillingProps> = ({ onNavigate }) => {
                                     ))}
                                 </tr>
                             </thead>
-                            <tbody style={{ backgroundColor: 'var(--card)' }}>
+                            <tbody style={{ backgroundColor: 'var(--bg)' }}>
                                 {paginatedInvoices.length === 0 ? (
                                     <tr>
                                         <td colSpan={colOrder.filter(k => visibleColumns[k as keyof typeof visibleColumns] !== false).length} className="py-20 text-center">
@@ -627,7 +661,7 @@ const Billing: React.FC<BillingProps> = ({ onNavigate }) => {
                                             'bg-slate-50 dark:bg-slate-700/30 hover:bg-white dark:hover:bg-slate-700'
                                         }`} onClick={() => { setSelectedInvoiceForAnalysis(invoice); setSearchParams({ invoiceId: invoice.id || '' }, { replace: true }); }}>
                                             {colOrder.filter(k => visibleColumns[k as keyof typeof visibleColumns] !== false).map(colKey => (
-                                                <td key={colKey} className="px-4 py-4 border-y border-slate-100 dark:border-slate-700 bg-inherit align-middle">
+                                                <td key={colKey} className="px-4 py-4 border-y border-slate-100 dark:border-slate-800 bg-inherit align-middle" style={{ borderRight: colKey === 'actions' ? 'none' : '1px solid var(--border)' }}>
                                                     {colKey === 'select' && (
                                                         <div onClick={(e) => e.stopPropagation()}>
                                                             <input type="checkbox" checked={selectedInvoices.includes(invoice.id || '')} onChange={() => toggleSelection(invoice.id || '')} className="rounded border-slate-300 text-[#2e8ba6] focus:ring-[#2e8ba6]" />
@@ -636,14 +670,14 @@ const Billing: React.FC<BillingProps> = ({ onNavigate }) => {
                                                     {colKey === 'client' && (
                                                         <div className="relative group/preview">
                                                             <div className="flex items-center gap-3">
-                                                                <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${invoice.type === 'Receita' ? 'bg-[#f0fdf4] text-[#15803d]' : 'bg-rose-50 text-rose-500'}`}>
+                                                                <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-bold ${invoice.type === 'Receita' ? 'bg-[#f0fdf4] text-[#34D399]' : 'bg-rose-50 text-[#E94C76]'}`}>
                                                                     {invoice.type === 'Receita' ? <ArrowUpRight size={20} /> : <ArrowDownRight size={20} />}
                                                                 </div>
                                                                 <div className="min-w-0">
-                                                                    <p className="font-bold text-slate-700 dark:text-slate-200 text-sm truncate max-w-[140px]" title={invoice.client}>#{invoice.id?.slice(0, 8)}</p>
+                                                                    <p className="font-semibold text-sm truncate max-w-[140px]" style={{ color: 'var(--t1)' }} title={invoice.client}>#{invoice.id?.slice(0, 8)}</p>
                                                                     <div className="flex items-center gap-2">
-                                                                        <p className="text-xs text-slate-400 truncate max-w-[100px]">{invoice.client}</p>
-                                                                        {invoice.fileUrl && <Eye size={12} className="text-slate-300 opacity-0 group-hover/preview:opacity-100 transition-opacity" />}
+                                                                        <p className="text-xs truncate max-w-[100px] font-medium" style={{ color: 'var(--t2)' }}>{invoice.client}</p>
+                                                                        {invoice.fileUrl && <Eye size={12} className="opacity-0 group-hover/preview:opacity-60 transition-opacity" style={{ color: 'var(--t2)' }} />}
                                                                     </div>
                                                                 </div>
                                                             </div>
@@ -657,8 +691,8 @@ const Billing: React.FC<BillingProps> = ({ onNavigate }) => {
                                                             )}
                                                         </div>
                                                     )}
-                                                    {colKey === 'category' && <span className="text-sm font-medium text-slate-600 dark:text-slate-300 truncate block">{invoice.category}</span>}
-                                                    {colKey === 'date' && <span className="text-sm text-slate-500 truncate block">{new Date(invoice.date).toLocaleDateString()}</span>}
+                                                    {colKey === 'category' && <span className="text-sm font-medium truncate block" style={{ color: 'var(--t1)' }}>{invoice.category}</span>}
+                                                    {colKey === 'date' && <span className="text-sm truncate block" style={{ color: 'var(--t2)' }}>{new Date(invoice.date).toLocaleDateString()}</span>}
                                                     {colKey === 'status' && (
                                                         <div onClick={(e) => e.stopPropagation()}>
                                                             <StatusDropdown invoice={invoice} onUpdate={(updated) => setInvoices(prev => prev.map(inv => inv.id === updated.id ? updated : inv))} />
@@ -676,9 +710,9 @@ const Billing: React.FC<BillingProps> = ({ onNavigate }) => {
                                                         </div>
                                                     )}
                                                     {colKey === 'actions' && (
-                                                        <div className="flex justify-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                                                            <button onClick={(e) => { e.stopPropagation(); openEditModal(invoice); }} className="p-2 text-slate-400 hover:text-[#2e8ba6] hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg"><Edit3 size={16} /></button>
-                                                            <button onClick={(e) => { e.stopPropagation(); handleDeleteInvoice(invoice.id || '', e); }} className="p-2 text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-900/20 rounded-lg"><Trash2 size={16} /></button>
+                                                        <div className="flex justify-center gap-2 opacity-60 group-hover:opacity-100 transition-opacity">
+                                                            <button onClick={(e) => { e.stopPropagation(); openEditModal(invoice); }} className="p-2 hover:bg-[rgba(16,66,255,0.1)] rounded-lg transition-colors" style={{ color: 'var(--blue)' }}><Edit3 size={16} /></button>
+                                                            <button onClick={(e) => { e.stopPropagation(); handleDeleteInvoice(invoice.id || '', e); }} className="p-2 hover:bg-[rgba(233,76,118,0.1)] rounded-lg transition-colors" style={{ color: 'var(--pink)' }}><Trash2 size={16} /></button>
                                                         </div>
                                                     )}
                                                 </td>
