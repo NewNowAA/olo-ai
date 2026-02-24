@@ -277,7 +277,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate, lastUpdated }) => {
                 </div>
               </div>
               <div className="h-[300px] w-full">
-                <ResponsiveContainer width="100%" height="100%">
+                <ResponsiveContainer width="100%" height="100%" minWidth={100} minHeight={100}>
                   <AreaChart data={chartData} margin={{ top: 10, right: 0, left: -20, bottom: 0 }}>
                     <defs>
                       <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#1042FF" stopOpacity={0.2} /><stop offset="95%" stopColor="#1042FF" stopOpacity={0} /></linearGradient>
@@ -373,7 +373,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate, lastUpdated }) => {
             <div className="card-glass p-6 md:p-8">
               <h2 className="text-[13.5px] font-semibold mb-5" style={{ color: 'var(--t1)', fontFamily: "'Outfit', sans-serif" }}>Evolução da Receita</h2>
               <div className="h-[280px] w-full">
-                <ResponsiveContainer width="100%" height="100%">
+                <ResponsiveContainer width="100%" height="100%" minWidth={100} minHeight={100}>
                   <AreaChart data={chartData}>
                     <defs><linearGradient id="colorRevOnly" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#1042FF" stopOpacity={0.2} /><stop offset="95%" stopColor="#1042FF" stopOpacity={0} /></linearGradient></defs>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border)" strokeOpacity={0.5} />
@@ -399,7 +399,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate, lastUpdated }) => {
             <div className="card-glass p-6 md:p-8">
               <h2 className="text-[13.5px] font-semibold mb-5" style={{ color: 'var(--t1)', fontFamily: "'Outfit', sans-serif" }}>Análise de Despesas</h2>
               <div className="h-[280px] w-full">
-                <ResponsiveContainer width="100%" height="100%">
+                <ResponsiveContainer width="100%" height="100%" minWidth={100} minHeight={100}>
                   <AreaChart data={chartData}>
                     <defs><linearGradient id="colorExpOnly" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#E94C76" stopOpacity={0.2} /><stop offset="95%" stopColor="#E94C76" stopOpacity={0} /></linearGradient></defs>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border)" strokeOpacity={0.5} />
