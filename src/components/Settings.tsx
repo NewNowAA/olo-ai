@@ -231,17 +231,21 @@ const Settings: React.FC<SettingsProps> = ({ darkMode, toggleDarkMode, aiFrequen
     try {
       // Edge Function does ALL cleanup server-side (invoices, goals, org, profile, auth)
       const { error: invokeError } = await supabase.functions.invoke('delete-account');
+      
       if (invokeError) {
         console.error('Erro na Edge Function:', invokeError);
-        throw new Error('Erro ao apagar conta: ' + (invokeError.message || 'Unknown error'));
+        toast.error('Ocorreu um erro no servidor. A forçar o encerramento da sessão...');
       }
 
-      // Sign out locally and redirect
+      // ALWAYS sign out locally and redirect, even if the Edge Function fails
       await supabase.auth.signOut();
       window.location.href = '/';
     } catch (error: any) {
       console.error('Error deleting account', error);
-      toast.error(error.message || 'Erro ao apagar conta.');
+      toast.error('A forçar o encerramento da sessão...');
+      await supabase.auth.signOut();
+      window.location.href = '/';
+    } finally {
       setIsDeleting(false);
     }
   };
