@@ -33,10 +33,9 @@ export const userService = {
       .from('users')
       .select('*')
       .eq('id', user.id)
-      .single();
+      .maybeSingle();
     
     if (error) {
-       // If profile doesn't exist but auth user does, return basic info or null
        console.error("Error fetching user profile", error);
        return null;
     }
@@ -63,7 +62,7 @@ export const userService = {
       .update(updates)
       .eq('id', userId)
       .select()
-      .single();
+      .maybeSingle();
 
     if (error) {
       console.error('Error updating user profile:', error);
