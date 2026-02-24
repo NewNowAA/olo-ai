@@ -96,7 +96,7 @@ export const AnalysisModal: React.FC<AnalysisModalProps> = ({
                         <div className="rounded-2xl border p-5 min-h-[220px]" style={{ backgroundColor: 'var(--input-bg)', borderColor: 'var(--border)' }}>
                             <h4 className="text-xs font-bold uppercase tracking-widest mb-4" style={{ color: 'var(--t3)' }}>Top Items por Valor</h4>
                             <div className="h-[180px] w-full">
-                                <ResponsiveContainer width="100%" height="100%">
+                                <ResponsiveContainer width="100%" height="100%" minWidth={100} minHeight={100}>
                                     <BarChart data={itemsByValue} layout="vertical" margin={{ left: 10, right: 20, top: 5, bottom: 5 }}>
                                         <XAxis type="number" hide />
                                         <YAxis type="category" dataKey="name" width={80} tick={{ fontSize: 11, fill: 'var(--t3)', fontWeight: 600 }} />
@@ -115,7 +115,7 @@ export const AnalysisModal: React.FC<AnalysisModalProps> = ({
                         <div className="rounded-2xl border p-5 min-h-[220px]" style={{ backgroundColor: 'var(--input-bg)', borderColor: 'var(--border)' }}>
                             <h4 className="text-xs font-bold uppercase tracking-widest mb-4" style={{ color: 'var(--t3)' }}>Items Mais Frequentes (Todas Faturas)</h4>
                             <div className="h-[180px] w-full">
-                                <ResponsiveContainer width="100%" height="100%">
+                                <ResponsiveContainer width="100%" height="100%" minWidth={100} minHeight={100}>
                                     <BarChart data={itemsByFrequency} margin={{ left: 10, right: 20, top: 5, bottom: 5 }}>
                                         <XAxis dataKey="name" tick={{ fontSize: 11, fill: 'var(--t3)', fontWeight: 600 }} />
                                         <YAxis allowDecimals={false} tick={{ fontSize: 11, fill: 'var(--t3)' }} />
