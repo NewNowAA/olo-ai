@@ -123,6 +123,25 @@ serve(async (req) => {
     // 5. Delete public.users profile
     await supabaseAdmin.from('users').delete().eq('id', userId)
 
+    // 5.5 Delete user's files from Storage (fixes the foreign key issue on storage.objects.owner)
+    try {
+      console.log('Deleting storage objects for user...')
+      // Using the schema('storage') method to access the objects table directly
+      const { error: storageError } = await supabaseAdmin
+        .schema('storage')
+        .from('objects')
+        .delete()
+        .eq('owner', userId)
+      
+      if (storageError) {
+        console.warn('Could not delete some storage objects:', storageError)
+      } else {
+        console.log('Successfully cleared user storage objects.')
+      }
+    } catch (e) {
+      console.warn('Exception while deleting storage objects:', e)
+    }
+
     // 6. Delete from auth.users (requires service role)
     const { error: deleteAuthError } = await supabaseAdmin.auth.admin.deleteUser(userId)
     if (deleteAuthError) {
