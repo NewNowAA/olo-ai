@@ -21,6 +21,7 @@ import Privacy from './components/Privacy';
 import OnboardingTour from './components/OnboardingTour';
 import { supabase, getCurrentUser } from './services';
 import { ErrorBoundary } from './components/common/ErrorBoundary';
+import StickyFeedback from './components/StickyFeedback';
 
 const App: React.FC = () => {
   // Auth State
@@ -199,6 +200,7 @@ const App: React.FC = () => {
           </ErrorBoundary>
 
         </div>
+        <StickyFeedback />
       </main>
     </div>
   );

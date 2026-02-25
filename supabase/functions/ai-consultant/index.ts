@@ -157,65 +157,65 @@ ${invoices.map((inv: any) => {
         console.log('Invoice context length:', invoiceContext.length);
         console.log('Invoice context preview:', invoiceContext.substring(0, 200));
 
-        // --- PREPARE GEMINI REQUEST ---
+        // --- PREPARE GEMINI REQUEST USING SDK ---
         const apiKey = Deno.env.get('GOOGLE_GENERATIVE_AI_API_KEY') ?? Deno.env.get('GEMINI_API_KEY') ?? ''
         if (!apiKey) throw new Error('Gemini API key not configured')
 
-        let systemPrompt = '';
-        let userPrompt = '';
+        // Dynamically import the SDK (Deno reads this from deno.json imports)
+        const { GoogleGenerativeAI } = await import('@google/generative-ai');
+        const genAI = new GoogleGenerativeAI(apiKey);
+
+        let systemInstruction = '';
+        if (action === 'daily_analysis') {
+            systemInstruction = DAILY_ANALYSIS_PROMPT;
+        } else {
+            systemInstruction = CHAT_SYSTEM_PROMPT;
+        }
+
+        const model = genAI.getGenerativeModel({
+            model: "gemini-2.0-flash",
+            systemInstruction: systemInstruction,
+            generationConfig: {
+                temperature: 0.7,
+                maxOutputTokens: 1024,
+            }
+        });
+
+        let aiText = '';
 
         if (action === 'daily_analysis') {
-            systemPrompt = DAILY_ANALYSIS_PROMPT;
-            userPrompt = `Aqui estão os dados recentes das faturas para análise:\n\n${invoiceContext}\n\n${orgContext}\n\nPor favor, gere a análise diária.`;
+            const userPrompt = `Aqui estão os dados recentes das faturas para análise:\n\n${invoiceContext}\n\n${orgContext}\n\nPor favor, gere a análise diária.`;
+            const result = await model.generateContent(userPrompt);
+            aiText = result.response.text();
         } else {
-            systemPrompt = CHAT_SYSTEM_PROMPT;
-            userPrompt = `${message}\n\n---\n[CONTEXTO]\n${orgContext}\n${invoiceContext}`;
-        }
-
-        // Build conversation contents
-        const contents: any[] = []
-        
-        // Add history (ONLY for chat)
-        if (action === 'chat' && history && Array.isArray(history)) {
-            for (const msg of history) {
-                contents.push({
-                    role: msg.sender === 'user' ? 'user' : 'model',
-                    parts: [{ text: msg.text }]
-                })
+            // Chat Action
+            // Build the conversational history format required by the SDK
+            const formattedHistory = [];
+            if (history && Array.isArray(history)) {
+                for (const msg of history) {
+                    formattedHistory.push({
+                        role: msg.sender === 'user' ? 'user' : 'model',
+                        parts: [{ text: msg.text }]
+                    });
+                }
             }
+
+            // Start chat with history
+            const chatSession = model.startChat({
+                history: formattedHistory
+            });
+
+            // The user's new message should send the context along with their question
+            // Only embed context in the first prompt of the session or the current prompt dynamically
+            const messageWithContext = `${message}\n\n---\n[CONTEXTO ATUALIZADO]\n${orgContext}\n${invoiceContext}`;
+            
+            const result = await chatSession.sendMessage(messageWithContext);
+            aiText = result.response.text();
         }
 
-        contents.push({
-            role: 'user',
-            parts: [{ text: userPrompt }]
-        })
-
-        // Call Gemini
-        const geminiResponse = await fetch(
-            `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
-            {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    system_instruction: { parts: [{ text: systemPrompt }] },
-                    contents,
-                    generationConfig: {
-                        temperature: 0.7,
-                        maxOutputTokens: 1024,
-                    }
-                })
-            }
-        )
-
-        if (!geminiResponse.ok) {
-            const errText = await geminiResponse.text()
-            console.error('Gemini API error:', errText)
-            throw new Error(`Gemini API error: ${geminiResponse.status}`)
+        if (!aiText) {
+            aiText = 'Não consegui gerar uma resposta. Tente novamente.';
         }
-
-        const geminiData = await geminiResponse.json()
-        const aiText = geminiData?.candidates?.[0]?.content?.parts?.[0]?.text
-            ?? 'Não consegui gerar uma resposta. Tente novamente.'
 
         return new Response(
             JSON.stringify({ success: true, response: aiText }),

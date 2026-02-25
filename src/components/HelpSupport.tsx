@@ -1,8 +1,51 @@
 import React, { useState } from 'react';
-import { ChevronDown, ChevronUp, Mail, MessageCircle, Phone, Send } from 'lucide-react';
+import { ChevronDown, ChevronUp, Mail, MessageCircle, Phone, Send, CheckCircle2, AlertCircle } from 'lucide-react';
+import { supabase } from '../services';
 
 const HelpSupport: React.FC = () => {
   const [openFaq, setOpenFaq] = useState<number | null>(0);
+  
+  const [formData, setFormData] = useState({
+    name: '',
+    email: '',
+    subject: 'Dúvida sobre Faturamento',
+    message: ''
+  });
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitStatus, setSubmitStatus] = useState<'idle' | 'success' | 'error'>('idle');
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!formData.name || !formData.email || !formData.message) return;
+
+    setIsSubmitting(true);
+    setSubmitStatus('idle');
+
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+
+      const { error } = await supabase
+        .from('support_tickets')
+        .insert([{
+           user_id: user?.id || null,
+           name: formData.name,
+           email: formData.email,
+           subject: formData.subject,
+           message: formData.message
+        }]);
+
+      if (error) throw error;
+
+      setSubmitStatus('success');
+      setFormData({ name: '', email: '', subject: 'Dúvida sobre Faturamento', message: '' });
+      setTimeout(() => setSubmitStatus('idle'), 5000);
+    } catch (error) {
+      console.error('Error submitting support ticket:', error);
+      setSubmitStatus('error');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   const faqs = [
     {
@@ -79,21 +122,56 @@ const HelpSupport: React.FC = () => {
           <div className="bg-white/40 dark:bg-slate-800/40 backdrop-blur-xl border border-white/50 dark:border-slate-700 rounded-[2.5rem] p-8 h-fit">
               <h2 className="text-xl font-bold text-slate-800 dark:text-white mb-6">Envie uma mensagem</h2>
               
-              <form className="space-y-4" onSubmit={(e) => e.preventDefault()}>
+              {submitStatus === 'success' && (
+                <div className="mb-6 p-4 rounded-xl flex border items-start gap-4 animate-in slide-in-from-top-2"
+                  style={{ backgroundColor: 'var(--green-a)', borderColor: 'var(--green)' }}>
+                  <CheckCircle2 className="mt-0.5" style={{ color: 'var(--green)' }} size={20} />
+                  <div>
+                    <h4 className="font-bold text-[14px]" style={{ color: 'var(--green)', fontFamily: "'Outfit', sans-serif" }}>Mensagem Enviada!</h4>
+                    <p className="text-sm font-medium opacity-90" style={{ color: 'var(--green)', fontFamily: "'Outfit', sans-serif" }}>Nossa equipe responderá em breve. Agradecemos o contato.</p>
+                  </div>
+                </div>
+              )}
+
+              {submitStatus === 'error' && (
+                <div className="mb-6 p-4 rounded-xl flex border items-start gap-4 animate-in slide-in-from-top-2"
+                  style={{ backgroundColor: 'var(--danger-a)', borderColor: 'var(--danger)' }}>
+                  <AlertCircle className="mt-0.5" style={{ color: 'var(--danger)' }} size={20} />
+                  <div>
+                    <h4 className="font-bold text-[14px]" style={{ color: 'var(--danger)', fontFamily: "'Outfit', sans-serif" }}>Ocorreu um erro</h4>
+                    <p className="text-sm font-medium opacity-90" style={{ color: 'var(--danger)', fontFamily: "'Outfit', sans-serif" }}>Tente novamente mais tarde ou use os canais alternativos.</p>
+                  </div>
+                </div>
+              )}
+
+              <form className="space-y-4" onSubmit={handleSubmit}>
                   <div className="grid grid-cols-2 gap-4">
                       <div>
                           <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest mb-2">Nome</label>
-                          <input type="text" className="w-full px-4 py-3 bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#73c6df]/30 font-medium text-sm dark:text-white" placeholder="Seu nome" />
+                          <input type="text" 
+                                 required
+                                 value={formData.name}
+                                 onChange={e => setFormData({...formData, name: e.target.value})}
+                                 className="w-full px-4 py-3 bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#73c6df]/30 font-medium text-sm dark:text-white" 
+                                 placeholder="Seu nome" />
                       </div>
                       <div>
                           <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest mb-2">Email</label>
-                          <input type="email" className="w-full px-4 py-3 bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#73c6df]/30 font-medium text-sm dark:text-white" placeholder="seu@email.com" />
+                          <input type="email" 
+                                 required
+                                 value={formData.email}
+                                 onChange={e => setFormData({...formData, email: e.target.value})}
+                                 className="w-full px-4 py-3 bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#73c6df]/30 font-medium text-sm dark:text-white" 
+                                 placeholder="seu@email.com" />
                       </div>
                   </div>
                   
                   <div>
                       <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest mb-2">Assunto</label>
-                      <select className="w-full px-4 py-3 bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#73c6df]/30 font-medium text-sm text-slate-600 dark:text-slate-200">
+                      <select 
+                         value={formData.subject}
+                         onChange={e => setFormData({...formData, subject: e.target.value})}
+                         className="w-full px-4 py-3 bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#73c6df]/30 font-medium text-sm text-slate-600 dark:text-slate-200">
                           <option>Dúvida sobre Faturamento</option>
                           <option>Reportar um Bug</option>
                           <option>Sugestão de Feature</option>
@@ -103,11 +181,20 @@ const HelpSupport: React.FC = () => {
 
                   <div>
                       <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest mb-2">Mensagem</label>
-                      <textarea rows={4} className="w-full px-4 py-3 bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#73c6df]/30 font-medium text-sm resize-none dark:text-white" placeholder="Descreva como podemos ajudar..."></textarea>
+                      <textarea 
+                        rows={4} 
+                        required
+                        value={formData.message}
+                        onChange={e => setFormData({...formData, message: e.target.value})}
+                        className="w-full px-4 py-3 bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#73c6df]/30 font-medium text-sm resize-none dark:text-white" 
+                        placeholder="Descreva como podemos ajudar..."></textarea>
                   </div>
 
-                  <button className="w-full py-3.5 text-white rounded-xl font-bold hover:opacity-90 shadow-lg flex items-center justify-center gap-2 transition-all" style={{ backgroundImage: 'linear-gradient(135deg, #2e8ba6, #73c6df)' }}>
-                      <Send size={18} /> Enviar Mensagem
+                  <button 
+                    disabled={isSubmitting}
+                    className="w-full py-3.5 text-white rounded-xl font-bold hover:opacity-90 shadow-lg flex items-center justify-center gap-2 transition-all disabled:opacity-50" 
+                    style={{ backgroundImage: 'linear-gradient(135deg, #2e8ba6, #73c6df)' }}>
+                      <Send size={18} /> {isSubmitting ? 'Enviando...' : 'Enviar Mensagem'}
                   </button>
               </form>
           </div>

@@ -23,7 +23,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, toggleSidebar, onLogout 
   const currentPath = location.pathname.substring(1) || 'dashboard';
 
   // --- PRESERVED: User Profile State ---
-  const [userProfile, setUserProfile] = useState<{ name: string; role: string; avatar?: string } | null>(null);
+  const [userProfile, setUserProfile] = useState<{ name: string; role: string; avatar?: string; telegramId?: string } | null>(null);
 
   useEffect(() => {
     const loadProfile = async () => {
@@ -35,6 +35,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, toggleSidebar, onLogout 
             name: profile.full_name || profile.email?.split('@')[0] || 'Utilizador',
             role: profile.user_role === 'admin' ? 'Pro' : 'Membro',
             avatar: profile.avatar_url,
+            telegramId: profile.telegram_id,
           });
         }
       } catch (error) {
@@ -65,13 +66,22 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, toggleSidebar, onLogout 
     return location.pathname.startsWith(path);
   };
 
+  const [showLumeaModal, setShowLumeaModal] = useState(false);
+
   const NavItem = ({ item }: { item: typeof principalItems[0] & { badge?: number; comingSoon?: boolean } }) => {
     const active = isActive(item.path, item.id);
     return (
       <button
         key={item.id}
         id={`nav-item-${item.id}`}
-        onClick={() => !item.comingSoon && handleNavigation(item.path)}
+        onClick={() => {
+          if (item.comingSoon) return;
+          if (item.id === 'ai' && !userProfile?.telegramId) {
+            setShowLumeaModal(true);
+            return;
+          }
+          handleNavigation(item.path);
+        }}
         className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 group relative ${isCollapsed ? 'justify-center' : ''}`}
         style={{
           backgroundColor: active ? 'var(--blue-a)' : 'transparent',
@@ -119,6 +129,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, toggleSidebar, onLogout 
   );
 
   return (
+    <>
     <aside
       className={`h-screen sticky top-0 z-40 transition-all duration-300 ease-in-out hidden md:flex flex-col ${isCollapsed ? 'w-[72px]' : 'w-[232px]'}`}
       style={{
@@ -223,6 +234,56 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, toggleSidebar, onLogout 
         </div>
       </div>
     </aside>
+
+      {/* Lumea Access Modal */}
+      {showLumeaModal && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
+          <div className="bg-white dark:bg-slate-800 rounded-3xl p-6 md:p-8 max-w-sm w-full shadow-2xl relative animate-in zoom-in-95 duration-200"
+               style={{ border: '1px solid var(--border)' }}>
+            
+            <button 
+              onClick={() => setShowLumeaModal(false)}
+              className="absolute top-4 right-4 p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
+            >
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-slate-500"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+            </button>
+
+            <div className="text-center mb-6 mt-2">
+              <div className="w-16 h-16 rounded-2xl mx-auto mb-4 flex items-center justify-center shadow-lg"
+                   style={{ background: 'linear-gradient(135deg, var(--blue), var(--cyan))' }}>
+                <MessageSquare size={32} className="text-white" />
+              </div>
+              <h3 className="text-xl font-bold text-slate-800 dark:text-white mb-2" style={{ fontFamily: "'Outfit', sans-serif" }}>
+                Conecte seu Telegram
+              </h3>
+              <p className="text-sm text-slate-500 dark:text-slate-400">
+                Para usar a Consultora IA Lumea, você precisa conectar sua conta do Telegram primeiro.
+              </p>
+            </div>
+
+            <div className="flex flex-col gap-3">
+              <button
+                onClick={() => {
+                  setShowLumeaModal(false);
+                  navigate('/settings');
+                }}
+                className="w-full py-3 px-4 rounded-xl text-white font-bold transition-all hover:scale-[1.02] shadow-md flex items-center justify-center gap-2"
+                style={{ background: 'linear-gradient(135deg, var(--blue), var(--cyan))' }}
+              >
+                <Settings size={18} />
+                Ir para Configurações
+              </button>
+              <button
+                onClick={() => setShowLumeaModal(false)}
+                className="w-full py-3 px-4 bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-xl font-bold transition-colors hover:bg-slate-200 dark:hover:bg-slate-600"
+              >
+                Agora não
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   );
 };
 
