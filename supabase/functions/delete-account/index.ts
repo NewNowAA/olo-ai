@@ -21,6 +21,7 @@ serve(async (req) => {
         { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
+    const token = authHeader.replace('Bearer ', '')
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
@@ -37,7 +38,7 @@ serve(async (req) => {
     })
 
     // Verify user identity
-    const { data: { user }, error: userError } = await supabaseUser.auth.getUser()
+    const { data: { user }, error: userError } = await supabaseUser.auth.getUser(token)
     if (userError || !user) {
       return new Response(
         JSON.stringify({ error: 'Invalid user session' }),
