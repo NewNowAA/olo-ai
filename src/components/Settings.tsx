@@ -273,20 +273,15 @@ const Settings: React.FC<SettingsProps> = ({ darkMode, toggleDarkMode, aiFrequen
     }
   };
 
-  const handleGenerateTelegramToken = async () => {
+const handleGenerateTelegramToken = async () => {
     if (!profile) return;
     setGeneratingToken(true);
     try {
-        // Generate a random 8-character uppercase alphanumeric token
-        const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-        let token = '';
-        for (let i = 0; i < 8; i++) {
-            token += characters.charAt(Math.floor(Math.random() * characters.length));
-        }
-
-        // Expiry time (e.g., 15 minutes from now)
+        // Gerar UUID válido
+        const token = crypto.randomUUID();
+        
         const expiresAt = new Date();
-        expiresAt.setMinutes(expiresAt.getMinutes() + 15);
+        expiresAt.setHours(expiresAt.getHours() + 24); // 24h, não 15min
 
         const { error } = await supabase
             .from('users')
@@ -300,11 +295,8 @@ const Settings: React.FC<SettingsProps> = ({ darkMode, toggleDarkMode, aiFrequen
 
         setTelegramToken(token);
         setTelegramTokenExpiry(expiresAt);
-        toast.success("Código Telegram gerado com sucesso! É válido por 15 minutos.");
-
     } catch (error) {
-        console.error("Error generating Telegram token", error);
-        toast.error("Erro ao gerar código do Telegram.");
+        console.error(error);
     } finally {
         setGeneratingToken(false);
     }
@@ -1103,7 +1095,7 @@ const Settings: React.FC<SettingsProps> = ({ darkMode, toggleDarkMode, aiFrequen
                                             )}
                                           </div>
                                           <a 
-                                            href={`https://t.me/Alphabethy_bot?start=${telegramToken}`}
+                                            href={`https://t.me/FacturAIBot?start=${telegramToken}`}
                                             target="_blank"
                                             rel="noopener noreferrer"
                                             className="btn-primary"
