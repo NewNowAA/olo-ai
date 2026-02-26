@@ -241,13 +241,13 @@ const AdminDashboard: React.FC = () => {
                   </div>
                 </div>
                 <div className="flex items-center gap-3 flex-wrap">
-                  <span className={`text-[10px] font-bold px-2 py-1 rounded-full ${user.role === 'admin' ? 'bg-rose-500/10 text-rose-500' : 'bg-[#73c6df]/10 text-[#2e8ba6]'}`}>
+                  <span className={`text-[10px] font-bold px-2 py-1 rounded-full ${user.role === 'system_admin' ? 'bg-rose-500/10 text-rose-500' : user.role === 'org_admin' ? 'bg-amber-500/10 text-amber-600' : 'bg-[#73c6df]/10 text-[#2e8ba6]'}`}>
                     {user.role || 'user'}
                   </span>
                   <span className={`text-[10px] font-bold px-2 py-1 rounded-full ${user.status === 'blocked' ? 'bg-rose-500/20 text-rose-600' : 'bg-green-500/10 text-green-600'}`}>
                     {user.status === 'blocked' ? 'Bloqueado' : 'Ativo'}
                   </span>
-                  {user.role !== 'admin' && (
+                  {user.role !== 'system_admin' && (
                     <button
                       onClick={() => handleBlockUser(user.id, user.status)}
                       disabled={blockingUser === user.id}

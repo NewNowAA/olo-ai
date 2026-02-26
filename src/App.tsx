@@ -201,8 +201,8 @@ const App: React.FC = () => {
               <Route path="/help" element={<HelpSupport />} />
               <Route path="/terms" element={<Terms />} />
               <Route path="/privacy" element={<Privacy />} />
-              {/* Admin route — protected by role */}
-              <Route path="/admin" element={userRole === 'admin' ? <AdminDashboard /> : <Navigate to="/dashboard" replace />} />
+              {/* Admin route — protected by system_admin role only */}
+              <Route path="/admin" element={userRole === 'system_admin' ? <AdminDashboard /> : <Navigate to="/dashboard" replace />} />
               {/* Fallback */}
               <Route path="*" element={<Navigate to="/dashboard" replace />} />
             </Routes>

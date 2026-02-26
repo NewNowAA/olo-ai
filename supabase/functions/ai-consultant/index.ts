@@ -217,6 +217,18 @@ ${invoices.map((inv: any) => {
             aiText = 'Não consegui gerar uma resposta. Tente novamente.';
         }
 
+        // --- LOG USAGE TO api_usage ---
+        // Estimate token count: 1 token ≈ 4 characters of generated text
+        const tokensUsed = Math.ceil(aiText.length / 4);
+
+        await supabase.from('api_usage').insert({
+            user_id: user.id,
+            action: action,
+            tokens_used: tokensUsed,
+        }).then(({ error: usageErr }) => {
+            if (usageErr) console.error('api_usage insert error:', usageErr);
+        });
+
         return new Response(
             JSON.stringify({ success: true, response: aiText }),
             { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
