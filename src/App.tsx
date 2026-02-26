@@ -22,11 +22,13 @@ import OnboardingTour from './components/OnboardingTour';
 import { supabase, getCurrentUser } from './services';
 import { ErrorBoundary } from './components/common/ErrorBoundary';
 import StickyFeedback from './components/StickyFeedback';
+import AdminDashboard from './components/AdminDashboard';
 
 const App: React.FC = () => {
   // Auth State
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [isLoading, setIsLoading] = useState(true); // Check auth on mount
+  const [isLoading, setIsLoading] = useState(true);
+  const [userRole, setUserRole] = useState<string>('user');
   const [authView, setAuthView] = useState<'landing' | 'login' | 'register' | 'forgot-password'>('landing');
 
   // App State
@@ -49,6 +51,11 @@ const App: React.FC = () => {
       try {
         const user = await getCurrentUser();
         setIsAuthenticated(!!user);
+        if (user) {
+          // Fetch admin role from users table
+          const { data: profile } = await supabase.from('users').select('role').eq('id', user.id).single();
+          if (profile?.role) setUserRole(profile.role);
+        }
       } catch (error) {
         console.error('Auth check failed:', error);
         setIsAuthenticated(false);
@@ -194,6 +201,8 @@ const App: React.FC = () => {
               <Route path="/help" element={<HelpSupport />} />
               <Route path="/terms" element={<Terms />} />
               <Route path="/privacy" element={<Privacy />} />
+              {/* Admin route — protected by role */}
+              <Route path="/admin" element={userRole === 'admin' ? <AdminDashboard /> : <Navigate to="/dashboard" replace />} />
               {/* Fallback */}
               <Route path="*" element={<Navigate to="/dashboard" replace />} />
             </Routes>
