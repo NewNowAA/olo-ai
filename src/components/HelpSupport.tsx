@@ -36,6 +36,21 @@ const HelpSupport: React.FC = () => {
 
       if (error) throw error;
 
+      // Invoca a função de email (Resend)
+      const { error: fnError } = await supabase.functions.invoke('send-email', {
+        body: {
+          name: formData.name,
+          email: formData.email,
+          subject: formData.subject,
+          message: formData.message
+        }
+      });
+
+      if (fnError) {
+        console.error('Falha ao enviar email pelo Resend:', fnError);
+        // Mesmo falhando o email, o ticket foi guardado, então não falhamos o UI.
+      }
+
       setSubmitStatus('success');
       setFormData({ name: '', email: '', subject: 'Dúvida sobre Faturamento', message: '' });
       setTimeout(() => setSubmitStatus('idle'), 5000);
