@@ -67,6 +67,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, toggleSidebar, onLogout 
   };
 
   const [showLumeaModal, setShowLumeaModal] = useState(false);
+  const [showTelegramModal, setShowTelegramModal] = useState(false);
 
   const NavItem = ({ item }: { item: typeof principalItems[0] & { badge?: number; comingSoon?: boolean } }) => {
     const active = isActive(item.path, item.id);
@@ -171,8 +172,15 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, toggleSidebar, onLogout 
             <>
               <SectionLabel label="Canais" />
               {/* Telegram Card */}
-              <a href="https://t.me/FacturAIBot" target="_blank" rel="noopener noreferrer"
-                className="flex items-center gap-3 px-3 py-2.5 rounded-xl mx-0 mb-1 transition-all group cursor-pointer"
+              <button
+                onClick={() => {
+                  if (!userProfile?.telegramId) {
+                    setShowTelegramModal(true);
+                  } else {
+                    window.open('https://t.me/FacturAIBot', '_blank', 'noopener,noreferrer');
+                  }
+                }}
+                className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl mx-0 mb-1 transition-all group cursor-pointer text-left"
                 style={{ backgroundColor: 'var(--cyan-a)' }}>
                 <Send size={16} style={{ color: 'var(--cyan)' }} />
                 <div className="flex-1 min-w-0">
@@ -180,7 +188,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, toggleSidebar, onLogout 
                   <p className="text-[9.5px]" style={{ color: 'var(--t3)', fontFamily: "'Outfit', sans-serif" }}>Envie faturas pelo chat</p>
                 </div>
                 <ChevronRight size={14} style={{ color: 'var(--cyan)' }} />
-              </a>
+              </button>
               {/* WhatsApp Card */}
               <div className="flex items-center gap-3 px-3 py-2.5 rounded-xl mx-0 mb-2 opacity-50 cursor-not-allowed"
                 style={{ backgroundColor: 'var(--green-a)' }}>
@@ -275,6 +283,57 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, toggleSidebar, onLogout 
               </button>
               <button
                 onClick={() => setShowLumeaModal(false)}
+                className="w-full py-3 px-4 bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-xl font-bold transition-colors hover:bg-slate-200 dark:hover:bg-slate-600"
+              >
+                Agora não
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Telegram Setup Modal */}
+      {showTelegramModal && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
+          <div className="bg-white dark:bg-slate-800 rounded-3xl p-6 md:p-8 max-w-sm w-full shadow-2xl relative animate-in zoom-in-95 duration-200"
+               style={{ border: '1px solid var(--border)' }}>
+
+            <button
+              onClick={() => setShowTelegramModal(false)}
+              className="absolute top-4 right-4 p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
+            >
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-slate-500"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+            </button>
+
+            <div className="text-center mb-6 mt-2">
+              <div className="w-16 h-16 rounded-2xl mx-auto mb-4 flex items-center justify-center shadow-lg"
+                   style={{ background: 'linear-gradient(135deg, #0088cc, var(--cyan))' }}>
+                <Send size={32} className="text-white" />
+              </div>
+              <h3 className="text-xl font-bold text-slate-800 dark:text-white mb-2" style={{ fontFamily: "'Outfit', sans-serif" }}>
+                Ative o Telegram Bot
+              </h3>
+              <p className="text-sm text-slate-500 dark:text-slate-400 leading-relaxed">
+                Para utilizar o Telegram Bot, é necessário fazer a primeira activação nas{' '}
+                <strong className="text-slate-700 dark:text-slate-200">Configurações</strong>.
+                Aceda a <em>Configurações → Telegram Bot</em> e siga as instruções para ligar a sua conta.
+              </p>
+            </div>
+
+            <div className="flex flex-col gap-3">
+              <button
+                onClick={() => {
+                  setShowTelegramModal(false);
+                  navigate('/settings');
+                }}
+                className="w-full py-3 px-4 rounded-xl text-white font-bold transition-all hover:scale-[1.02] shadow-md flex items-center justify-center gap-2"
+                style={{ background: 'linear-gradient(135deg, #0088cc, var(--cyan))' }}
+              >
+                <Settings size={18} />
+                Ir para Configurações
+              </button>
+              <button
+                onClick={() => setShowTelegramModal(false)}
                 className="w-full py-3 px-4 bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-xl font-bold transition-colors hover:bg-slate-200 dark:hover:bg-slate-600"
               >
                 Agora não

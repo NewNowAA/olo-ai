@@ -10,7 +10,8 @@ const OnboardingTour: React.FC = () => {
         // Ensure we are on the dashboard to start the tour correctly
         const isDashboard = window.location.pathname === '/' || window.location.pathname === '/dashboard';
         
-        if (hasSeenTour || !isDashboard) return;
+        // Guided tour is currently disabled
+        if (true || hasSeenTour || !isDashboard) return;
 
         // Small delay to ensure elements are rendered
         const timer = setTimeout(() => {
