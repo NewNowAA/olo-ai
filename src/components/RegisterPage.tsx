@@ -47,6 +47,7 @@ const RegisterPage: React.FC<RegisterPageProps> = ({ onLoginRequest, onBack }) =
         whatsappNumber: '',
         telegramUsername: '',
         // Step 2 (Company Data)
+        noCompany: false,
         companyName: '',
         taxId: '',
         sector: 'Tecnologia',
@@ -222,7 +223,7 @@ const RegisterPage: React.FC<RegisterPageProps> = ({ onLoginRequest, onBack }) =
 
         // Step 2 validation: company data (was Step 3)
         if (step === 2) {
-            if (!formData.companyName.trim()) {
+            if (!formData.noCompany && !formData.companyName.trim()) {
                 setError('Por favor, preencha o nome da empresa/marca');
                 return;
             }
@@ -243,8 +244,8 @@ const RegisterPage: React.FC<RegisterPageProps> = ({ onLoginRequest, onBack }) =
             phone: formData.phone,
             password: formData.password,
             channels: formData.channels,
-            companyName: formData.companyName,
-            taxId: formData.taxId,
+            companyName: formData.noCompany ? 'Individual' : formData.companyName,
+            taxId: formData.noCompany ? 'N/A' : formData.taxId,
             sector: formData.sector,
             employeeRange: formData.employeeRange,
             activeModules: formData.activeModules,
@@ -478,21 +479,6 @@ const RegisterPage: React.FC<RegisterPageProps> = ({ onLoginRequest, onBack }) =
                             />
                             <span className="text-sm font-bold text-slate-700">Telegram</span>
                         </label>
-                        {formData.channels.includes('telegram') && (
-                            <div className="mt-3 animate-in fade-in slide-in-from-top-2 duration-300">
-                                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Username Telegram</label>
-                                <div className="relative">
-                                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm">@</span>
-                                    <input
-                                        type="text"
-                                        value={formData.telegramUsername}
-                                        onChange={(e) => updateFormData('telegramUsername', e.target.value)}
-                                        placeholder="username"
-                                        className="w-full pl-7 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 text-sm focus:ring-2 focus:ring-[#0088cc] focus:outline-none"
-                                    />
-                                </div>
-                            </div>
-                        )}
                     </div>
                 </div>
             </div>
@@ -507,70 +493,87 @@ const RegisterPage: React.FC<RegisterPageProps> = ({ onLoginRequest, onBack }) =
                 <p className="text-sm text-slate-500">Para personalizar sua experiência.</p>
             </div>
 
-            <div>
-                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">
-                    {formData.accountType === 'company' ? 'Nome da Empresa' : 'Nome Comercial / Marca'}
+            <div className="flex items-center gap-2 mb-2">
+                <input
+                    type="checkbox"
+                    id="noCompany"
+                    checked={formData.noCompany}
+                    onChange={(e) => updateFormData('noCompany', e.target.checked)}
+                    className="w-4 h-4 rounded text-[#73c6df] border-slate-300 focus:ring-[#73c6df]"
+                />
+                <label htmlFor="noCompany" className="text-sm font-bold text-slate-700 cursor-pointer">
+                    Não tenho empresa
                 </label>
-                <div className="relative">
-                    <Building className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-                    <input
-                        type="text"
-                        value={formData.companyName}
-                        onChange={(e) => updateFormData('companyName', e.target.value)}
-                        className="w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 focus:ring-2 focus:ring-[#73c6df] focus:outline-none transition-all focus:bg-white"
-                        placeholder="Ex: Lumea Tech Lda"
-                    />
-                </div>
             </div>
-            <div>
-                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">
-                    {formData.accountType === 'company' ? 'NIF (Empresa)' : 'NIF (Pessoal)'}
-                </label>
-                <div className="relative">
-                    <input
-                        type="text"
-                        value={formData.taxId}
-                        onChange={(e) => updateFormData('taxId', e.target.value)}
-                        className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 focus:ring-2 focus:ring-[#73c6df] focus:outline-none transition-all focus:bg-white"
-                        placeholder="123 456 789"
-                    />
-                </div>
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-                <div>
-                    <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Setor</label>
-                    <div className="relative">
-                        <select
-                            value={formData.sector}
-                            onChange={(e) => updateFormData('sector', e.target.value)}
-                            className="w-full pl-4 pr-8 py-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 focus:ring-2 focus:ring-[#73c6df] focus:outline-none appearance-none transition-all focus:bg-white font-medium text-sm"
-                        >
-                            <option>Tecnologia</option>
-                            <option>Varejo</option>
-                            <option>Serviços</option>
-                            <option>Saúde</option>
-                            <option>Outro</option>
-                        </select>
-                        <ChevronRight className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 rotate-90" size={14} />
+
+            {!formData.noCompany && (
+                <div className="space-y-5 animate-in fade-in slide-in-from-top-4 duration-300">
+                    <div>
+                        <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">
+                            {formData.accountType === 'company' ? 'Nome da Empresa' : 'Nome Comercial / Marca'}
+                        </label>
+                        <div className="relative">
+                            <Building className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+                            <input
+                                type="text"
+                                value={formData.companyName}
+                                onChange={(e) => updateFormData('companyName', e.target.value)}
+                                className="w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 focus:ring-2 focus:ring-[#73c6df] focus:outline-none transition-all focus:bg-white"
+                                placeholder="Ex: Lumea Tech Lda"
+                            />
+                        </div>
+                    </div>
+                    <div>
+                        <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">
+                            {formData.accountType === 'company' ? 'NIF (Empresa)' : 'NIF (Pessoal)'}
+                        </label>
+                        <div className="relative">
+                            <input
+                                type="text"
+                                value={formData.taxId}
+                                onChange={(e) => updateFormData('taxId', e.target.value)}
+                                className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 focus:ring-2 focus:ring-[#73c6df] focus:outline-none transition-all focus:bg-white"
+                                placeholder="123 456 789"
+                            />
+                        </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                        <div>
+                            <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Setor</label>
+                            <div className="relative">
+                                <select
+                                    value={formData.sector}
+                                    onChange={(e) => updateFormData('sector', e.target.value)}
+                                    className="w-full pl-4 pr-8 py-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 focus:ring-2 focus:ring-[#73c6df] focus:outline-none appearance-none transition-all focus:bg-white font-medium text-sm"
+                                >
+                                    <option>Tecnologia</option>
+                                    <option>Varejo</option>
+                                    <option>Serviços</option>
+                                    <option>Saúde</option>
+                                    <option>Outro</option>
+                                </select>
+                                <ChevronRight className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 rotate-90" size={14} />
+                            </div>
+                        </div>
+                        <div>
+                            <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Tamanho</label>
+                            <div className="relative">
+                                <select
+                                    value={formData.employeeRange}
+                                    onChange={(e) => updateFormData('employeeRange', e.target.value)}
+                                    className="w-full pl-4 pr-8 py-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 focus:ring-2 focus:ring-[#73c6df] focus:outline-none appearance-none transition-all focus:bg-white font-medium text-sm"
+                                >
+                                    <option>1-5 pessoas</option>
+                                    <option>5-20 pessoas</option>
+                                    <option>20-50 pessoas</option>
+                                    <option>50+ pessoas</option>
+                                </select>
+                                <ChevronRight className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 rotate-90" size={14} />
+                            </div>
+                        </div>
                     </div>
                 </div>
-                <div>
-                    <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Tamanho</label>
-                    <div className="relative">
-                        <select
-                            value={formData.employeeRange}
-                            onChange={(e) => updateFormData('employeeRange', e.target.value)}
-                            className="w-full pl-4 pr-8 py-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 focus:ring-2 focus:ring-[#73c6df] focus:outline-none appearance-none transition-all focus:bg-white font-medium text-sm"
-                        >
-                            <option>1-5 pessoas</option>
-                            <option>5-20 pessoas</option>
-                            <option>20-50 pessoas</option>
-                            <option>50+ pessoas</option>
-                        </select>
-                        <ChevronRight className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 rotate-90" size={14} />
-                    </div>
-                </div>
-            </div>
+            )}
         </div>
     );
 
@@ -649,7 +652,7 @@ const RegisterPage: React.FC<RegisterPageProps> = ({ onLoginRequest, onBack }) =
                                 Clique no botão abaixo para ligar o seu Telegram à conta faturAI. Este código de ligação especial expira em 24h.
                             </p>
                             <a
-                                href={`https://t.me/Alphabethy_bot?start=${linkToken}`}
+                                href={`https://t.me/FacturAIBot?start=${linkToken}`}
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 className="w-full py-3 bg-[#0088cc] text-white font-bold rounded-xl hover:bg-[#0077b3] transition-colors shadow-md flex items-center justify-center gap-2 text-sm"

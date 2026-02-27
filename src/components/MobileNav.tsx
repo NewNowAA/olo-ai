@@ -1,11 +1,12 @@
 import React from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { LayoutGrid, FileText, MessageSquare, Clock, Settings } from 'lucide-react';
+import { LayoutGrid, FileText, MessageSquare, Clock, Settings, Send } from 'lucide-react';
 
 const navItems = [
   { id: 'dashboard', path: '/dashboard', icon: LayoutGrid, label: 'Painel' },
   { id: 'billing', path: '/billing', icon: FileText, label: 'Faturas' },
   { id: 'ai', path: '/ai', icon: MessageSquare, label: 'IA' },
+  { id: 'telegram', path: 'https://t.me/FacturAIBot', icon: Send, label: 'Bot', isExternal: true },
   { id: 'goals', path: '/goals', icon: Clock, label: 'Metas' },
   { id: 'settings', path: '/settings', icon: Settings, label: 'Ajustes' },
 ];
@@ -30,12 +31,18 @@ const MobileNav: React.FC = () => {
           return (
             <button
               key={item.id}
-              onClick={() => navigate(item.path)}
+              onClick={() => {
+                if (item.isExternal) {
+                  window.open(item.path, '_blank', 'noopener,noreferrer');
+                } else {
+                  navigate(item.path);
+                }
+              }}
               className="flex flex-col items-center justify-center w-full py-2 gap-1 transition-colors"
-              style={{ color: isActive ? 'var(--blue)' : 'var(--t3)' }}
+              style={{ color: isActive && !item.isExternal ? 'var(--blue)' : 'var(--t3)' }}
             >
-              <item.icon size={22} strokeWidth={isActive ? 2.2 : 1.8} />
-              <span className="text-[10px]" style={{ fontWeight: isActive ? 600 : 400, fontFamily: "'Outfit', sans-serif" }}>
+              <item.icon size={22} strokeWidth={isActive && !item.isExternal ? 2.2 : 1.8} />
+              <span className="text-[10px]" style={{ fontWeight: isActive && !item.isExternal ? 600 : 400, fontFamily: "'Outfit', sans-serif" }}>
                 {item.label}
               </span>
             </button>

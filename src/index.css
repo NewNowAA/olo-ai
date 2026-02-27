@@ -39,6 +39,13 @@
   }
 }
 
+@layer base {
+  html, body, #root {
+    overflow-x: hidden;
+    width: 100%;
+  }
+}
+
 @keyframes scan {
   0% { top: 0%; opacity: 0; }
   10% { opacity: 1; }
