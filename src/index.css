@@ -4,16 +4,23 @@
 @custom-variant dark (&:is(.dark *));
 
 @theme {
-  --font-sans: 'Outfit', sans-serif;
+  --font-sans: 'Manrope', sans-serif;
   --font-mono: 'JetBrains Mono', monospace;
+
+  /* Cyber Minimalist Theme */
+  --color-cyber-bg: #00002C;
+  --color-cyber-primary: #1042FF;
+  --color-cyber-accent: #E94C76;
+  --color-cyber-data: #00B8FD;
 
   --color-brand-blue: #1042FF;
   --color-brand-pink: #E94C76;
   --color-brand-navy: #00002C;
   --color-brand-cyan: #00B8FD;
 
-  --color-teal-primary: #73c6df;
-  --color-teal-secondary: #8bd7bf;
+  /* Legacy aliases (preventing breakage on other pages) */
+  --color-teal-primary: #1042FF;
+  --color-teal-secondary: #00B8FD;
 
   --animate-fade-up: fadeUp 0.5s ease backwards;
   --animate-fade-in: fadeIn 0.25s ease backwards;
