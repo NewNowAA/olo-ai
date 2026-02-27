@@ -480,17 +480,7 @@ const RegisterPage: React.FC<RegisterPageProps> = ({ onLoginRequest, onBack }) =
                         </label>
                         {formData.channels.includes('telegram') && (
                             <div className="mt-3 animate-in fade-in slide-in-from-top-2 duration-300">
-                                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Username Telegram</label>
-                                <div className="relative">
-                                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm">@</span>
-                                    <input
-                                        type="text"
-                                        value={formData.telegramUsername}
-                                        onChange={(e) => updateFormData('telegramUsername', e.target.value)}
-                                        placeholder="username"
-                                        className="w-full pl-7 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 text-sm focus:ring-2 focus:ring-[#0088cc] focus:outline-none"
-                                    />
-                                </div>
+                                <p className="text-[11px] text-slate-500 font-medium">A ativação do Telegram poderá ser feita mais tarde nas Configurações da sua conta.</p>
                             </div>
                         )}
                     </div>
