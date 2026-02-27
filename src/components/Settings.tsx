@@ -226,33 +226,28 @@ const Settings: React.FC<SettingsProps> = ({ darkMode, toggleDarkMode, aiFrequen
   };
 
   const handleDeleteAccount = async () => {
-      if (deleteConfirmText !== 'APAGAR') return;
-      setIsDeleting(true);
-      try {
-          if (!profile) return;
-          
-          // Invoke the edge function FIRST to handle auth.user deletion securely
-          const { error: invokeError } = await supabase.functions.invoke('delete-account');
-          if (invokeError) {
-              console.error("Erro na Edge Function:", invokeError);
-              throw new Error("Erro ao apagar utilizador na Edge Function.");
-          }
-
-          const isAdmin = profile.user_role === 'admin';
-          
-          if (profile.org_id && isAdmin) {
-              await supabase.from('organizations').delete().eq('id', profile.org_id);
-          }
-          await supabase.from('users').delete().eq('id', profile.id);
-
-          await supabase.auth.signOut();
-          navigate('/login');
-      } catch (error) {
-          console.error("Error deleting account", error);
-          toast.error("Erro ao apagar conta.");
-      } finally {
-          setIsDeleting(false);
+    if (deleteConfirmText !== 'APAGAR') return;
+    setIsDeleting(true);
+    try {
+      // Edge Function does ALL cleanup server-side (invoices, goals, org, profile, auth)
+      const { error: invokeError } = await supabase.functions.invoke('delete-account');
+      
+      if (invokeError) {
+        console.error('Erro na Edge Function:', invokeError);
+        toast.error('Ocorreu um erro no servidor. A forçar o encerramento da sessão...');
       }
+
+      // ALWAYS sign out locally and redirect, even if the Edge Function fails
+      await supabase.auth.signOut();
+      window.location.href = '/';
+    } catch (error: any) {
+      console.error('Error deleting account', error);
+      toast.error('A forçar o encerramento da sessão...');
+      await supabase.auth.signOut();
+      window.location.href = '/';
+    } finally {
+      setIsDeleting(false);
+    }
   };
 
   const handleUpdatePreferences = async () => {
@@ -278,20 +273,15 @@ const Settings: React.FC<SettingsProps> = ({ darkMode, toggleDarkMode, aiFrequen
     }
   };
 
-  const handleGenerateTelegramToken = async () => {
+const handleGenerateTelegramToken = async () => {
     if (!profile) return;
     setGeneratingToken(true);
     try {
-        // Generate a random 8-character uppercase alphanumeric token
-        const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-        let token = '';
-        for (let i = 0; i < 8; i++) {
-            token += characters.charAt(Math.floor(Math.random() * characters.length));
-        }
-
-        // Expiry time (e.g., 15 minutes from now)
+        // Gerar UUID válido
+        const token = crypto.randomUUID();
+        
         const expiresAt = new Date();
-        expiresAt.setMinutes(expiresAt.getMinutes() + 15);
+        expiresAt.setHours(expiresAt.getHours() + 24); // 24h, não 15min
 
         const { error } = await supabase
             .from('users')
@@ -305,11 +295,8 @@ const Settings: React.FC<SettingsProps> = ({ darkMode, toggleDarkMode, aiFrequen
 
         setTelegramToken(token);
         setTelegramTokenExpiry(expiresAt);
-        toast.success("Código Telegram gerado com sucesso! É válido por 15 minutos.");
-
     } catch (error) {
-        console.error("Error generating Telegram token", error);
-        toast.error("Erro ao gerar código do Telegram.");
+        console.error(error);
     } finally {
         setGeneratingToken(false);
     }
@@ -1108,7 +1095,7 @@ const Settings: React.FC<SettingsProps> = ({ darkMode, toggleDarkMode, aiFrequen
                                             )}
                                           </div>
                                           <a 
-                                            href={`https://t.me/Alphabethy_bot?start=${telegramToken}`}
+                                            href={`https://t.me/FacturAIBot?start=${telegramToken}`}
                                             target="_blank"
                                             rel="noopener noreferrer"
                                             className="btn-primary"

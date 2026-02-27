@@ -421,7 +421,7 @@ const Goals: React.FC<GoalsProps> = ({ lastUpdated }) => {
                         <h3 className="text-lg font-bold mb-6" style={{ color: 'var(--t1)' }}>Taxa de Sucesso</h3>
 
                         <div className="w-full h-48 relative">
-                            <ResponsiveContainer width="100%" height="100%">
+                            <ResponsiveContainer width="100%" height="100%" minWidth={100} minHeight={100}>
                                 {chartType === 'pie' ? (
                                     <PieChart>
                                         <Pie
