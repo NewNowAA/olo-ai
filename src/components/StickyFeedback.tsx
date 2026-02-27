@@ -52,7 +52,7 @@ const StickyFeedback: React.FC = () => {
       {/* Sticky Button */}
       <button
         onClick={() => setIsOpen(true)}
-        className={`fixed bottom-6 right-6 z-50 p-3 md:p-4 rounded-full shadow-2xl transition-all duration-300 hover:scale-110 active:scale-95 flex items-center justify-center ${isOpen ? 'opacity-0 pointer-events-none translate-y-4' : 'opacity-100 translate-y-0'}`}
+        className={`fixed bottom-24 md:bottom-6 right-6 z-50 p-3 md:p-4 rounded-full shadow-2xl transition-all duration-300 hover:scale-110 active:scale-95 flex items-center justify-center ${isOpen ? 'opacity-0 pointer-events-none translate-y-4' : 'opacity-100 translate-y-0'}`}
         style={{ background: 'linear-gradient(135deg, var(--blue), var(--cyan))', color: 'white' }}
         title="Enviar Feedback"
       >
@@ -61,7 +61,7 @@ const StickyFeedback: React.FC = () => {
 
       {/* Feedback Panel */}
       {isOpen && (
-        <div className="fixed bottom-6 right-6 z-[60] w-[calc(100vw-3rem)] max-w-[360px] bg-white dark:bg-slate-800 rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-700 overflow-hidden animate-in slide-in-from-bottom-5 fade-in duration-200">
+        <div className="fixed bottom-24 md:bottom-6 right-6 z-[60] w-[calc(100vw-3rem)] max-w-[360px] bg-white dark:bg-slate-800 rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-700 overflow-hidden animate-in slide-in-from-bottom-5 fade-in duration-200">
           
           {/* Header */}
           <div className="p-4 bg-slate-50 dark:bg-slate-900/50 border-b border-slate-100 dark:border-slate-700 flex justify-between items-center">
