@@ -130,28 +130,28 @@ const LandingPage: React.FC<LandingPageProps> = ({ onLogin, onRegister }) => {
         Controls Sections 2, 3, and 4
         ========================================================
       */}
-      <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-30 pointer-events-none w-full max-w-7xl mx-auto px-6 h-[600px] flex items-center">
+      <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-30 pointer-events-none w-full max-w-7xl mx-auto h-[100dvh] lg:h-[600px] flex items-center justify-center lg:justify-start lg:px-6">
          
-         {/* FLOATING TEXT (LEFT SIDE ON DESKTOP) */}
-         <div className="hidden lg:flex flex-col justify-center w-1/2 relative h-full">
-            <motion.div style={{ opacity: text1Opacity, y: text1Y }} className="absolute">
-               <h2 className="text-5xl font-black text-white mb-6 leading-[1.1]">Centralize a<br/><span className="text-[#1042FF] drop-shadow-[0_0_20px_rgba(16,66,255,0.5)]">Recolha.</span></h2>
-               <p className="text-xl text-white/60 font-medium max-w-md">Ligue o WhatsApp, Telegram ou Email. Envie faturas em PDF ou foto, e deixe o bot organizar tudo.</p>
+         {/* FLOATING TEXT (BOTTOM ON MOBILE, LEFT ON DESKTOP) */}
+         <div className="absolute lg:relative w-full px-6 lg:px-0 lg:w-1/2 h-full flex flex-col justify-end pb-8 lg:pb-0 lg:justify-center z-40">
+            <motion.div style={{ opacity: text1Opacity, y: text1Y }} className="absolute bottom-6 lg:bottom-auto lg:top-1/2 lg:-translate-y-1/2 left-4 right-4 lg:left-0 lg:right-auto bg-[#00002C]/60 lg:bg-transparent backdrop-blur-xl lg:backdrop-blur-none p-6 lg:p-0 border border-white/10 lg:border-none rounded-2xl lg:rounded-none shadow-[0_10px_40px_rgba(0,0,0,0.5)] lg:shadow-none">
+               <h2 className="text-3xl lg:text-5xl font-black text-white mb-2 lg:mb-6 leading-[1.1]">Centralize a<br className="hidden lg:block"/><span className="text-[#1042FF] drop-shadow-[0_0_20px_rgba(16,66,255,0.5)]"> Recolha.</span></h2>
+               <p className="text-sm lg:text-xl text-white/90 lg:text-white/60 font-medium lg:max-w-md">Ligue o WhatsApp, Telegram ou Email. Envie faturas em PDF ou foto, e deixe o bot organizar tudo.</p>
             </motion.div>
             
-            <motion.div style={{ opacity: text2Opacity, y: text2Y }} className="absolute">
-               <h2 className="text-5xl font-black text-white mb-6 leading-[1.1]">Extração<br/><span className="text-[#E94C76] drop-shadow-[0_0_20px_rgba(233,76,118,0.5)]">Neural.</span></h2>
-               <p className="text-xl text-white/60 font-medium max-w-md">A Nossa tecnologia de Vision IA processa os documentos em segundos. Capturamos fornecedor, NIF, montantes e datas sem que precise de digitar um único número.</p>
+            <motion.div style={{ opacity: text2Opacity, y: text2Y }} className="absolute bottom-6 lg:bottom-auto lg:top-1/2 lg:-translate-y-1/2 left-4 right-4 lg:left-0 lg:right-auto bg-[#00002C]/60 lg:bg-transparent backdrop-blur-xl lg:backdrop-blur-none p-6 lg:p-0 border border-white/10 lg:border-none rounded-2xl lg:rounded-none shadow-[0_10px_40px_rgba(0,0,0,0.5)] lg:shadow-none">
+               <h2 className="text-3xl lg:text-5xl font-black text-white mb-2 lg:mb-6 leading-[1.1]">Extração<br className="hidden lg:block"/><span className="text-[#E94C76] drop-shadow-[0_0_20px_rgba(233,76,118,0.5)]"> Neural.</span></h2>
+               <p className="text-sm lg:text-xl text-white/90 lg:text-white/60 font-medium lg:max-w-md">A Nossa tecnologia IA processa os documentos em segundos. Capturamos os dados sem que precise de digitar um único número.</p>
             </motion.div>
 
-            <motion.div style={{ opacity: text3Opacity, y: text3Y }} className="absolute">
-               <h2 className="text-5xl font-black text-white mb-6 leading-[1.1]">Dashboard<br/><span className="text-[#00B8FD] drop-shadow-[0_0_20px_rgba(0,184,253,0.5)]">Global.</span></h2>
-               <p className="text-xl text-white/60 font-medium max-w-md">Os dados transformam-se num painel de controlo dinâmico em tempo real. Veja o seu negócio crescer a cada notificação.</p>
+            <motion.div style={{ opacity: text3Opacity, y: text3Y }} className="absolute bottom-6 lg:bottom-auto lg:top-1/2 lg:-translate-y-1/2 left-4 right-4 lg:left-0 lg:right-auto bg-[#00002C]/60 lg:bg-transparent backdrop-blur-xl lg:backdrop-blur-none p-6 lg:p-0 border border-white/10 lg:border-none rounded-2xl lg:rounded-none shadow-[0_10px_40px_rgba(0,0,0,0.5)] lg:shadow-none">
+               <h2 className="text-3xl lg:text-5xl font-black text-white mb-2 lg:mb-6 leading-[1.1]">Dashboard<br className="hidden lg:block"/><span className="text-[#00B8FD] drop-shadow-[0_0_20px_rgba(0,184,253,0.5)]"> Global.</span></h2>
+               <p className="text-sm lg:text-xl text-white/90 lg:text-white/60 font-medium lg:max-w-md">Os dados transformam-se num painel dinâmico em tempo real. Veja o seu negócio crescer a cada notificação.</p>
             </motion.div>
          </div>
 
-         {/* IPHONE MOCKUP (RIGHT SIDE ON DESKTOP, CENTERED ALWAYS) */}
-         <div className="w-full lg:w-1/2 flex justify-center lg:justify-end lg:pr-10 absolute left-0 lg:static">
+         {/* IPHONE MOCKUP (RIGHT SIDE ON DESKTOP, CENTERED ON MOBILE BUT SHIFTED UP SLIGHTLY) */}
+         <div className="w-full lg:w-1/2 flex justify-center lg:justify-end lg:pr-10 absolute lg:static top-[5%] lg:top-auto h-[70vh] lg:h-auto items-start lg:items-center">
              <motion.div 
                 style={{ 
                   width: phoneWidth, 
@@ -159,7 +159,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onLogin, onRegister }) => {
                   borderRadius: phoneBorderRadius,
                   x: phoneTranslateX
                 }}
-                className="relative bg-black border-[4px] border-[#333] shadow-[0_0_50px_rgba(16,66,255,0.3)] overflow-hidden flex items-center justify-center transition-shadow bg-gradient-to-b from-[#111] to-[#000]"
+                className="relative bg-black border-[4px] border-[#333] shadow-[0_0_50px_rgba(16,66,255,0.3)] overflow-hidden flex items-center justify-center transition-shadow bg-gradient-to-b from-[#111] to-[#000] mt-10 lg:mt-0"
               >
                 {/* Top Notch - Only show on Phone view */}
                 <motion.div style={{ opacity: hidePhoneContent }} className="absolute top-0 w-32 h-6 bg-[#333] rounded-b-2xl z-50"></motion.div>
