@@ -50,92 +50,44 @@ export interface AuthResult {
  */
 export async function registerUser(data: RegisterData): Promise<AuthResult> {
     try {
-        // 1. Create auth user in Supabase Auth
-        const { data: authData, error: authError } = await supabase.auth.signUp({
-            email: data.email,
-            password: data.password,
-            options: {
-                data: {
-                    first_name: data.firstName,
-                    last_name: data.lastName,
-                }
-            }
+        const baseUrl = (import.meta.env.VITE_API_URL || 'http://localhost:3000').replace(/\/api\/?$/, '');
+        
+        const response = await fetch(`${baseUrl}/api/public/register`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(data),
         });
 
-        if (authError) {
-            console.error('Auth signup error:', authError);
-            return { success: false, error: authError.message };
+        const result = await response.json();
+
+        if (!response.ok) {
+            return {
+                success: false,
+                error: result.error || 'Erro ao registrar utilizador',
+            };
         }
 
-        if (!authData.user) {
-            return { success: false, error: 'Falha ao criar utilizador' };
+        // We still need to sign in the user on the client side so they are logged in.
+        // The backend creates the user, but doesn't return a session token that the client can use directly
+        // to hydrate the Supabase client without doing a signIn.
+        // So we will perform a signIn here right after successful registration.
+        const { error: signInError } = await supabase.auth.signInWithPassword({
+            email: data.email,
+            password: data.password,
+        });
+
+        if (signInError) {
+             console.error('Sign in after registration failed:', signInError);
+             return { success: false, error: 'Conta criada, mas falha ao fazer login automático.' };
         }
-
-        const authUserId = authData.user.id;
-
-        // 2. Create organization
-        const { data: orgData, error: orgError } = await supabase
-            .from('organizations')
-            .insert({
-                name: data.companyName,
-                tax_id: data.taxId,
-                sector: data.sector,
-                employee_range: data.employeeRange,
-                account_type: data.accountType,
-                active_modules: data.activeModules,
-                onboarding_status: 'completed',
-            })
-            .select('id')
-            .single();
-
-        if (orgError) {
-            console.error('Organization creation error:', orgError);
-            // WARNING: We cannot delete the auth user from client-side.
-            // This leaves an orphaned auth user that should be cleaned up by a backend process/cron.
-            console.warn(`ORPHANED USER: Auth User ${authUserId} created but Organization failed.`);
-            return { success: false, error: 'Falha ao criar organização: ' + orgError.message };
-        }
-
-        const orgId = orgData.id;
-
-        // Generate link token for Telegram deep link
-        const linkToken = crypto.randomUUID();
-        const tokenExpiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(); // 24h
-
-        // 3. Create user profile in public.users table (Use upsert to handle potential triggers)
-        const { error: userError } = await supabase
-            .from('users')
-            .upsert({
-                id: authUserId, // Use same ID as auth user
-                org_id: orgId,
-                first_name: data.firstName,
-                last_name: data.lastName,
-                full_name: `${data.firstName} ${data.lastName}`,
-                email: data.email,
-                mobile_number: data.phone,
-                preferred_channels: data.channels,
-                whatsapp_id: data.whatsappNumber || null,
-                telegram_id: null,
-                chat_number: data.whatsappNumber || data.phone, // Bind chat_number here
-                user_role: 'admin', // Creator is admin
-                link_token: linkToken,
-                token_expires_at: tokenExpiresAt,
-            });
-
-        if (userError) {
-            console.error('User profile creation error:', userError);
-            // Note: We don't delete in this case as the core account exists
-            return { success: false, error: 'Falha ao criar perfil: ' + userError.message };
-        }
-
-        // 4. Sign out immediately to prevent auto-login and ensure email confirmation
-        await supabase.auth.signOut();
 
         return {
             success: true,
-            userId: authUserId,
-            orgId: orgId,
-            linkToken: linkToken,
+            userId: result.userId,
+            orgId: result.orgId,
+            linkToken: result.linkToken,
         };
     } catch (error) {
         console.error('Registration error:', error);
@@ -223,20 +175,18 @@ export async function getCurrentUserProfile() {
 }
 
 /**
- * Check if email already exists (uses RPC to bypass RLS)
+ * Check if email already exists
  */
 export async function checkEmailExists(email: string): Promise<boolean> {
     try {
-        const { data, error } = await supabase
-            .rpc('check_email_exists', { check_email: email });
-
-        if (error) {
-            console.error('Email check error:', error);
-            // Return false on error - will be caught at registration
-            return false;
-        }
-
-        return data === true;
+        const baseUrl = (import.meta.env.VITE_API_URL || 'http://localhost:3000').replace(/\/api\/?$/, '');
+        const response = await fetch(`${baseUrl}/api/public/check-email`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email }),
+        });
+        const result = await response.json();
+        return result.exists === true;
     } catch (err) {
         console.error('Email check failed:', err);
         return false;
@@ -244,19 +194,18 @@ export async function checkEmailExists(email: string): Promise<boolean> {
 }
 
 /**
- * Check if phone number already exists (uses RPC to bypass RLS)
+ * Check if phone number already exists
  */
 export async function checkPhoneExists(phone: string): Promise<boolean> {
     try {
-        const { data, error } = await supabase
-            .rpc('check_phone_exists', { check_phone: phone });
-
-        if (error) {
-            console.error('Phone check error:', error);
-            return false;
-        }
-
-        return data === true;
+        const baseUrl = (import.meta.env.VITE_API_URL || 'http://localhost:3000').replace(/\/api\/?$/, '');
+        const response = await fetch(`${baseUrl}/api/public/check-phone`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ phone }),
+        });
+        const result = await response.json();
+        return result.exists === true;
     } catch (err) {
         console.error('Phone check failed:', err);
         return false;

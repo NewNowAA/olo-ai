@@ -1,6 +1,8 @@
 // =============================================
-// Olo.AI — Frontend Type Definitions
+// Olo.AI Server — Type Definitions
 // =============================================
+
+// --- Enums ---
 
 export type Role = 'dev' | 'owner' | 'client';
 export type Sector = 'restaurante' | 'clinica' | 'salao' | 'generico';
@@ -8,6 +10,10 @@ export type Channel = 'telegram' | 'whatsapp';
 export type ConversationStatus = 'active' | 'closed' | 'handoff';
 export type AppointmentStatus = 'pending' | 'confirmed' | 'cancelled' | 'completed' | 'no_show';
 export type OrderStatus = 'pending' | 'confirmed' | 'preparing' | 'ready' | 'delivered' | 'cancelled';
+export type DeliveryType = 'takeaway' | 'delivery' | 'dine_in';
+export type HandoffStatus = 'pending' | 'accepted' | 'resolved' | 'expired';
+
+// --- Database Entities ---
 
 export interface Organization {
   id: string;
@@ -20,12 +26,12 @@ export interface Organization {
   agent_tone: string;
   agent_greeting?: string;
   agent_system_prompt?: string;
-  absence_message?: string;
-  first_contact_message?: string;
   setup_progress: number;
   telegram_bot_token?: string;
   telegram_chat_id?: string;
   currency_default: string;
+  absence_message?: string;
+  first_contact_message?: string;
 }
 
 export interface CatalogCategory {
@@ -51,7 +57,6 @@ export interface CatalogItem {
   image_url?: string;
   tags: string[];
   metadata: Record<string, any>;
-  catalog_categories?: { name: string };
 }
 
 export interface Customer {
@@ -80,9 +85,6 @@ export interface Conversation {
   summary?: string;
   satisfaction_rating?: number;
   metadata: Record<string, any>;
-  created_at: string;
-  updated_at: string;
-  olo_customers?: { name?: string; telegram_id?: string };
 }
 
 export interface Message {
@@ -108,7 +110,6 @@ export interface Appointment {
   status: AppointmentStatus;
   notes?: string;
   source: 'bot' | 'dashboard' | 'phone';
-  olo_customers?: { name?: string; phone?: string };
 }
 
 export interface Order {
@@ -120,8 +121,18 @@ export interface Order {
   total_amount: number;
   currency: string;
   notes?: string;
-  delivery_type: 'takeaway' | 'delivery' | 'dine_in';
-  created_at: string;
+  delivery_type: DeliveryType;
+}
+
+export interface OrderItem {
+  id: string;
+  order_id: string;
+  catalog_item_id?: string;
+  name: string;
+  quantity: number;
+  unit_price: number;
+  total_price: number;
+  notes?: string;
 }
 
 export interface BusinessHour {
@@ -133,13 +144,106 @@ export interface BusinessHour {
   is_closed: boolean;
 }
 
-export interface DashboardStats {
-  conversations_today: number;
-  active_conversations: number;
-  pending_appointments: number;
-  stock_alerts: number;
-  messages_by_day: { date: string; count: number }[];
+export interface HandoffRequest {
+  id: string;
+  org_id: string;
+  conversation_id: string;
+  customer_id?: string;
+  reason?: string;
+  status: HandoffStatus;
+  assigned_to?: string;
+  created_at: string;
+  resolved_at?: string;
 }
 
-export type AuthView = 'landing' | 'login' | 'register';
-export type PageId = string;
+// --- Engine Context Types ---
+
+export interface UserContext {
+  role: Role;
+  orgId: string;
+  userId?: string; // Supabase auth user id (for owners/devs)
+  customerId?: string; // olo_customers id (for clients)
+  telegramId?: string;
+  whatsappId?: string;
+  channel: Channel;
+}
+
+export interface ConversationContext {
+  conversationId: string;
+  org: Organization;
+  customer?: Customer;
+  userContext: UserContext;
+  messages: Message[];
+}
+
+export interface ToolCallResult {
+  name: string;
+  result: Record<string, any>;
+}
+
+export interface PlaceholderResult {
+  missing: boolean;
+  field: string;
+  priority: 'P0' | 'P1' | 'P2';
+  message: string;
+}
+
+// --- Telegram Types ---
+
+export interface InlineButton {
+  text: string;
+  callback_data: string;
+}
+
+export interface TelegramUpdate {
+  update_id: number;
+  message?: TelegramMessage;
+  callback_query?: TelegramCallbackQuery;
+}
+
+export interface TelegramCallbackQuery {
+  id: string;
+  from: {
+    id: number;
+    is_bot: boolean;
+    first_name: string;
+    last_name?: string;
+    username?: string;
+  };
+  message?: TelegramMessage;
+  data?: string;
+}
+
+export interface TelegramMessage {
+  message_id: number;
+  from: {
+    id: number;
+    is_bot: boolean;
+    first_name: string;
+    last_name?: string;
+    username?: string;
+  };
+  chat: {
+    id: number;
+    type: string;
+    first_name?: string;
+    last_name?: string;
+    username?: string;
+  };
+  date: number;
+  text?: string;
+  photo?: any[];
+  voice?: any;
+  document?: any;
+}
+
+// --- Sector Config ---
+
+export interface SectorConfig {
+  sector: Sector;
+  basePersona: string;
+  activeTools: string[];
+  guardrailsExtra: string[];
+  placeholders: { field: string; required: boolean; priority: 'P0' | 'P1' | 'P2' }[];
+  samplePrompt: string;
+}

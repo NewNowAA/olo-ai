@@ -1,66 +1,149 @@
-import { useState, useCallback } from 'react';
-import type { PageId, AuthView } from '../types';
+// =============================================
+// Olo.AI — useAuth Hook (Supabase Auth)
+// =============================================
 
-// ===========================================
-// useAuth Hook
-// ===========================================
+import { useState, useEffect, useCallback } from 'react';
+import { supabase } from '../services/supabase/client';
+import type { User } from '@supabase/supabase-js';
+import type { Role } from '../types';
 
-export interface User {
-    id: string;
-    name: string;
-    email: string;
-    role: 'admin' | 'user' | 'pro';
-    avatar?: string;
+export interface AuthUser {
+  id: string;
+  email: string;
+  role: Role;
+  orgId: string;
+  name?: string;
 }
 
-export interface AuthState {
-    isAuthenticated: boolean;
-    user: User | null;
-    authView: AuthView;
-}
-
-/**
- * Custom hook for managing authentication state
- */
 export function useAuth() {
-    const [authState, setAuthState] = useState<AuthState>({
-        isAuthenticated: false,
-        user: null,
-        authView: 'landing',
+  const [user, setUser] = useState<AuthUser | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  // Resolve user profile from public.users table (now profiles)
+  const resolveProfile = useCallback(async (authUser: User): Promise<AuthUser | null> => {
+    try {
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('organization_id, role, full_name')
+        .eq('id', authUser.id)
+        .single();
+
+      if (!profile) return null;
+
+      // Map DB role to Olo.AI role
+      let role: Role = 'client';
+      const dbRole = profile.role || authUser.user_metadata?.role;
+      if (dbRole === 'system_admin' || dbRole === 'dev') role = 'dev';
+      else if (dbRole === 'admin' || dbRole === 'owner') role = 'owner';
+      else role = 'client';
+
+      return {
+        id: authUser.id,
+        email: authUser.email || '',
+        role,
+        orgId: profile.organization_id || '',
+        name: profile.full_name || authUser.email,
+      };
+    } catch {
+      return null;
+    }
+  }, []);
+
+  // Initialize auth state
+  useEffect(() => {
+    const init = async () => {
+      try {
+        const { data: { user: authUser } } = await supabase.auth.getUser();
+        if (authUser) {
+          const profile = await resolveProfile(authUser);
+          setUser(profile);
+        }
+      } catch {
+        setUser(null);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    init();
+
+    // Listen for auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (event === 'SIGNED_IN' && session?.user) {
+        const profile = await resolveProfile(session.user);
+        setUser(profile);
+      } else if (event === 'SIGNED_OUT') {
+        setUser(null);
+      }
     });
 
-    const login = useCallback((user?: User) => {
-        setAuthState({
-            isAuthenticated: true,
-            user: user || {
-                id: '1',
-                name: 'Alex Morgan',
-                email: 'alex@lumea.ai',
-                role: 'pro',
-                avatar: 'https://lh3.googleusercontent.com/aida-public/AB6AXuAA7S9yhFXk294T9os4H2nZ73Ye4sGgPvCL1T6UKO9gSLjjPY2EKJMR0ilYFyCHpANawfLPYXziZ_XjAiTXedd3Zc7Fy8QjiZcepcE9cEW8k_2AKvOeLcJ2Puf3F_1yXe3h1U2_DDDCboIQXcYmfec02eRQ2aF596Ag_HaUeBgBtkaood65M_fDyJxO8EwfZtWFK46AS33k3NoVvezn8stuHWT6aTltqeRns2rk73peLEkStvvJvG4tylKUzJmL54uyUCKFanZ5p1A',
-            },
-            authView: 'landing',
-        });
-    }, []);
+    return () => subscription.unsubscribe();
+  }, [resolveProfile]);
 
-    const logout = useCallback(() => {
-        setAuthState({
-            isAuthenticated: false,
-            user: null,
-            authView: 'landing',
-        });
-    }, []);
+  const signIn = useCallback(async (email: string, password: string) => {
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+    if (error) throw error;
+    if (data.user) {
+      const profile = await resolveProfile(data.user);
+      setUser(profile);
+      return profile;
+    }
+    return null;
+  }, [resolveProfile]);
 
-    const setAuthView = useCallback((view: AuthView) => {
-        setAuthState(prev => ({ ...prev, authView: view }));
-    }, []);
+  const signUp = useCallback(async (
+    email: string,
+    password: string,
+    name: string,
+    role: 'owner' | 'client',
+    businessName?: string,
+    sector?: string
+  ) => {
+    const baseUrl = (import.meta.env.VITE_API_URL || 'http://localhost:3000').replace(/\/api\/?$/, '');
+    
+    const response = await fetch(`${baseUrl}/api/public/register`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email, password, name, role, businessName, sector }),
+    });
 
-    return {
-        ...authState,
-        login,
-        logout,
-        setAuthView,
-    };
+    const result = await response.json();
+
+    if (!response.ok) {
+        throw new Error(result.error || 'Erro ao criar conta');
+    }
+
+    // Backend creates user, but client needs to be signed in
+    const { error: signInError } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+    });
+
+    if (signInError) {
+         console.error('Sign in after registration failed:', signInError);
+         throw new Error('Conta criada, mas falha ao fazer login automático.');
+    }
+
+    return { userId: result.userId, orgId: result.orgId };
+  }, []);
+
+  const signOut = useCallback(async () => {
+    await supabase.auth.signOut();
+    setUser(null);
+  }, []);
+
+  return {
+    user,
+    role: user?.role || null,
+    orgId: user?.orgId || null,
+    loading,
+    isAuthenticated: !!user,
+    signIn,
+    signUp,
+    signOut,
+  };
 }
 
 export default useAuth;

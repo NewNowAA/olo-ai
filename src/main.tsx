@@ -4,15 +4,12 @@ import { BrowserRouter } from 'react-router-dom';
 import './index.css';
 import App from './App';
 
-import { ToastProvider } from './contexts/ToastContext';
-
 // Prevent AbortError from Supabase WebSocket disconnects from crashing the app
 window.addEventListener('unhandledrejection', (event) => {
   if (event.reason?.name === 'AbortError') {
-    event.preventDefault(); // Silently ignore — these are benign network disconnects
+    event.preventDefault();
     return;
   }
-  // Log other unhandled rejections as warnings instead of crashing
   console.warn('Unhandled promise rejection:', event.reason);
   event.preventDefault();
 });
@@ -20,8 +17,6 @@ window.addEventListener('unhandledrejection', (event) => {
 const root = createRoot(document.getElementById('root')!);
 root.render(
   <BrowserRouter>
-    <ToastProvider>
-      <App />
-    </ToastProvider>
+    <App />
   </BrowserRouter>
 );
