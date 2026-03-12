@@ -68,7 +68,7 @@ export default function Conversations() {
                   </div>
                   <div className="min-w-0">
                     <p className="font-medium text-gray-900 text-sm truncate">
-                      {conv.olo_customers?.name || 'Cliente anónimo'}
+                      {conv.customers?.name || 'Cliente anónimo'}
                     </p>
                     <p className="text-xs text-gray-400 truncate">{conv.summary || 'Conversa'}</p>
                   </div>

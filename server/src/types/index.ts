@@ -162,7 +162,7 @@ export interface UserContext {
   role: Role;
   orgId: string;
   userId?: string; // Supabase auth user id (for owners/devs)
-  customerId?: string; // olo_customers id (for clients)
+  customerId?: string; // customers id (for clients)
   telegramId?: string;
   whatsappId?: string;
   channel: Channel;

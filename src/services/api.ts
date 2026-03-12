@@ -22,12 +22,17 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
   return res.json();
 }
 
-// --- Organization ---
 export const getOrg = (orgId: string) =>
   request<any>(`/org/${orgId}`);
 
 export const updateOrg = (orgId: string, data: any) =>
   request<any>(`/orgs/${orgId}`, { method: 'PUT', body: JSON.stringify(data) });
+
+export const setupTelegram = (orgId: string, bot_token: string) =>
+  request<any>(`/orgs/${orgId}/setup-telegram`, { method: 'POST', body: JSON.stringify({ bot_token }) });
+
+export const getOrgSetupProgress = (orgId: string) =>
+  request<any>(`/org/${orgId}/setup`);
 
 // --- Dashboard Stats ---
 export const getStats = (orgId: string) =>
@@ -72,12 +77,18 @@ export const getAppointments = (orgId: string, params?: { date?: string; status?
   return request<any[]>(`/org/${orgId}/appointments${qs ? '?' + qs : ''}`);
 };
 
+export const createAppointment = (orgId: string, data: any) =>
+  request<any>(`/orgs/${orgId}/appointments`, { method: 'POST', body: JSON.stringify(data) });
+
 export const updateAppointment = (orgId: string, id: string, data: any) =>
   request<any>(`/orgs/${orgId}/appointments/${id}`, { method: 'PUT', body: JSON.stringify(data) });
 
 // --- Customers ---
 export const getCustomers = (orgId: string) =>
   request<any[]>(`/org/${orgId}/customers`);
+
+export const createCustomer = (orgId: string, data: any) =>
+  request<any>(`/orgs/${orgId}/customers`, { method: 'POST', body: JSON.stringify(data) });
 
 // --- Business Hours ---
 export const getBusinessHours = (orgId: string) =>

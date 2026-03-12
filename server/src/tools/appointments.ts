@@ -160,7 +160,7 @@ export async function list_appointments(
       time: a.time_start,
       status: a.status,
       service: a.service_id || 'Geral',
-      customer: (a as any).olo_customers?.name || 'Cliente',
+      customer: (a as any).customers?.name || 'Cliente',
       notes: a.notes,
     })),
   };

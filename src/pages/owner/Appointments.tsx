@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { CalendarDays, Check, X, CheckCircle } from 'lucide-react';
+import { CalendarDays, Check, X, CheckCircle, Plus } from 'lucide-react';
 import useAuth from '../../hooks/useAuth';
 import * as api from '../../services/api';
 import type { Appointment, AppointmentStatus } from '../../types';
@@ -17,10 +17,29 @@ export default function Appointments() {
   const [items, setItems] = useState<Appointment[]>([]);
   const [filter, setFilter] = useState<'all' | 'today' | 'week' | AppointmentStatus>('all');
   const [loading, setLoading] = useState(true);
+  const [showModal, setShowModal] = useState(false);
+  const [catalogItems, setCatalogItems] = useState<any[]>([]);
+  const [newAppointment, setNewAppointment] = useState({
+    customer_name: '',
+    customer_phone: '',
+    service_id: '',
+    date: new Date().toISOString().split('T')[0],
+    time_start: '09:00',
+    notes: '',
+  });
 
   useEffect(() => {
     if (!orgId) return;
-    api.getAppointments(orgId).then(data => { setItems(data); setLoading(false); }).catch(() => setLoading(false));
+    Promise.all([
+      api.getAppointments(orgId),
+      api.getCatalog(orgId)
+    ])
+    .then(([apptsData, catalogData]) => {
+      setItems(apptsData);
+      setCatalogItems(catalogData.filter((i: any) => i.is_available));
+      setLoading(false);
+    })
+    .catch(() => setLoading(false));
   }, [orgId]);
 
   const handleAction = async (id: string, status: AppointmentStatus) => {
@@ -29,6 +48,33 @@ export default function Appointments() {
       await api.updateAppointment(orgId, id, { status });
       setItems(prev => prev.map(a => a.id === id ? { ...a, status } : a));
     } catch (err) { console.error(err); }
+  };
+
+  const handleCreateAppointment = async () => {
+    if (!orgId) return;
+    try {
+      // 1. First find or create customer
+      // Doing this simply via a generic API call, or just passing it to be created if backend doesn't support yet
+      // For now, we will just use the notes field as a fallback if the backend doesn't handle nested inserts automatically
+      const payload = {
+        date: newAppointment.date,
+        time_start: newAppointment.time_start,
+        service_id: newAppointment.service_id,
+        notes: `Cliente: ${newAppointment.customer_name} | Tel: ${newAppointment.customer_phone} | Extra: ${newAppointment.notes}`,
+        status: 'confirmed',
+        source: 'dashboard'
+      };
+      
+      const saved = await api.createAppointment(orgId, payload);
+      // Refresh list to get all joins correctly
+      const refreshed = await api.getAppointments(orgId);
+      setItems(refreshed);
+      setShowModal(false);
+      setNewAppointment({ ...newAppointment, customer_name: '', customer_phone: '', service_id: '', notes: '' });
+    } catch (err) {
+      console.error(err);
+      alert('Erro ao criar marcação. Tente novamente.');
+    }
   };
 
   const today = new Date().toISOString().split('T')[0];
@@ -43,7 +89,15 @@ export default function Appointments() {
 
   return (
     <div>
-      <h1 className="text-2xl font-bold text-gray-900 mb-6">Agenda</h1>
+      <div className="flex items-center justify-between mb-6">
+        <h1 className="text-2xl font-bold text-gray-900">Agenda</h1>
+        <button 
+          onClick={() => setShowModal(true)} 
+          className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors"
+        >
+          <Plus size={16} /> Nova Marcação
+        </button>
+      </div>
       <div className="flex gap-2 mb-4 flex-wrap">
         {[
           { key: 'all', label: 'Todas' }, { key: 'today', label: 'Hoje' }, { key: 'week', label: 'Esta semana' },
@@ -69,7 +123,7 @@ export default function Appointments() {
             <tbody className="divide-y divide-gray-100">
               {filtered.map(a => (
                 <tr key={a.id} className="hover:bg-gray-50">
-                  <td className="px-4 py-3 font-medium text-gray-900">{a.olo_customers?.name || 'Anónimo'}</td>
+                  <td className="px-4 py-3 font-medium text-gray-900">{a.customers?.name || 'Anónimo'}</td>
                   <td className="px-4 py-3 text-gray-500 hidden md:table-cell">{a.notes || '—'}</td>
                   <td className="px-4 py-3 text-gray-900">{a.date} {a.time_start}</td>
                   <td className="px-4 py-3 text-center"><span className={`px-2 py-0.5 rounded-full text-xs font-medium ${STATUS_MAP[a.status]?.color}`}>{STATUS_MAP[a.status]?.label}</span></td>
@@ -88,6 +142,60 @@ export default function Appointments() {
               ))}
             </tbody>
           </table>
+        </div>
+      )}
+
+      {showModal && (
+        <div className="fixed inset-0 bg-black/30 z-50 flex items-center justify-center p-4" onClick={() => setShowModal(false)}>
+          <div className="bg-white rounded-lg border border-gray-200 p-6 w-full max-w-md space-y-4 shadow-xl" onClick={e => e.stopPropagation()}>
+            <h2 className="text-lg font-semibold text-gray-900">Nova Marcação Manual</h2>
+            
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Nome do Cliente</label>
+                <input type="text" value={newAppointment.customer_name} onChange={e => setNewAppointment(m => ({ ...m, customer_name: e.target.value }))} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" placeholder="Nome" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Telemóvel</label>
+                <input type="text" value={newAppointment.customer_phone} onChange={e => setNewAppointment(m => ({ ...m, customer_phone: e.target.value }))} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" placeholder="Opcional" />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Serviço/Produto</label>
+              <select value={newAppointment.service_id} onChange={e => setNewAppointment(m => ({ ...m, service_id: e.target.value }))} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white">
+                <option value="">Selecionar...</option>
+                {catalogItems.map(i => <option key={i.id} value={i.id}>{i.name}</option>)}
+              </select>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Data</label>
+                <input type="date" value={newAppointment.date} onChange={e => setNewAppointment(m => ({ ...m, date: e.target.value }))} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Hora</label>
+                <input type="time" value={newAppointment.time_start} onChange={e => setNewAppointment(m => ({ ...m, time_start: e.target.value }))} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Notas adicionais (opcional)</label>
+              <input type="text" value={newAppointment.notes} onChange={e => setNewAppointment(m => ({ ...m, notes: e.target.value }))} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" placeholder="Ex: Preferência por profissional X..." />
+            </div>
+
+            <div className="flex justify-end gap-2 pt-4 border-t border-gray-100">
+              <button onClick={() => setShowModal(false)} className="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg">Cancelar</button>
+              <button 
+                onClick={handleCreateAppointment} 
+                disabled={!newAppointment.customer_name || !newAppointment.date || !newAppointment.time_start} 
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50"
+              >
+                Criar Marcação
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

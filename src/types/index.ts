@@ -82,7 +82,7 @@ export interface Conversation {
   metadata: Record<string, any>;
   created_at: string;
   updated_at: string;
-  olo_customers?: { name?: string; telegram_id?: string };
+  customers?: { name?: string; telegram_id?: string };
 }
 
 export interface Message {
@@ -108,7 +108,7 @@ export interface Appointment {
   status: AppointmentStatus;
   notes?: string;
   source: 'bot' | 'dashboard' | 'phone';
-  olo_customers?: { name?: string; phone?: string };
+  customers?: { name?: string; phone?: string };
 }
 
 export interface Order {

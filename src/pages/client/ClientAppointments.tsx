@@ -13,7 +13,7 @@ export default function ClientAppointments() {
     
     const load = async () => {
       try {
-        const { data } = await supabase.from('olo_appointments')
+        const { data } = await supabase.from('appointments')
           .select('*').eq('customer_id', user.id)
           .order('date', { ascending: false }).limit(50);
         setItems(data || []);

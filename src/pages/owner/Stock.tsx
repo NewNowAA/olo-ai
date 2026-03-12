@@ -12,7 +12,7 @@ export default function Stock() {
   const [items, setItems] = useState<StockItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
-  const [movement, setMovement] = useState({ item_id: '', type: 'in' as 'in' | 'out', quantity: 1, reason: '' });
+  const [movement, setMovement] = useState({ catalog_item_id: '', type: 'in' as 'in' | 'out', quantity: 1, reason: '' });
 
   useEffect(() => {
     if (!orgId) return;
@@ -95,7 +95,7 @@ export default function Stock() {
             <h2 className="text-lg font-semibold text-gray-900">Registar Movimento</h2>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Produto</label>
-              <select value={movement.item_id} onChange={e => setMovement(m => ({ ...m, item_id: e.target.value }))} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white">
+              <select value={movement.catalog_item_id} onChange={e => setMovement(m => ({ ...m, catalog_item_id: e.target.value }))} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white">
                 <option value="">Selecionar...</option>
                 {items.map(i => <option key={i.id} value={i.id}>{i.name}</option>)}
               </select>
@@ -119,7 +119,7 @@ export default function Stock() {
             </div>
             <div className="flex justify-end gap-2 pt-2">
               <button onClick={() => setShowModal(false)} className="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg">Cancelar</button>
-              <button onClick={handleMovement} disabled={!movement.item_id} className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50">Registar</button>
+              <button onClick={handleMovement} disabled={!movement.catalog_item_id} className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50">Registar</button>
             </div>
           </div>
         </div>

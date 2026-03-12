@@ -8,6 +8,7 @@
 import { Organization, UserContext, Customer } from '../types/index.js';
 import { getBasePrompt, getRolePrompt } from '../config/prompts.js';
 import { getSectorConfig } from '../config/sectors.js';
+import * as store from './supabaseStore.js';
 
 export interface PersonaResult {
   systemPrompt: string;
@@ -29,10 +30,13 @@ export function buildPersona(
   // --- Layer 2: Sector ---
   let sectorPrompt = sectorConfig.basePersona;
 
-  // Replace template variables
+  // Replace template variables with smart defaults
+  const agentName = org.agent_name || 'Agente IA';
+  const businessName = org.business_name || org.name || 'nosso estabelecimento';
+  
   sectorPrompt = sectorPrompt
-    .replace(/{agent_name}/g, org.agent_name || 'Olo')
-    .replace(/{business_name}/g, org.business_name || org.name || 'o negócio');
+    .replace(/{agent_name}/g, agentName)
+    .replace(/{business_name}/g, businessName);
 
   // --- Layer 3: Custom (owner's config) ---
   let customPrompt = '';
@@ -40,8 +44,18 @@ export function buildPersona(
     customPrompt = `\nINSTRUÇÕES PERSONALIZADAS DO DONO DO NEGÓCIO:\n${org.agent_system_prompt}`;
   }
 
-  if (org.agent_tone) {
-    customPrompt += `\nTom de voz preferido: ${org.agent_tone}`;
+  const agentTone = org.agent_tone || 'profissional e amigável';
+  customPrompt += `\nTom de voz preferido: ${agentTone}`;
+
+  // Log setup notifications if missing configurations
+  if (!org.agent_name || org.agent_name.trim() === '') {
+    store.logSetupNotification(org.id, 'Dica: Personalize o nome do seu atendente virtual para os seus clientes!');
+  }
+  if (!org.business_name || org.business_name.trim() === '') {
+    store.logSetupNotification(org.id, 'Dica: Adicione o nome comercial do seu negócio para o atendente usar nas mensagens.');
+  }
+  if (!org.agent_tone || org.agent_tone.trim() === '') {
+    store.logSetupNotification(org.id, 'Dica: Configure o tom de voz do atendente (ex: divertido, formal, etc.).');
   }
 
   // --- Customer context (for client role) ---
@@ -56,12 +70,21 @@ export function buildPersona(
 
   // --- Business context ---
   let businessContext = `\nINFO DO NEGÓCIO:
-- Nome: ${org.business_name || org.name || '[Não configurado]'}
+- Nome: ${businessName}
 - Setor: ${org.sector}
-- Atendente: ${org.agent_name || 'Olo'}`;
+- Atendente: ${agentName}`;
 
-  if (org.address) businessContext += `\n- Morada: ${org.address}`;
-  if (org.phone) businessContext += `\n- Telefone: ${org.phone}`;
+  if (org.address) {
+    businessContext += `\n- Morada: ${org.address}`;
+  } else {
+    store.logSetupNotification(org.id, 'Dica: Adicione a morada do seu negócio para que o atendente possa partilhar com clientes.');
+  }
+  
+  if (org.phone) {
+    businessContext += `\n- Telefone: ${org.phone}`;
+  } else {
+    store.logSetupNotification(org.id, 'Dica: Adicione o seu número de telefone oficial.');
+  }
 
   // --- Guardrails extras ---
   let guardrailsText = '';

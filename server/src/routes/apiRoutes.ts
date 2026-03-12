@@ -5,6 +5,7 @@
 import { Router, Request, Response } from 'express';
 import * as store from '../services/supabaseStore.js';
 import * as placeholderManager from '../services/placeholderManager.js';
+import * as telegramGateway from '../services/telegramGateway.js';
 import { SECTOR_TEMPLATES } from '../config/sectors.js';
 
 const router = Router();
@@ -195,6 +196,39 @@ router.put('/orgs/:orgId', async (req: Request<{ orgId: string }>, res: Response
   }
 });
 
+// --- Setup Telegram Bot ---
+router.post('/orgs/:orgId/setup-telegram', async (req: Request<{ orgId: string }>, res: Response) => {
+  try {
+    const { bot_token } = req.body;
+    if (!bot_token) {
+      res.status(400).json({ error: 'Missing bot_token' });
+      return;
+    }
+
+    // 1. Set webhook in Telegram
+    const webhookUrl = `${process.env.WEBHOOK_BASE_URL}/api/telegram/webhook`;
+    const success = await telegramGateway.setWebhook(bot_token, webhookUrl);
+
+    if (!success) {
+      res.status(500).json({ error: 'Failed to set Telegram webhook' });
+      return;
+    }
+
+    // 2. Save token to organization
+    const { data, error } = await store.getSupabase()
+      .from('organizations')
+      .update({ telegram_bot_token: bot_token })
+      .eq('id', req.params.orgId)
+      .select()
+      .single();
+
+    if (error) { res.status(500).json({ error: error.message }); return; }
+    res.json(data);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // --- Get setup progress ---
 router.get('/org/:orgId/setup', async (req: Request<{ orgId: string }>, res: Response) => {
   const org = await store.getOrganization(req.params.orgId);
@@ -222,17 +256,17 @@ router.get('/orgs/:orgId/stats', async (req: Request<{ orgId: string }>, res: Re
 
     // Conversations today
     const { count: convToday } = await store.getSupabase()
-      .from('olo_conversations').select('*', { count: 'exact', head: true })
+      .from('conversations').select('*', { count: 'exact', head: true })
       .eq('org_id', orgId).gte('created_at', today + 'T00:00:00');
 
     // Active conversations
     const { count: activeConv } = await store.getSupabase()
-      .from('olo_conversations').select('*', { count: 'exact', head: true })
+      .from('conversations').select('*', { count: 'exact', head: true })
       .eq('org_id', orgId).eq('status', 'active');
 
     // Pending appointments
     const { count: pendingApp } = await store.getSupabase()
-      .from('olo_appointments').select('*', { count: 'exact', head: true })
+      .from('appointments').select('*', { count: 'exact', head: true })
       .eq('org_id', orgId).eq('status', 'pending');
 
     // Stock alerts
@@ -241,7 +275,7 @@ router.get('/orgs/:orgId/stats', async (req: Request<{ orgId: string }>, res: Re
     // Messages by day (last 7 days)
     const sevenDaysAgo = new Date(Date.now() - 7 * 86400000).toISOString();
     const { data: recentMessages } = await store.getSupabase()
-      .from('olo_messages').select('created_at')
+      .from('messages').select('created_at')
       .gte('created_at', sevenDaysAgo)
       .order('created_at', { ascending: true });
 
@@ -271,8 +305,8 @@ router.get('/orgs/:orgId/stats', async (req: Request<{ orgId: string }>, res: Re
 // --- List conversations ---
 router.get('/org/:orgId/conversations', async (req: Request<{ orgId: string }>, res: Response) => {
   const { data, error } = await store.getSupabase()
-    .from('olo_conversations')
-    .select('*, olo_customers(name, telegram_id)')
+    .from('conversations')
+    .select('*, customers(name, telegram_id)')
     .eq('org_id', req.params.orgId)
     .order('updated_at', { ascending: false })
     .limit(50);
@@ -307,19 +341,19 @@ router.put('/orgs/:orgId/conversations/:convId/status', async (req: Request<{ or
   try {
     const { status } = req.body;
     const { data: conv, error } = await store.getSupabase()
-      .from('olo_conversations')
+      .from('conversations')
       .update({ status })
       .eq('id', req.params.convId)
       .eq('org_id', req.params.orgId)
-      .select('*, olo_customers(*), organizations(telegram_bot_token)')
+      .select('*, customers(*), organizations(telegram_bot_token)')
       .single();
 
     if (error) { res.status(500).json({ error: error.message }); return; }
 
     // Logic for post-service feedback: if closed and on telegram, ask for rating
-    if (status === 'closed' && conv.channel === 'telegram' && conv.organizations?.telegram_bot_token && conv.olo_customers?.telegram_id) {
+    if (status === 'closed' && conv.channel === 'telegram' && conv.organizations?.telegram_bot_token && conv.customers?.telegram_id) {
        import('../services/telegramGateway.js').then(tg => {
-         tg.sendMessage(conv.organizations.telegram_bot_token, conv.olo_customers.telegram_id, 'Como foi o teu atendimento? Responde com 1 a 5 ⭐');
+         tg.sendMessage(conv.organizations.telegram_bot_token, conv.customers.telegram_id, 'Como foi o teu atendimento? Responde com 1 a 5 ⭐');
        });
     }
 
@@ -347,9 +381,12 @@ router.get('/org/:orgId/catalog', async (req: Request<{ orgId: string }>, res: R
 // --- Create catalog item ---
 router.post('/orgs/:orgId/catalog', async (req: Request<{ orgId: string }>, res: Response) => {
   try {
+    const body = { ...req.body, org_id: req.params.orgId };
+    // Sanitize: empty strings are not valid UUIDs
+    if (!body.category_id) body.category_id = null;
     const { data, error } = await store.getSupabase()
       .from('catalog_items')
-      .insert({ ...req.body, org_id: req.params.orgId })
+      .insert(body)
       .select()
       .single();
     if (error) { res.status(500).json({ error: error.message }); return; }
@@ -362,9 +399,11 @@ router.post('/orgs/:orgId/catalog', async (req: Request<{ orgId: string }>, res:
 // --- Update catalog item ---
 router.put('/orgs/:orgId/catalog/:id', async (req: Request<{ orgId: string; id: string }>, res: Response) => {
   try {
+    const body = { ...req.body };
+    if (!body.category_id) body.category_id = null;
     const { data, error } = await store.getSupabase()
       .from('catalog_items')
-      .update(req.body)
+      .update(body)
       .eq('id', req.params.id)
       .eq('org_id', req.params.orgId)
       .select()
@@ -410,14 +449,14 @@ router.get('/orgs/:orgId/stock', async (req: Request<{ orgId: string }>, res: Re
 // --- Register stock movement ---
 router.post('/orgs/:orgId/stock/movement', async (req: Request<{ orgId: string }>, res: Response) => {
   try {
-    const { item_id, type, quantity, reason } = req.body;
+    const { catalog_item_id, type, quantity, reason } = req.body;
     const delta = type === 'in' ? quantity : -quantity;
 
     // Update stock
     const { data: item } = await store.getSupabase()
       .from('catalog_items')
       .select('stock_quantity')
-      .eq('id', item_id)
+      .eq('id', catalog_item_id)
       .single();
 
     if (!item) { res.status(404).json({ error: 'Item not found' }); return; }
@@ -426,14 +465,14 @@ router.post('/orgs/:orgId/stock/movement', async (req: Request<{ orgId: string }
     await store.getSupabase()
       .from('catalog_items')
       .update({ stock_quantity: newQty })
-      .eq('id', item_id);
+      .eq('id', catalog_item_id);
 
     // Log movement
     await store.getSupabase()
       .from('stock_movements')
       .insert({
         org_id: req.params.orgId,
-        item_id,
+        catalog_item_id,
         movement_type: type === 'in' ? 'restock' : 'sale',
         quantity_change: delta,
         quantity_after: newQty,
@@ -459,8 +498,8 @@ router.get('/org/:orgId/stock-alerts', async (req: Request<{ orgId: string }>, r
 router.get('/org/:orgId/appointments', async (req: Request<{ orgId: string }>, res: Response) => {
   try {
     let query = store.getSupabase()
-      .from('olo_appointments')
-      .select('*, olo_customers(name, phone)')
+      .from('appointments')
+      .select('*, customers(name, phone)')
       .eq('org_id', req.params.orgId)
       .order('date', { ascending: false })
       .limit(100);
@@ -477,11 +516,26 @@ router.get('/org/:orgId/appointments', async (req: Request<{ orgId: string }>, r
   }
 });
 
+// --- Create appointment ---
+router.post('/orgs/:orgId/appointments', async (req: Request<{ orgId: string }>, res: Response) => {
+  try {
+    const { data, error } = await store.getSupabase()
+      .from('appointments')
+      .insert({ ...req.body, org_id: req.params.orgId })
+      .select()
+      .single();
+    if (error) { res.status(500).json({ error: error.message }); return; }
+    res.json(data);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // --- Update appointment status ---
 router.put('/orgs/:orgId/appointments/:id', async (req: Request<{ orgId: string; id: string }>, res: Response) => {
   try {
     const { data, error } = await store.getSupabase()
-      .from('olo_appointments')
+      .from('appointments')
       .update(req.body)
       .eq('id', req.params.id)
       .eq('org_id', req.params.orgId)
@@ -497,7 +551,7 @@ router.put('/orgs/:orgId/appointments/:id', async (req: Request<{ orgId: string;
 // --- List customers ---
 router.get('/org/:orgId/customers', async (req: Request<{ orgId: string }>, res: Response) => {
   const { data, error } = await store.getSupabase()
-    .from('olo_customers')
+    .from('customers')
     .select('*')
     .eq('org_id', req.params.orgId)
     .order('last_contact_at', { ascending: false })
@@ -508,6 +562,21 @@ router.get('/org/:orgId/customers', async (req: Request<{ orgId: string }>, res:
     return;
   }
   res.json(data);
+});
+
+// --- Create customer manually ---
+router.post('/orgs/:orgId/customers', async (req: Request<{ orgId: string }>, res: Response) => {
+  try {
+    const { data, error } = await store.getSupabase()
+      .from('customers')
+      .insert({ ...req.body, org_id: req.params.orgId })
+      .select()
+      .single();
+    if (error) { res.status(500).json({ error: error.message }); return; }
+    res.json(data);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // --- Get business hours ---
@@ -561,13 +630,13 @@ router.get('/admin/stats', async (_req: Request, res: Response) => {
       .from('organizations').select('*', { count: 'exact', head: true });
 
     const { count: totalConv } = await store.getSupabase()
-      .from('olo_conversations').select('*', { count: 'exact', head: true });
+      .from('conversations').select('*', { count: 'exact', head: true });
 
     const { count: totalMsgs } = await store.getSupabase()
-      .from('olo_messages').select('*', { count: 'exact', head: true });
+      .from('messages').select('*', { count: 'exact', head: true });
 
     const { count: activeHandoffs } = await store.getSupabase()
-      .from('olo_conversations').select('*', { count: 'exact', head: true })
+      .from('conversations').select('*', { count: 'exact', head: true })
       .eq('status', 'handoff');
 
     res.json({

@@ -74,43 +74,53 @@ export async function handleMessage(
   // --- Smart Logic (Fast Paths without LLM) ---
   if (conversationId) {
     // A) First Contact Message
-    if (org.first_contact_message) {
-      const history = await store.getConversationMessages(conversationId, 1);
-      if (history.length === 0) {
-        await store.saveMessage(conversationId, 'user', messageText);
-        await store.saveMessage(conversationId, 'assistant', org.first_contact_message);
-        return { text: org.first_contact_message, toolCalls: [], tokensUsed: 0, conversationId };
+    const history = await store.getConversationMessages(conversationId, 1);
+    if (history.length === 0) {
+      await store.saveMessage(conversationId, 'user', messageText);
+      
+      let greeting = org.first_contact_message;
+      if (!greeting) {
+        greeting = `Olá! Bem-vindo ao atendimento de ${org.business_name || 'nosso estabelecimento'}. Como posso ajudar hoje?`;
+        await store.logSetupNotification(org.id, 'Dica: Personalize a sua mensagem de primeiro contacto para dar boas-vindas com a sua marca.');
       }
+      
+      await store.saveMessage(conversationId, 'assistant', greeting);
+      return { text: greeting, toolCalls: [], tokensUsed: 0, conversationId };
     }
 
     // B) Absence Message (Outside Business Hours)
-    if (org.absence_message) {
-      const hours = await store.getBusinessHours(org.id);
-      const now = new Date();
-      // Adjust to Angola Time (UTC+1)
-      const localTime = new Date(now.toLocaleString('en-US', { timeZone: 'Africa/Luanda' }));
-      const dayOfWeek = localTime.getDay() === 0 ? 6 : localTime.getDay() - 1; // Map Sunday=0..Saturday=6 to Monday=0..Sunday=6
-      const todayHours = hours.find(h => h.day_of_week === dayOfWeek);
+    const hours = await store.getBusinessHours(org.id);
+    const now = new Date();
+    // Adjust to Angola Time (UTC+1)
+    const localTime = new Date(now.toLocaleString('en-US', { timeZone: 'Africa/Luanda' }));
+    const dayOfWeek = localTime.getDay() === 0 ? 6 : localTime.getDay() - 1; // Map Sunday=0..Saturday=6 to Monday=0..Sunday=6
+    const todayHours = hours.find(h => h.day_of_week === dayOfWeek);
+    
+    let isClosed = true;
+    if (todayHours && !todayHours.is_closed) {
+      const hh = localTime.getHours().toString().padStart(2, '0');
+      const mm = localTime.getMinutes().toString().padStart(2, '0');
+      const hm = `${hh}:${mm}`;
+      if (hm >= todayHours.open_time && hm <= todayHours.close_time) {
+        isClosed = false;
+      }
+    }
+
+    if (isClosed) {
+      const history = await store.getConversationMessages(conversationId, 5);
       
-      let isClosed = true;
-      if (todayHours && !todayHours.is_closed) {
-        const hh = localTime.getHours().toString().padStart(2, '0');
-        const mm = localTime.getMinutes().toString().padStart(2, '0');
-        const hm = `${hh}:${mm}`;
-        if (hm >= todayHours.open_time && hm <= todayHours.close_time) {
-          isClosed = false;
-        }
+      let outOfHoursMsg = org.absence_message;
+      if (!outOfHoursMsg) {
+        outOfHoursMsg = 'Estamos fechados de momento, mas deixe a sua mensagem e responderemos assim que possível.';
+        await store.logSetupNotification(org.id, 'Dica: Personalize a sua mensagem de ausência para um toque mais humano.');
       }
 
-      if (isClosed) {
-        const history = await store.getConversationMessages(conversationId, 5);
-        // Only send if we haven't sent it recently (last 2 messages)
-        const sentRecently = history.slice(-2).some(m => m.role === 'assistant' && m.content === org.absence_message);
-        if (!sentRecently) {
-          await store.saveMessage(conversationId, 'user', messageText);
-          await store.saveMessage(conversationId, 'assistant', org.absence_message);
-          return { text: org.absence_message, toolCalls: [], tokensUsed: 0, conversationId };
-        }
+      // Only send if we haven't sent it recently (last 2 messages)
+      const sentRecently = history.slice(-2).some(m => m.role === 'assistant' && m.content === outOfHoursMsg);
+      if (!sentRecently) {
+        await store.saveMessage(conversationId, 'user', messageText);
+        await store.saveMessage(conversationId, 'assistant', outOfHoursMsg);
+        return { text: outOfHoursMsg, toolCalls: [], tokensUsed: 0, conversationId };
       }
     }
 

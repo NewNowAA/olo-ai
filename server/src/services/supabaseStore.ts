@@ -58,7 +58,7 @@ export async function getOrCreateCustomer(
 
   // Try to find existing
   const { data: existing } = await getSupabase()
-    .from('olo_customers')
+    .from('customers')
     .select('*')
     .eq('org_id', orgId)
     .eq(field, channelId)
@@ -67,7 +67,7 @@ export async function getOrCreateCustomer(
   if (existing) {
     // Update last contact
     await getSupabase()
-      .from('olo_customers')
+      .from('customers')
       .update({ last_contact_at: new Date().toISOString(), name: name || existing.name })
       .eq('id', existing.id);
     return existing;
@@ -75,7 +75,7 @@ export async function getOrCreateCustomer(
 
   // Create new customer
   const { data: newCustomer, error } = await getSupabase()
-    .from('olo_customers')
+    .from('customers')
     .insert({
       org_id: orgId,
       [field]: channelId,
@@ -90,7 +90,7 @@ export async function getOrCreateCustomer(
 
 export async function updateCustomer(customerId: string, updates: Partial<Customer>): Promise<void> {
   const { error } = await getSupabase()
-    .from('olo_customers')
+    .from('customers')
     .update(updates)
     .eq('id', customerId);
   if (error) console.error('updateCustomer error:', error);
@@ -104,7 +104,7 @@ export async function getOrCreateConversation(
 ): Promise<Conversation | null> {
   // Find active conversation
   const { data: existing } = await getSupabase()
-    .from('olo_conversations')
+    .from('conversations')
     .select('*')
     .eq('org_id', orgId)
     .eq('customer_id', customerId)
@@ -118,7 +118,7 @@ export async function getOrCreateConversation(
 
   // Create new conversation
   const { data: newConv, error } = await getSupabase()
-    .from('olo_conversations')
+    .from('conversations')
     .insert({
       org_id: orgId,
       customer_id: customerId,
@@ -133,7 +133,7 @@ export async function getOrCreateConversation(
   // Increment customer conversation count
   try {
     await getSupabase()
-      .from('olo_customers')
+      .from('customers')
       .update({ total_conversations: 1 })
       .eq('id', customerId);
   } catch {
@@ -149,7 +149,7 @@ export async function getConversationMessages(
   limit: number = 20
 ): Promise<Message[]> {
   const { data, error } = await getSupabase()
-    .from('olo_messages')
+    .from('messages')
     .select('*')
     .eq('conversation_id', conversationId)
     .order('created_at', { ascending: true })
@@ -166,7 +166,7 @@ export async function saveMessage(
   extra?: { tool_calls?: any; tool_results?: any; tokens_used?: number }
 ): Promise<Message | null> {
   const { data, error } = await getSupabase()
-    .from('olo_messages')
+    .from('messages')
     .insert({
       conversation_id: conversationId,
       role,
@@ -229,7 +229,7 @@ export async function getAppointments(
 ): Promise<Appointment[]> {
   let q = getSupabase()
     .from('appointments')
-    .select('*, olo_customers(name, phone)')
+    .select('*, customers(name, phone)')
     .eq('org_id', orgId);
 
   if (date) q = q.eq('date', date);
@@ -345,7 +345,7 @@ export async function createHandoffRequest(
 
   // Update conversation status
   await getSupabase()
-    .from('olo_conversations')
+    .from('conversations')
     .update({ status: 'handoff' })
     .eq('id', conversationId);
 
@@ -375,4 +375,26 @@ export async function getOwnerTelegramId(orgId: string): Promise<string | null> 
     .eq('id', orgId)
     .single();
   return data?.telegram_chat_id || null;
+}
+
+// --- Setup Notifications ---
+export async function logSetupNotification(orgId: string, message: string): Promise<void> {
+  try {
+    const { data: existing } = await getSupabase()
+      .from('setup_notifications')
+      .select('id')
+      .eq('org_id', orgId)
+      .eq('message', message)
+      .eq('is_read', false)
+      .maybeSingle();
+
+    if (!existing) {
+      const { error } = await getSupabase()
+        .from('setup_notifications')
+        .insert({ org_id: orgId, message });
+      if (error) console.error('logSetupNotification error:', error);
+    }
+  } catch (err) {
+    console.error('Failed to log setup notification:', err);
+  }
 }
