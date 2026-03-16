@@ -83,3 +83,16 @@ DO $$ BEGIN
 END $$;
 
 -- Done! All tables the code references now exist.
+
+-- 5. Fix customers table columns
+ALTER TABLE public.customers ADD COLUMN IF NOT EXISTS org_id uuid REFERENCES public.organizations(id) ON DELETE CASCADE;
+ALTER TABLE public.customers ADD COLUMN IF NOT EXISTS name text;
+ALTER TABLE public.customers ADD COLUMN IF NOT EXISTS telegram_id text;
+ALTER TABLE public.customers ADD COLUMN IF NOT EXISTS whatsapp_id text;
+ALTER TABLE public.customers ADD COLUMN IF NOT EXISTS phone text;
+ALTER TABLE public.customers ADD COLUMN IF NOT EXISTS email text;
+ALTER TABLE public.customers ADD COLUMN IF NOT EXISTS notes text;
+ALTER TABLE public.customers ADD COLUMN IF NOT EXISTS tags text[] DEFAULT '{}';
+ALTER TABLE public.customers ADD COLUMN IF NOT EXISTS first_contact_at timestamptz DEFAULT now();
+ALTER TABLE public.customers ADD COLUMN IF NOT EXISTS last_contact_at timestamptz DEFAULT now();
+ALTER TABLE public.customers ADD COLUMN IF NOT EXISTS total_conversations integer DEFAULT 0;

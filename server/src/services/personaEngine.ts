@@ -44,7 +44,12 @@ export function buildPersona(
     customPrompt = `\nINSTRUÇÕES PERSONALIZADAS DO DONO DO NEGÓCIO:\n${org.agent_system_prompt}`;
   }
 
-  const agentTone = org.agent_tone || 'profissional e amigável';
+  const TONE_DESCRIPTIONS: Record<string, string> = {
+    amigavel: 'caloroso, informal, usa expressões locais, empático, usa emojis',
+    intermedio: 'amigável mas profissional, equilibrado, usa emojis com moderação',
+    profissional: 'formal, objetivo, sem emojis, linguagem cuidada',
+  };
+  const agentTone = org.agent_tone ? (TONE_DESCRIPTIONS[org.agent_tone] || org.agent_tone) : 'profissional e amigável';
   customPrompt += `\nTom de voz preferido: ${agentTone}`;
 
   // Log setup notifications if missing configurations

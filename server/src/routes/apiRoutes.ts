@@ -10,6 +10,9 @@ import { SECTOR_TEMPLATES } from '../config/sectors.js';
 
 const router = Router();
 
+// In-memory sessions for multi-step AI conversations
+export const conversationSessions = new Map<string, string>();
+
 // --- Health check ---
 router.get('/health', (_req: Request, res: Response) => {
   res.json({
@@ -84,7 +87,6 @@ router.post('/public/register', async (req: Request, res: Response) => {
 
     // Generate link token for Telegram deep link
     const linkToken = crypto.randomUUID();
-    const tokenExpiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(); // 24h
 
     // 3. Create user profile in public.profiles table (Use upsert to handle potential triggers)
     const { error: userError } = await store.getSupabase()
@@ -205,16 +207,7 @@ router.post('/orgs/:orgId/setup-telegram', async (req: Request<{ orgId: string }
       return;
     }
 
-    // 1. Set webhook in Telegram
-    const webhookUrl = `${process.env.WEBHOOK_BASE_URL}/api/telegram/webhook`;
-    const success = await telegramGateway.setWebhook(bot_token, webhookUrl);
-
-    if (!success) {
-      res.status(500).json({ error: 'Failed to set Telegram webhook' });
-      return;
-    }
-
-    // 2. Save token to organization
+    // 1. Always save token to organization first
     const { data, error } = await store.getSupabase()
       .from('organizations')
       .update({ telegram_bot_token: bot_token })
@@ -223,7 +216,29 @@ router.post('/orgs/:orgId/setup-telegram', async (req: Request<{ orgId: string }
       .single();
 
     if (error) { res.status(500).json({ error: error.message }); return; }
-    res.json(data);
+
+    // 2. Try to set webhook (best-effort — polling is used if this fails)
+    const webhookUrl = process.env.WEBHOOK_BASE_URL;
+    let webhookStatus = 'polling'; // default: polling mode
+
+    if (webhookUrl && webhookUrl.startsWith('https://') && !webhookUrl.includes('localhost')) {
+      const fullWebhookUrl = `${webhookUrl}/api/telegram/webhook`;
+      const webhookOk = await telegramGateway.setWebhook(bot_token, fullWebhookUrl);
+      webhookStatus = webhookOk ? 'webhook' : 'polling';
+      if (webhookOk) {
+        console.log(`[Setup] Telegram webhook set: ${fullWebhookUrl}`);
+      } else {
+        console.warn('[Setup] Webhook failed — bot will use polling mode.');
+      }
+    }
+
+    res.json({
+      ...data,
+      webhook_status: webhookStatus,
+      message: webhookStatus === 'webhook'
+        ? 'Bot conectado via webhook.'
+        : 'Token guardado. Bot a usar modo polling (desenvolvimento local).',
+    });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
@@ -257,12 +272,12 @@ router.get('/orgs/:orgId/stats', async (req: Request<{ orgId: string }>, res: Re
     // Conversations today
     const { count: convToday } = await store.getSupabase()
       .from('conversations').select('*', { count: 'exact', head: true })
-      .eq('org_id', orgId).gte('created_at', today + 'T00:00:00');
+      .eq('organization_id', orgId).gte('created_at', today + 'T00:00:00');
 
     // Active conversations
     const { count: activeConv } = await store.getSupabase()
       .from('conversations').select('*', { count: 'exact', head: true })
-      .eq('org_id', orgId).eq('status', 'active');
+      .eq('organization_id', orgId).in('status', ['open', 'active']);
 
     // Pending appointments
     const { count: pendingApp } = await store.getSupabase()
@@ -307,8 +322,8 @@ router.get('/org/:orgId/conversations', async (req: Request<{ orgId: string }>, 
   const { data, error } = await store.getSupabase()
     .from('conversations')
     .select('*, customers(name, telegram_id)')
-    .eq('org_id', req.params.orgId)
-    .order('updated_at', { ascending: false })
+    .eq('organization_id', req.params.orgId)
+    .order('created_at', { ascending: false })
     .limit(50);
 
   if (error) {
@@ -344,7 +359,7 @@ router.put('/orgs/:orgId/conversations/:convId/status', async (req: Request<{ or
       .from('conversations')
       .update({ status })
       .eq('id', req.params.convId)
-      .eq('org_id', req.params.orgId)
+      .eq('organization_id', req.params.orgId)
       .select('*, customers(*), organizations(telegram_bot_token)')
       .single();
 
@@ -435,7 +450,7 @@ router.get('/orgs/:orgId/stock', async (req: Request<{ orgId: string }>, res: Re
   try {
     const { data, error } = await store.getSupabase()
       .from('catalog_items')
-      .select('id, name, stock_quantity, stock_min_alert, is_available')
+      .select('id, name, stock_quantity, stock_min, active')
       .eq('org_id', req.params.orgId)
       .not('stock_quantity', 'is', null)
       .order('name');
@@ -497,20 +512,13 @@ router.get('/org/:orgId/stock-alerts', async (req: Request<{ orgId: string }>, r
 // --- List appointments ---
 router.get('/org/:orgId/appointments', async (req: Request<{ orgId: string }>, res: Response) => {
   try {
-    let query = store.getSupabase()
-      .from('appointments')
-      .select('*, customers(name, phone)')
-      .eq('org_id', req.params.orgId)
-      .order('date', { ascending: false })
-      .limit(100);
-
     const { date, status } = req.query;
-    if (date) query = query.eq('date', date as string);
-    if (status) query = query.eq('status', status as string);
-
-    const { data, error } = await query;
-    if (error) { res.status(500).json({ error: error.message }); return; }
-    res.json(data);
+    const appointments = await store.getAppointments(
+      req.params.orgId,
+      date as string | undefined,
+      status as string | undefined
+    );
+    res.json(appointments);
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
@@ -519,12 +527,8 @@ router.get('/org/:orgId/appointments', async (req: Request<{ orgId: string }>, r
 // --- Create appointment ---
 router.post('/orgs/:orgId/appointments', async (req: Request<{ orgId: string }>, res: Response) => {
   try {
-    const { data, error } = await store.getSupabase()
-      .from('appointments')
-      .insert({ ...req.body, org_id: req.params.orgId })
-      .select()
-      .single();
-    if (error) { res.status(500).json({ error: error.message }); return; }
+    const data = await store.createAppointment({ ...req.body, org_id: req.params.orgId });
+    if (!data) { res.status(500).json({ error: 'Falha ao criar marcação' }); return; }
     res.json(data);
   } catch (err: any) {
     res.status(500).json({ error: err.message });
@@ -569,7 +573,7 @@ router.post('/orgs/:orgId/customers', async (req: Request<{ orgId: string }>, re
   try {
     const { data, error } = await store.getSupabase()
       .from('customers')
-      .insert({ ...req.body, org_id: req.params.orgId })
+      .insert({ ...req.body, org_id: req.params.orgId, organization_id: req.params.orgId })
       .select()
       .single();
     if (error) { res.status(500).json({ error: error.message }); return; }
@@ -614,6 +618,41 @@ router.put('/orgs/:orgId/hours', async (req: Request<{ orgId: string }>, res: Re
     const { error } = await store.getSupabase().from('business_hours').insert(rows);
     if (error) { res.status(500).json({ error: error.message }); return; }
     res.json({ success: true });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// --- Feedback ---
+router.post('/feedbacks', async (req: Request, res: Response) => {
+  try {
+    const { message, url, org_id } = req.body;
+    const { error } = await store.getSupabase()
+      .from('feedbacks')
+      .insert({ message, url, org_id });
+    
+    if (error) { res.status(500).json({ error: error.message }); return; }
+    res.json({ success: true });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+// --- Catalog Categories ---
+router.get('/orgs/:orgId/catalog/categories', async (req: Request<{ orgId: string }>, res: Response) => {
+  try {
+    const categories = await store.getCategories(req.params.orgId);
+    res.json(categories);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.post('/orgs/:orgId/catalog/categories', async (req: Request<{ orgId: string }>, res: Response) => {
+  try {
+    const { name } = req.body;
+    if (!name) { res.status(400).json({ error: 'Name is required' }); return; }
+    const category = await store.createCategory(req.params.orgId, name);
+    res.status(201).json(category);
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
@@ -688,6 +727,67 @@ router.post('/orgs/:orgId/quick-replies', async (req: Request<{ orgId: string }>
       .single();
     if (error) { res.status(500).json({ error: error.message }); return; }
     res.json(data);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// --- Owner Preview Mode (test bot as client) ---
+router.get('/orgs/:orgId/preview-mode', async (req: Request<{ orgId: string }>, res: Response) => {
+  try {
+    const { data, error } = await store.getSupabase()
+      .from('organizations')
+      .select('preview_mode')
+      .eq('id', req.params.orgId)
+      .single();
+    if (error) { res.status(500).json({ error: error.message }); return; }
+    res.json({ mode: data?.preview_mode || 'owner' });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.post('/orgs/:orgId/preview-mode', async (req: Request<{ orgId: string }>, res: Response) => {
+  try {
+    const { mode } = req.body;
+    if (mode !== 'owner' && mode !== 'client') {
+      res.status(400).json({ error: 'mode must be "owner" or "client"' });
+      return;
+    }
+    const { error } = await store.getSupabase()
+      .from('organizations')
+      .update({ preview_mode: mode })
+      .eq('id', req.params.orgId);
+    
+    if (error) { res.status(500).json({ error: error.message }); return; }
+    console.log(`[PreviewMode] Org ${req.params.orgId} → ${mode}`);
+
+    // --- Automatically clear the owner's test conversation history so the AI doesn't get confused by past messages ---
+    const ownerTgId = await store.getOwnerTelegramId(req.params.orgId);
+    if (ownerTgId) {
+      const customer = await store.getOrCreateCustomer(req.params.orgId, 'telegram', ownerTgId, 'Owner');
+      if (customer) {
+        // We get the existing conversation by searching it
+        const { data: convs } = await store.getSupabase()
+          .from('conversations')
+          .select('id')
+          .eq('organization_id', req.params.orgId)
+          .eq('customer_id', customer.id);
+        
+        if (convs && convs.length > 0) {
+          const convIds = convs.map(c => c.id);
+          const { error: delError } = await store.getSupabase()
+            .from('messages')
+            .delete()
+            .in('conversation_id', convIds);
+            
+          if (delError) console.error('[PreviewMode] Failed to clear history:', delError);
+          else console.log('[PreviewMode] Cleared owner test conversation history for clean slate');
+        }
+      }
+    }
+
+    res.json({ mode });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }

@@ -9,6 +9,7 @@ import {
   CalendarDays, Users, Clock, Settings, LogOut, Menu, X
 } from 'lucide-react';
 import useAuth from '../../hooks/useAuth';
+import { FeedbackButton } from './FeedbackButton';
 
 const NAV_ITEMS = [
   { to: '/app/dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -111,6 +112,8 @@ export function AppLayout() {
           <Outlet />
         </main>
       </div>
+      
+      <FeedbackButton />
     </div>
   );
 }

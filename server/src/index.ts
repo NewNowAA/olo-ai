@@ -5,13 +5,18 @@
 import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
-import telegramRoutes from './routes/telegramRoutes.js';
+import telegramRoutes, { processUpdate } from './routes/telegramRoutes.js';
 import apiRoutes from './routes/apiRoutes.js';
+import { startPolling } from './services/telegramPoller.js';
 
 const app = express();
 const PORT = process.env.SERVER_PORT || 3001;
 
 // --- Middleware ---
+app.use((req, res, next) => {
+  console.log(`\n\n[ROUTER DUMP] 🔥 Hit: ${req.method} ${req.url}`);
+  next();
+});
 app.use(cors());
 app.use(express.json());
 
@@ -69,6 +74,20 @@ app.listen(PORT, () => {
     console.warn('   Some features may not work correctly.');
   } else {
     console.log('✅ All required environment variables configured.');
+  }
+
+  // --- Auto-start Telegram polling in development ---
+  // In production with a valid WEBHOOK_BASE_URL, webhooks are used instead.
+  const webhookUrl = process.env.WEBHOOK_BASE_URL || '';
+  const botToken = process.env.TELEGRAM_BOT_TOKEN;
+  const isDev = process.env.NODE_ENV !== 'production';
+  const hasValidWebhook = webhookUrl.startsWith('https://') && !webhookUrl.includes('localhost');
+
+  if (botToken && (isDev || !hasValidWebhook)) {
+    console.log('📡 Dev mode: starting Telegram polling (no webhook needed)...');
+    startPolling(botToken, processUpdate).catch(err => {
+      console.error('[Polling] Failed to start:', err);
+    });
   }
 });
 

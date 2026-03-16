@@ -5,7 +5,7 @@
 // --- Enums ---
 
 export type Role = 'dev' | 'owner' | 'client';
-export type Sector = 'restaurante' | 'clinica' | 'salao' | 'generico';
+export type Sector = 'restaurante' | 'clinica' | 'salao' | 'farmacia' | 'hotel' | 'academia' | 'advogado' | 'oficina' | 'loja' | 'generico';
 export type Channel = 'telegram' | 'whatsapp';
 export type ConversationStatus = 'active' | 'closed' | 'handoff';
 export type AppointmentStatus = 'pending' | 'confirmed' | 'cancelled' | 'completed' | 'no_show';
@@ -232,9 +232,10 @@ export interface TelegramMessage {
   };
   date: number;
   text?: string;
-  photo?: any[];
-  voice?: any;
-  document?: any;
+  caption?: string;
+  photo?: { file_id: string; file_unique_id: string; width: number; height: number; file_size?: number }[];
+  voice?: { file_id: string; file_unique_id: string; duration: number; mime_type?: string; file_size?: number };
+  document?: { file_id: string; file_unique_id: string; file_name?: string; mime_type?: string; file_size?: number };
 }
 
 // --- Sector Config ---

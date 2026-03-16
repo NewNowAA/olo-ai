@@ -111,8 +111,14 @@ export default function RegisterPage() {
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
                 >
                   <option value="restaurante">🍽️ Restaurante</option>
-                  <option value="clinica">🏥 Clínica</option>
-                  <option value="salao">💇 Salão</option>
+                  <option value="clinica">🏥 Clínica / Saúde</option>
+                  <option value="salao">💇 Salão de Beleza</option>
+                  <option value="farmacia">💊 Farmácia</option>
+                  <option value="hotel">🏨 Hotel / Alojamento</option>
+                  <option value="academia">💪 Academia / Ginásio</option>
+                  <option value="advogado">⚖️ Advocacia / Jurídico</option>
+                  <option value="oficina">🔧 Oficina / Auto</option>
+                  <option value="loja">🛍️ Loja / Comércio</option>
                   <option value="generico">📦 Outro</option>
                 </select>
               </div>

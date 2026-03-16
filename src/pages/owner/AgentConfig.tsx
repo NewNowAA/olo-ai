@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Save, Plus, Trash2 } from 'lucide-react';
+import { Save, Lock, ChevronDown, ChevronUp } from 'lucide-react';
 import useAuth from '../../hooks/useAuth';
 import * as api from '../../services/api';
 
@@ -11,8 +11,8 @@ export default function AgentConfig() {
     absence_message: '', first_contact_message: ''
   });
   
-  const [quickReplies, setQuickReplies] = useState<any[]>([]);
-  const [newQr, setNewQr] = useState({ trigger: '', response: '' });
+  const [showAdvanced, setShowAdvanced] = useState(false);
+  const [sectorsTemplates, setSectorsTemplates] = useState<any>(null);
   
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -23,8 +23,8 @@ export default function AgentConfig() {
     
     Promise.all([
       api.getOrg(orgId),
-      api.getQuickReplies(orgId)
-    ]).then(([org, qrs]) => {
+      api.getSectorTemplates()
+    ]).then(([org, templates]) => {
       setForm({
         agent_name: org.agent_name || '',
         agent_tone: org.agent_tone || '',
@@ -34,7 +34,7 @@ export default function AgentConfig() {
         absence_message: org.absence_message || '',
         first_contact_message: org.first_contact_message || ''
       });
-      setQuickReplies(qrs || []);
+      setSectorsTemplates(templates);
       setLoading(false);
     }).catch(() => setLoading(false));
   }, [orgId]);
@@ -54,19 +54,7 @@ export default function AgentConfig() {
     }
   };
 
-  const handleAddQr = async () => {
-    if (!orgId || !newQr.trigger.trim() || !newQr.response.trim()) return;
-    try {
-      const created = await api.createQuickReply(orgId, { 
-        trigger_words: [newQr.trigger.trim().toLowerCase()], 
-        response: newQr.response 
-      });
-      setQuickReplies([created, ...quickReplies]);
-      setNewQr({ trigger: '', response: '' });
-    } catch (err) {
-      console.error(err);
-    }
-  };
+  // Quick Replies have been migrated elsewhere
 
   if (loading) return <div className="text-gray-500">A carregar...</div>;
 
@@ -90,23 +78,77 @@ export default function AgentConfig() {
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Tom de voz</label>
-            <input type="text" value={form.agent_tone} onChange={e => setForm(f => ({ ...f, agent_tone: e.target.value }))} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" placeholder="profissional, amigável..." />
+            <div className="grid grid-cols-3 gap-2">
+              <button 
+                type="button"
+                onClick={() => setForm(f => ({ ...f, agent_tone: 'amigavel' }))}
+                className={`py-2 px-1 text-sm rounded-lg border text-center transition-colors ${form.agent_tone === 'amigavel' ? 'bg-blue-50 border-blue-500 text-blue-700 font-medium' : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'}`}
+              >
+                Amigável
+              </button>
+              <button 
+                type="button"
+                onClick={() => setForm(f => ({ ...f, agent_tone: 'intermedio' }))}
+                className={`py-2 px-1 text-sm rounded-lg border text-center transition-colors ${form.agent_tone === 'intermedio' || !form.agent_tone ? 'bg-blue-50 border-blue-500 text-blue-700 font-medium' : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'}`}
+              >
+                Intermédio
+              </button>
+              <button 
+                type="button"
+                onClick={() => setForm(f => ({ ...f, agent_tone: 'profissional' }))}
+                className={`py-2 px-1 text-sm rounded-lg border text-center transition-colors ${form.agent_tone === 'profissional' ? 'bg-blue-50 border-blue-500 text-blue-700 font-medium' : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'}`}
+              >
+                Profissional
+              </button>
+            </div>
           </div>
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Setor</label>
-            <select value={form.sector} onChange={e => setForm(f => ({ ...f, sector: e.target.value }))} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white">
+            <select 
+              value={form.sector} 
+              onChange={e => {
+                const newSector = e.target.value;
+                setForm(f => {
+                  const updates = { ...f, sector: newSector };
+                  if (sectorsTemplates && sectorsTemplates[newSector]) {
+                    if (!f.first_contact_message) updates.first_contact_message = sectorsTemplates[newSector].first_contact_message;
+                    if (!f.absence_message) updates.absence_message = sectorsTemplates[newSector].absence_message;
+                  }
+                  return updates;
+                });
+              }} 
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white"
+            >
               <option value="restaurante">🍽️ Restaurante</option>
               <option value="clinica">🏥 Clínica</option>
               <option value="salao">💇 Salão</option>
+              <option value="farmacia">💊 Farmácia</option>
+              <option value="hotel">🏨 Hotel/Alojamento</option>
+              <option value="academia">🏋️ Academia</option>
+              <option value="advogado">⚖️ Advogado</option>
+              <option value="oficina">🔧 Oficina</option>
+              <option value="loja">🛍️ Loja/Retalho</option>
               <option value="generico">📦 Genérico</option>
             </select>
           </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">System Prompt personalizado</label>
-            <p className="text-xs text-gray-400 mb-1">Instruções para personalizar o comportamento do agente.</p>
-            <textarea value={form.agent_system_prompt} onChange={e => setForm(f => ({ ...f, agent_system_prompt: e.target.value }))} rows={6} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm font-mono resize-none" />
+          <div className="pt-2 border-t border-gray-100">
+            <button 
+              type="button"
+              onClick={() => setShowAdvanced(!showAdvanced)} 
+              className="flex items-center gap-1 text-sm font-medium text-gray-600 hover:text-gray-900"
+            >
+              {showAdvanced ? <ChevronUp size={16} /> : <ChevronDown size={16} />} 
+              Avançado
+            </button>
+            {showAdvanced && (
+              <div className="mt-3">
+                <label className="block text-sm font-medium text-gray-700 mb-1">Instruções personalizadas (substitui comportamento padrão do setor)</label>
+                <p className="text-xs text-amber-600 font-medium mb-1">⚠️ Alterar isto afeta profundamente o comportamento do agente</p>
+                <textarea value={form.agent_system_prompt} onChange={e => setForm(f => ({ ...f, agent_system_prompt: e.target.value }))} rows={6} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm font-mono resize-none" placeholder="Escreva as instruções para a IA..." />
+              </div>
+            )}
           </div>
         </div>
 
@@ -140,41 +182,23 @@ export default function AgentConfig() {
         </div>
       </div>
 
-      {/* Quick Replies Section */}
-      <div className="bg-white rounded-lg border border-gray-200 p-6">
-        <h2 className="text-lg font-bold text-gray-900 border-b pb-2 mb-4">Respostas Rápidas (Sem IA)</h2>
-        <p className="text-sm text-gray-600 mb-4">Quando o cliente enviar uma mensagem que contenha o Trigger (palavra-chave), o sistema responde instantaneamente com a Resposta definida, sem usar o Gemini.</p>
-        
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-          <input type="text" value={newQr.trigger} onChange={e => setNewQr({ ...newQr, trigger: e.target.value })} placeholder="Palavra trigger (ex: wifi)" className="px-3 py-2 border border-gray-300 rounded-lg text-sm" />
-          <input type="text" value={newQr.response} onChange={e => setNewQr({ ...newQr, response: e.target.value })} placeholder="Resposta (ex: A rede é X...)" className="px-3 py-2 border border-gray-300 rounded-lg text-sm md:col-span-2" />
-          <button onClick={handleAddQr} disabled={!newQr.trigger || !newQr.response} className="flex items-center justify-center gap-2 px-4 py-2 bg-gray-900 text-white rounded-lg text-sm font-medium hover:bg-gray-800 disabled:opacity-50 md:col-span-3">
-            <Plus size={16} /> Adicionar Resposta Rápida
-          </button>
+      {/* Upsell Placeholder Card */}
+      <div className="bg-gray-50 rounded-lg border border-gray-200 p-6 relative overflow-hidden mt-6">
+        <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center gap-2">
+            <Lock size={18} className="text-gray-400" />
+            <h2 className="text-lg font-bold text-gray-900">Upsell & Marketing Automático</h2>
+          </div>
+          <span className="px-2 py-1 bg-gray-200 text-gray-500 rounded text-xs font-bold uppercase">Em breve</span>
         </div>
-
-        <div className="space-y-3">
-          {quickReplies.length === 0 ? (
-           <p className="text-sm text-gray-500 italic text-center py-4">Nenhuma resposta rápida configurada.</p>
-          ) : (
-            quickReplies.map(qr => (
-              <div key={qr.id} className="flex items-center justify-between p-3 border border-gray-100 bg-gray-50 rounded-lg">
-                <div className="flex-1">
-                  <div className="flex items-center gap-2 mb-1">
-                    <span className="px-2 py-0.5 bg-gray-200 text-gray-800 rounded text-xs font-bold font-mono">
-                      {qr.trigger_words?.[0]}
-                    </span>
-                  </div>
-                  <p className="text-sm text-gray-700">{qr.response}</p>
-                </div>
-                {/* Delete function not yet implemented in API, so hidden for now or just visual */}
-                <button className="text-gray-400 hover:text-red-500 p-2" title="Em breve">
-                  <Trash2 size={16} />
-                </button>
-              </div>
-            ))
-          )}
-        </div>
+        <p className="text-sm text-gray-600 mb-4 max-w-2xl">
+          Configure mensagens automáticas de upsell: o agente sugere produtos ou promoções em momentos estratégicos da conversa.
+        </p>
+        <ul className="text-sm text-gray-500 space-y-2 list-disc list-inside opacity-70">
+          <li>Upsell pós-marcação</li>
+          <li>Promoção sazonal automatizada</li>
+          <li>Recuperação de carrinho e contatos pendentes</li>
+        </ul>
       </div>
     </div>
   );

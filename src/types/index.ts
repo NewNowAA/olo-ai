@@ -3,7 +3,7 @@
 // =============================================
 
 export type Role = 'dev' | 'owner' | 'client';
-export type Sector = 'restaurante' | 'clinica' | 'salao' | 'generico';
+export type Sector = 'restaurante' | 'clinica' | 'salao' | 'farmacia' | 'hotel' | 'academia' | 'advogado' | 'oficina' | 'loja' | 'generico';
 export type Channel = 'telegram' | 'whatsapp';
 export type ConversationStatus = 'active' | 'closed' | 'handoff';
 export type AppointmentStatus = 'pending' | 'confirmed' | 'cancelled' | 'completed' | 'no_show';

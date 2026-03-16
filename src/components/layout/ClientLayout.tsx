@@ -6,6 +6,7 @@ import React from 'react';
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { CalendarDays, ShoppingBag, LogOut } from 'lucide-react';
 import useAuth from '../../hooks/useAuth';
+import { FeedbackButton } from './FeedbackButton';
 
 export function ClientLayout() {
   const { user, signOut } = useAuth();
@@ -54,6 +55,8 @@ export function ClientLayout() {
       <main className="max-w-4xl mx-auto p-6">
         <Outlet />
       </main>
+
+      <FeedbackButton />
     </div>
   );
 }

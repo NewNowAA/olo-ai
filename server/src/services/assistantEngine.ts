@@ -54,10 +54,12 @@ export async function handleMessage(
   // --- 2. Get or create conversation ---
   let conversation: Conversation | null = null;
   if (userContext.customerId) {
+    const externalChatId = userContext.telegramId || userContext.whatsappId || 'unknown';
     conversation = await store.getOrCreateConversation(
       org.id,
       userContext.customerId,
-      userContext.channel
+      userContext.channel,
+      externalChatId
     );
   }
 
@@ -65,7 +67,7 @@ export async function handleMessage(
 
   // --- 3. Save user message ---
   if (conversationId) {
-    await store.saveMessage(conversationId, 'user', messageText);
+    await store.saveMessage(conversationId, 'user', messageText, { org_id: org.id });
   }
 
   // --- 4. Build persona ---
@@ -76,51 +78,59 @@ export async function handleMessage(
     // A) First Contact Message
     const history = await store.getConversationMessages(conversationId, 1);
     if (history.length === 0) {
-      await store.saveMessage(conversationId, 'user', messageText);
-      
+      await store.saveMessage(conversationId, 'user', messageText, { org_id: org.id });
+
       let greeting = org.first_contact_message;
       if (!greeting) {
         greeting = `Olá! Bem-vindo ao atendimento de ${org.business_name || 'nosso estabelecimento'}. Como posso ajudar hoje?`;
         await store.logSetupNotification(org.id, 'Dica: Personalize a sua mensagem de primeiro contacto para dar boas-vindas com a sua marca.');
       }
       
-      await store.saveMessage(conversationId, 'assistant', greeting);
+      await store.saveMessage(conversationId, 'assistant', greeting, { org_id: org.id });
       return { text: greeting, toolCalls: [], tokensUsed: 0, conversationId };
     }
 
     // B) Absence Message (Outside Business Hours)
-    const hours = await store.getBusinessHours(org.id);
-    const now = new Date();
-    // Adjust to Angola Time (UTC+1)
-    const localTime = new Date(now.toLocaleString('en-US', { timeZone: 'Africa/Luanda' }));
-    const dayOfWeek = localTime.getDay() === 0 ? 6 : localTime.getDay() - 1; // Map Sunday=0..Saturday=6 to Monday=0..Sunday=6
-    const todayHours = hours.find(h => h.day_of_week === dayOfWeek);
-    
-    let isClosed = true;
-    if (todayHours && !todayHours.is_closed) {
-      const hh = localTime.getHours().toString().padStart(2, '0');
-      const mm = localTime.getMinutes().toString().padStart(2, '0');
-      const hm = `${hh}:${mm}`;
-      if (hm >= todayHours.open_time && hm <= todayHours.close_time) {
-        isClosed = false;
-      }
-    }
-
-    if (isClosed) {
-      const history = await store.getConversationMessages(conversationId, 5);
+    // Only apply absence message to clients. Owners and devs should not be blocked.
+    if (userContext.role === 'client') {
+      const hours = await store.getBusinessHours(org.id);
+      const now = new Date();
+      // Adjust to Angola Time (UTC+1)
+      const localTime = new Date(now.toLocaleString('en-US', { timeZone: 'Africa/Luanda' }));
+      const dayOfWeek = localTime.getDay() === 0 ? 6 : localTime.getDay() - 1; // Map Sunday=0..Saturday=6 to Monday=0..Sunday=6
+      const todayHours = hours.find(h => h.day_of_week === dayOfWeek);
       
-      let outOfHoursMsg = org.absence_message;
-      if (!outOfHoursMsg) {
-        outOfHoursMsg = 'Estamos fechados de momento, mas deixe a sua mensagem e responderemos assim que possível.';
-        await store.logSetupNotification(org.id, 'Dica: Personalize a sua mensagem de ausência para um toque mais humano.');
+      let isClosed = true;
+      if (todayHours && !todayHours.is_closed) {
+        const hh = localTime.getHours().toString().padStart(2, '0');
+        const mm = localTime.getMinutes().toString().padStart(2, '0');
+        const hm = `${hh}:${mm}`;
+        
+        // Supabase time type is typically HH:MM:SS. We substring to match our HH:MM.
+        const openHm = todayHours.open_time.substring(0, 5);
+        const closeHm = todayHours.close_time.substring(0, 5);
+
+        if (hm >= openHm && hm <= closeHm) {
+          isClosed = false;
+        }
       }
 
-      // Only send if we haven't sent it recently (last 2 messages)
-      const sentRecently = history.slice(-2).some(m => m.role === 'assistant' && m.content === outOfHoursMsg);
-      if (!sentRecently) {
-        await store.saveMessage(conversationId, 'user', messageText);
-        await store.saveMessage(conversationId, 'assistant', outOfHoursMsg);
-        return { text: outOfHoursMsg, toolCalls: [], tokensUsed: 0, conversationId };
+      if (isClosed) {
+        const history = await store.getConversationMessages(conversationId, 5);
+        
+        let outOfHoursMsg = org.absence_message;
+        if (!outOfHoursMsg) {
+          outOfHoursMsg = 'Estamos fechados de momento, mas deixe a sua mensagem e responderemos assim que possível.';
+          await store.logSetupNotification(org.id, 'Dica: Personalize a sua mensagem de ausência para um toque mais humano.');
+        }
+
+        // Only send if we haven't sent it recently (last 2 messages)
+        const sentRecently = history.slice(-2).some(m => m.role === 'assistant' && m.content === outOfHoursMsg);
+        if (!sentRecently) {
+          await store.saveMessage(conversationId, 'user', messageText, { org_id: org.id });
+          await store.saveMessage(conversationId, 'assistant', outOfHoursMsg, { org_id: org.id });
+          return { text: outOfHoursMsg, toolCalls: [], tokensUsed: 0, conversationId };
+        }
       }
     }
 
@@ -133,8 +143,8 @@ export async function handleMessage(
         (qr.trigger_words || []).some((word: string) => txtLower.includes(word.toLowerCase()))
       );
       if (matched) {
-        await store.saveMessage(conversationId, 'user', messageText);
-        await store.saveMessage(conversationId, 'assistant', matched.response);
+        await store.saveMessage(conversationId, 'user', messageText, { org_id: org.id });
+        await store.saveMessage(conversationId, 'assistant', matched.response, { org_id: org.id });
         return { text: matched.response, toolCalls: [], tokensUsed: 0, conversationId };
       }
     }
@@ -306,6 +316,7 @@ export async function handleMessage(
     await store.saveMessage(conversationId, 'assistant', responseText, {
       tool_calls: allToolCalls.length > 0 ? allToolCalls : undefined,
       tokens_used: tokensUsed,
+      org_id: org.id,
     });
   }
 

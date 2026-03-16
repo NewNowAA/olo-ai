@@ -11,11 +11,15 @@ export default function Catalog() {
   const [showModal, setShowModal] = useState(false);
   const [editing, setEditing] = useState<CatalogItem | null>(null);
   const [filter, setFilter] = useState('');
+  const [dbCategories, setDbCategories] = useState<any[]>([]);
   const [form, setForm] = useState({ name: '', description: '', price: 0, category_id: '', stock_quantity: 0, is_available: true });
+  const [showNewCategory, setShowNewCategory] = useState(false);
+  const [newCategoryName, setNewCategoryName] = useState('');
 
   useEffect(() => {
     if (!orgId) return;
     api.getCatalog(orgId).then(data => { setItems(data); setLoading(false); }).catch(() => setLoading(false));
+    api.getCategories(orgId).then(setDbCategories).catch(console.error);
   }, [orgId]);
 
   const categories = Array.from(new Set(items.map(i => i.catalog_categories?.name).filter(Boolean)));
@@ -34,6 +38,19 @@ export default function Catalog() {
       category_id: item.category_id || '', stock_quantity: item.stock_quantity || 0, is_available: item.is_available,
     });
     setShowModal(true);
+  };
+
+  const handleAddCategory = async () => {
+    if (!newCategoryName.trim() || !orgId) return;
+    try {
+      const newCat = await api.createCategory(orgId, newCategoryName.trim());
+      setDbCategories(prev => [...prev, newCat]);
+      setForm(f => ({ ...f, category_id: newCat.id }));
+      setShowNewCategory(false);
+      setNewCategoryName('');
+    } catch (err) {
+      alert('Erro ao criar categoria.');
+    }
   };
 
   const handleSave = async () => {
@@ -134,6 +151,56 @@ export default function Catalog() {
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Descrição</label>
               <textarea value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} rows={2} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm resize-none" />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Categoria</label>
+              {!showNewCategory ? (
+                <div className="flex gap-2">
+                  <select 
+                    value={form.category_id || ''} 
+                    onChange={e => setForm(f => ({ ...f, category_id: e.target.value }))}
+                    className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white"
+                  >
+                    <option value="">Sem categoria...</option>
+                    {dbCategories.map(cat => (
+                      <option key={cat.id} value={cat.id}>{cat.name}</option>
+                    ))}
+                  </select>
+                  <button 
+                    type="button" 
+                    onClick={() => setShowNewCategory(true)}
+                    className="px-3 py-2 bg-gray-100 text-gray-700 hover:bg-gray-200 rounded-lg text-sm font-medium transition-colors border border-gray-200 whitespace-nowrap"
+                  >
+                    Nova
+                  </button>
+                </div>
+              ) : (
+                <div className="flex gap-2">
+                  <input 
+                    type="text" 
+                    value={newCategoryName}
+                    onChange={e => setNewCategoryName(e.target.value)}
+                    placeholder="Nome da categoria..."
+                    className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                    autoFocus
+                  />
+                  <button 
+                    type="button" 
+                    onClick={handleAddCategory}
+                    disabled={!newCategoryName.trim()}
+                    className="px-3 py-2 bg-blue-600 text-white hover:bg-blue-700 rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
+                  >
+                    Criar
+                  </button>
+                  <button 
+                    type="button" 
+                    onClick={() => { setShowNewCategory(false); setNewCategoryName(''); }}
+                    className="px-3 py-2 bg-gray-100 text-gray-700 hover:bg-gray-200 rounded-lg text-sm font-medium transition-colors border border-gray-200"
+                  >
+                    Cancelar
+                  </button>
+                </div>
+              )}
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>

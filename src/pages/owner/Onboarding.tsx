@@ -7,8 +7,14 @@ import type { Sector } from '../../types';
 
 const SECTORS: { value: Sector; label: string; icon: string }[] = [
   { value: 'restaurante', label: 'Restaurante', icon: '🍽️' },
-  { value: 'clinica', label: 'Clínica', icon: '🏥' },
-  { value: 'salao', label: 'Salão', icon: '💇' },
+  { value: 'clinica', label: 'Clínica / Saúde', icon: '🏥' },
+  { value: 'salao', label: 'Salão de Beleza', icon: '💇' },
+  { value: 'farmacia', label: 'Farmácia', icon: '💊' },
+  { value: 'hotel', label: 'Hotel / Alojamento', icon: '🏨' },
+  { value: 'academia', label: 'Academia / Ginásio', icon: '💪' },
+  { value: 'advogado', label: 'Advocacia / Jurídico', icon: '⚖️' },
+  { value: 'oficina', label: 'Oficina / Auto', icon: '🔧' },
+  { value: 'loja', label: 'Loja / Comércio', icon: '🛍️' },
   { value: 'generico', label: 'Outro', icon: '📦' },
 ];
 

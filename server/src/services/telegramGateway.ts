@@ -179,3 +179,53 @@ export async function answerCallbackQuery(
     console.error('answerCallbackQuery error:', error);
   }
 }
+
+// --- Download a file from Telegram and return as Buffer ---
+export async function downloadFile(
+  botToken: string,
+  fileId: string
+): Promise<{ buffer: Buffer; mimeType: string; fileName: string } | null> {
+  try {
+    // Step 1: get file path from Telegram
+    const infoUrl = `${TELEGRAM_API}${botToken}/getFile?file_id=${fileId}`;
+    const infoRes = await fetch(infoUrl);
+    const infoData = await infoRes.json();
+
+    if (!infoData.ok || !infoData.result?.file_path) {
+      console.error('downloadFile: getFile failed', infoData);
+      return null;
+    }
+
+    const filePath: string = infoData.result.file_path;
+    const fileName = filePath.split('/').pop() || 'file';
+
+    // Step 2: download the actual file
+    const fileUrl = `https://api.telegram.org/file/bot${botToken}/${filePath}`;
+    const fileRes = await fetch(fileUrl);
+    if (!fileRes.ok) return null;
+
+    const arrayBuffer = await fileRes.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
+
+    // Infer mime type from extension
+    const ext = fileName.split('.').pop()?.toLowerCase() || '';
+    const mimeMap: Record<string, string> = {
+      ogg: 'audio/ogg',
+      oga: 'audio/ogg',
+      mp3: 'audio/mpeg',
+      wav: 'audio/wav',
+      m4a: 'audio/mp4',
+      jpg: 'image/jpeg',
+      jpeg: 'image/jpeg',
+      png: 'image/png',
+      webp: 'image/webp',
+      pdf: 'application/pdf',
+    };
+    const mimeType = mimeMap[ext] || 'application/octet-stream';
+
+    return { buffer, mimeType, fileName };
+  } catch (error) {
+    console.error('downloadFile error:', error);
+    return null;
+  }
+}

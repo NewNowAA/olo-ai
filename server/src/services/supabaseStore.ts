@@ -1,11 +1,12 @@
 // =============================================
 // Olo.AI — Supabase Store (Persistence Layer)
 // =============================================
+// Schema-aligned with actual DB (2026-03-14)
+// =============================================
 
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { Organization, Customer, Conversation, Message, CatalogItem, Appointment } from '../types/index.js';
 
-// Server uses service_role key — bypasses RLS
 const supabaseUrl = process.env.SUPABASE_URL!;
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 
@@ -30,13 +31,12 @@ export async function getOrganization(orgId: string): Promise<Organization | nul
 }
 
 export async function getOrgByTelegramToken(botToken: string): Promise<Organization | null> {
-  const { data, error } = await getSupabase()
+  const { data } = await getSupabase()
     .from('organizations')
     .select('*')
     .eq('telegram_bot_token', botToken)
     .single();
-  if (error) return null;
-  return data;
+  return data || null;
 }
 
 export async function updateOrganization(orgId: string, updates: Partial<Organization>): Promise<void> {
@@ -48,6 +48,7 @@ export async function updateOrganization(orgId: string, updates: Partial<Organiz
 }
 
 // --- Customers ---
+// DB: customers has organization_id (NOT NULL) and org_id (nullable duplicate)
 export async function getOrCreateCustomer(
   orgId: string,
   channel: 'telegram' | 'whatsapp',
@@ -56,16 +57,15 @@ export async function getOrCreateCustomer(
 ): Promise<Customer | null> {
   const field = channel === 'telegram' ? 'telegram_id' : 'whatsapp_id';
 
-  // Try to find existing
+  // Try to find existing by org_id (used as primary lookup key)
   const { data: existing } = await getSupabase()
     .from('customers')
     .select('*')
     .eq('org_id', orgId)
     .eq(field, channelId)
-    .single();
+    .maybeSingle();
 
   if (existing) {
-    // Update last contact
     await getSupabase()
       .from('customers')
       .update({ last_contact_at: new Date().toISOString(), name: name || existing.name })
@@ -73,10 +73,11 @@ export async function getOrCreateCustomer(
     return existing;
   }
 
-  // Create new customer
+  // Create with BOTH organization_id (NOT NULL) and org_id
   const { data: newCustomer, error } = await getSupabase()
     .from('customers')
     .insert({
+      organization_id: orgId,
       org_id: orgId,
       [field]: channelId,
       name: name || undefined,
@@ -97,53 +98,52 @@ export async function updateCustomer(customerId: string, updates: Partial<Custom
 }
 
 // --- Conversations ---
+// DB: organization_id (NOT NULL), external_chat_id (NOT NULL), status default 'open'
 export async function getOrCreateConversation(
   orgId: string,
   customerId: string,
-  channel: 'telegram' | 'whatsapp'
+  channel: 'telegram' | 'whatsapp',
+  externalChatId: string = 'unknown'
 ): Promise<Conversation | null> {
-  // Find active conversation
+  // Find active/open conversation
   const { data: existing } = await getSupabase()
     .from('conversations')
     .select('*')
-    .eq('org_id', orgId)
+    .eq('organization_id', orgId)
     .eq('customer_id', customerId)
     .eq('channel', channel)
-    .eq('status', 'active')
+    .in('status', ['open', 'active'])
     .order('created_at', { ascending: false })
     .limit(1)
-    .single();
+    .maybeSingle();
 
   if (existing) return existing;
 
-  // Create new conversation
   const { data: newConv, error } = await getSupabase()
     .from('conversations')
     .insert({
-      org_id: orgId,
+      organization_id: orgId,
       customer_id: customerId,
       channel,
-      status: 'active',
+      external_chat_id: externalChatId,
+      status: 'open',
     })
     .select()
     .single();
 
   if (error) { console.error('getOrCreateConversation error:', error); return null; }
 
-  // Increment customer conversation count
-  try {
-    await getSupabase()
-      .from('customers')
-      .update({ total_conversations: 1 })
-      .eq('id', customerId);
-  } catch {
-    // Silent fallback
-  }
+  // Increment customer conversation count (best-effort)
+  await getSupabase()
+    .from('customers')
+    .update({ total_conversations: (await getSupabase().from('customers').select('total_conversations').eq('id', customerId).single()).data?.total_conversations + 1 || 1 })
+    .eq('id', customerId);
 
   return newConv;
 }
 
 // --- Messages ---
+// DB: organization_id (NOT NULL), sender_role, direction, message_type (all NOT NULL)
 export async function getConversationMessages(
   conversationId: string,
   limit: number = 20
@@ -156,28 +156,56 @@ export async function getConversationMessages(
     .limit(limit);
 
   if (error) { console.error('getConversationMessages error:', error); return []; }
-  return data || [];
+
+  // Map DB schema → internal Message type (sender_role → role)
+  return (data || []).map((m: any) => ({
+    ...m,
+    role: m.sender_role === 'client' ? 'user'
+        : m.sender_role === 'assistant' ? 'assistant'
+        : m.sender_role === 'owner' ? 'user'
+        : 'user',
+    content: m.content,
+  }));
 }
 
 export async function saveMessage(
   conversationId: string,
   role: 'user' | 'assistant' | 'system' | 'tool',
   content: string,
-  extra?: { tool_calls?: any; tool_results?: any; tokens_used?: number }
+  extra?: { tool_calls?: any; tool_results?: any; tokens_used?: number; org_id?: string }
 ): Promise<Message | null> {
+  // Map internal role → DB sender_role
+  const senderRole = role === 'user' ? 'client' : 'assistant';
+  const direction = role === 'user' ? 'inbound' : 'outbound';
+
+  // Get org_id from conversation if not provided
+  let orgId = extra?.org_id;
+  if (!orgId) {
+    const { data: conv } = await getSupabase()
+      .from('conversations')
+      .select('organization_id')
+      .eq('id', conversationId)
+      .single();
+    orgId = conv?.organization_id;
+  }
+
   const { data, error } = await getSupabase()
     .from('messages')
     .insert({
       conversation_id: conversationId,
-      role,
+      organization_id: orgId,
+      sender_role: senderRole,
+      direction,
+      message_type: 'text',
       content,
-      ...extra,
+      metadata: extra?.tool_calls ? { tool_calls: extra.tool_calls, tokens_used: extra.tokens_used } : undefined,
     })
     .select()
     .single();
 
   if (error) { console.error('saveMessage error:', error); return null; }
-  return data;
+  // Map back to internal type
+  return data ? { ...data, role } : null;
 }
 
 // --- Catalog ---
@@ -191,7 +219,7 @@ export async function searchCatalog(
     .from('catalog_items')
     .select('*, catalog_categories(name)')
     .eq('org_id', orgId)
-    .eq('is_available', true);
+    .eq('active', true);
 
   if (categoryId) q = q.eq('category_id', categoryId);
   if (query) q = q.ilike('name', `%${query}%`);
@@ -215,37 +243,97 @@ export async function getCategories(orgId: string): Promise<any[]> {
   const { data, error } = await getSupabase()
     .from('catalog_categories')
     .select('*')
-    .eq('org_id', orgId)
-    .order('sort_order', { ascending: true });
+    .eq('org_id', orgId);
   if (error) return [];
   return data || [];
 }
 
+export async function createCategory(orgId: string, name: string): Promise<any> {
+  const { data, error } = await getSupabase()
+    .from('catalog_categories')
+    .insert({ org_id: orgId, name })
+    .select()
+    .single();
+  if (error) throw error;
+  return data;
+}
+
 // --- Appointments ---
+// DB: datetime (timestamptz), end_time (timestamptz), service_name (text NOT NULL)
 export async function getAppointments(
   orgId: string,
   date?: string,
   status?: string
-): Promise<Appointment[]> {
+): Promise<any[]> {
   let q = getSupabase()
     .from('appointments')
     .select('*, customers(name, phone)')
     .eq('org_id', orgId);
 
-  if (date) q = q.eq('date', date);
+  // Filter by date using datetime range
+  if (date) {
+    q = q.gte('datetime', `${date}T00:00:00+00:00`).lt('datetime', `${date}T23:59:59+00:00`);
+  }
   if (status) q = q.eq('status', status);
 
-  const { data, error } = await q.order('date', { ascending: true }).order('time_start', { ascending: true });
-  if (error) return [];
-  return data || [];
+  const { data, error } = await q.order('datetime', { ascending: true });
+  if (error) { console.error('getAppointments error:', error); return []; }
+
+  // Map DB fields → code fields for backwards compatibility
+  return (data || []).map((a: any) => {
+    const dt = a.datetime ? new Date(a.datetime) : null;
+    return {
+      ...a,
+      date: dt ? dt.toISOString().split('T')[0] : null,
+      time_start: dt ? dt.toTimeString().substring(0, 5) : null,
+      time_end: a.end_time ? new Date(a.end_time).toTimeString().substring(0, 5) : null,
+    };
+  });
 }
 
-export async function createAppointment(appt: Partial<Appointment>): Promise<Appointment | null> {
+export async function createAppointment(appt: {
+  org_id: string;
+  customer_id?: string;
+  service_id?: string;
+  service_name?: string;
+  date?: string;
+  time_start?: string;
+  datetime?: string;
+  end_time?: string;
+  status?: string;
+  notes?: string;
+  source?: string;
+}): Promise<any | null> {
+  // Build datetime from date + time_start if not provided directly
+  let datetime = appt.datetime;
+  let end_time = appt.end_time;
+
+  if (!datetime && appt.date && appt.time_start) {
+    datetime = `${appt.date}T${appt.time_start}:00`;
+  }
+  if (!end_time && datetime) {
+    // Default 60 min duration
+    end_time = new Date(new Date(datetime).getTime() + 60 * 60 * 1000).toISOString();
+  }
+
+  // service_name is NOT NULL in DB — use provided or look up
+  const serviceName = appt.service_name || 'Geral';
+
   const { data, error } = await getSupabase()
     .from('appointments')
-    .insert(appt)
+    .insert({
+      org_id: appt.org_id,
+      customer_id: appt.customer_id || null,
+      datetime,
+      end_time,
+      service_name: serviceName,
+      service_duration: 60,
+      status: appt.status || 'pending',
+      notes: appt.notes || null,
+    })
     .select()
     .single();
+
   if (error) { console.error('createAppointment error:', error); return null; }
   return data;
 }
@@ -274,10 +362,13 @@ export async function getQuickReplies(orgId: string): Promise<any[]> {
     .from('quick_replies')
     .select('*')
     .eq('org_id', orgId)
-    .eq('active', true)
     .order('created_at', { ascending: false });
   if (error) return [];
-  return data || [];
+  // Normalize: keyword → trigger_words array for backwards compat
+  return (data || []).map((qr: any) => ({
+    ...qr,
+    trigger_words: qr.trigger_words || (qr.keyword ? [qr.keyword] : []),
+  }));
 }
 
 // --- Orders ---
@@ -291,10 +382,7 @@ export async function createOrder(orderData: any, items: any[]): Promise<any> {
   if (orderError) { console.error('createOrder error:', orderError); return null; }
 
   if (items.length > 0) {
-    const orderItems = items.map(item => ({
-      ...item,
-      order_id: order.id,
-    }));
+    const orderItems = items.map(item => ({ ...item, order_id: order.id }));
     await getSupabase().from('olo_order_items').insert(orderItems);
   }
 
@@ -305,7 +393,7 @@ export async function createOrder(orderData: any, items: any[]): Promise<any> {
 export async function updateStock(itemId: string, quantity: number): Promise<boolean> {
   const { error } = await getSupabase()
     .from('catalog_items')
-    .update({ stock_quantity: quantity, updated_at: new Date().toISOString() })
+    .update({ stock_quantity: quantity })
     .eq('id', itemId);
   return !error;
 }
@@ -315,12 +403,15 @@ export async function getStockAlerts(orgId: string): Promise<CatalogItem[]> {
     .from('catalog_items')
     .select('*')
     .eq('org_id', orgId)
-    .not('stock_quantity', 'is', null)
-    .filter('stock_quantity', 'lte', 'stock_min_alert');
+    .not('stock_quantity', 'is', null);
 
-  // Fallback: manually filter since Supabase column-to-column comparison via .filter is limited
   if (error || !data) return [];
-  return data.filter(item => item.stock_quantity !== null && item.stock_quantity <= item.stock_min_alert);
+  // stock_min is the actual column (not stock_min_alert)
+  return data.filter((item: any) =>
+    item.stock_quantity !== null &&
+    item.stock_min !== null &&
+    item.stock_quantity <= item.stock_min
+  );
 }
 
 // --- Handoff ---
@@ -332,18 +423,12 @@ export async function createHandoffRequest(
 ): Promise<any> {
   const { data, error } = await getSupabase()
     .from('handoff_requests')
-    .insert({
-      org_id: orgId,
-      conversation_id: conversationId,
-      customer_id: customerId,
-      reason,
-    })
+    .insert({ org_id: orgId, conversation_id: conversationId, reason })
     .select()
     .single();
 
   if (error) { console.error('createHandoffRequest error:', error); return null; }
 
-  // Update conversation status
   await getSupabase()
     .from('conversations')
     .update({ status: 'handoff' })
@@ -353,16 +438,6 @@ export async function createHandoffRequest(
 }
 
 // --- User Role Resolution ---
-export async function getUserRole(supabaseUserId: string): Promise<{ role: string; orgId: string } | null> {
-  const { data, error } = await getSupabase()
-    .from('users')
-    .select('role, org_id')
-    .eq('id', supabaseUserId)
-    .single();
-  if (error || !data) return null;
-  return { role: data.role, orgId: data.org_id };
-}
-
 export async function getDevTelegramIds(): Promise<string[]> {
   const devId = process.env.DEV_TELEGRAM_ID;
   return devId ? [devId] : [];
@@ -385,14 +460,12 @@ export async function logSetupNotification(orgId: string, message: string): Prom
       .select('id')
       .eq('org_id', orgId)
       .eq('message', message)
-      .eq('is_read', false)
       .maybeSingle();
 
     if (!existing) {
-      const { error } = await getSupabase()
+      await getSupabase()
         .from('setup_notifications')
         .insert({ org_id: orgId, message });
-      if (error) console.error('logSetupNotification error:', error);
     }
   } catch (err) {
     console.error('Failed to log setup notification:', err);

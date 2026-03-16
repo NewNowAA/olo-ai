@@ -31,6 +31,12 @@ export const updateOrg = (orgId: string, data: any) =>
 export const setupTelegram = (orgId: string, bot_token: string) =>
   request<any>(`/orgs/${orgId}/setup-telegram`, { method: 'POST', body: JSON.stringify({ bot_token }) });
 
+export const getPreviewMode = (orgId: string) =>
+  request<{ mode: 'owner' | 'client' }>(`/orgs/${orgId}/preview-mode`);
+
+export const setPreviewMode = (orgId: string, mode: 'owner' | 'client') =>
+  request<{ mode: 'owner' | 'client' }>(`/orgs/${orgId}/preview-mode`, { method: 'POST', body: JSON.stringify({ mode }) });
+
 export const getOrgSetupProgress = (orgId: string) =>
   request<any>(`/org/${orgId}/setup`);
 
@@ -44,6 +50,12 @@ export const getCatalog = (orgId: string) =>
 
 export const createCatalogItem = (orgId: string, data: any) =>
   request<any>(`/orgs/${orgId}/catalog`, { method: 'POST', body: JSON.stringify(data) });
+
+export const getCategories = (orgId: string) =>
+  request<any[]>(`/orgs/${orgId}/catalog/categories`);
+
+export const createCategory = (orgId: string, name: string) =>
+  request<any>(`/orgs/${orgId}/catalog/categories`, { method: 'POST', body: JSON.stringify({ name }) });
 
 export const updateCatalogItem = (orgId: string, itemId: string, data: any) =>
   request<any>(`/orgs/${orgId}/catalog/${itemId}`, { method: 'PUT', body: JSON.stringify(data) });
@@ -118,3 +130,7 @@ export const getQuickReplies = (orgId: string) =>
 
 export const createQuickReply = (orgId: string, data: any) =>
   request<any>(`/orgs/${orgId}/quick-replies`, { method: 'POST', body: JSON.stringify(data) });
+
+// --- Feedbacks ---
+export const sendFeedback = (data: { message: string, url?: string, org_id?: string | null }) =>
+  request<any>(`/feedbacks`, { method: 'POST', body: JSON.stringify(data) });

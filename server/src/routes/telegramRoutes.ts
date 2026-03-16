@@ -7,9 +7,13 @@ import { TelegramUpdate, TelegramCallbackQuery, UserContext, Role } from '../typ
 import * as store from '../services/supabaseStore.js';
 import * as telegram from '../services/telegramGateway.js';
 import * as assistantEngine from '../services/assistantEngine.js';
+import * as media from '../services/mediaProcessor.js';
 import { checkRateLimit } from '../services/rateLimiter.js';
 
 const router = Router();
+
+// Export processUpdate so the polling service can use the same handler
+export { processUpdate };
 
 // --- Webhook endpoint ---
 router.post('/webhook', async (req: Request, res: Response) => {
@@ -54,23 +58,81 @@ async function processUpdate(update: TelegramUpdate): Promise<void> {
   }
 
   const message = update.message;
-  if (!message || !message.text) return; // Only handle text for now
+  if (!message) return;
+
+  // Must have some content we can process
+  const hasContent = message.text || message.voice || message.photo || message.document;
+  if (!hasContent) return;
 
   const telegramChatId = String(message.chat.id);
   const telegramUserId = String(message.from.id);
-  const text = message.text;
   const senderName = [message.from.first_name, message.from.last_name].filter(Boolean).join(' ');
-
-  console.log(`[Telegram] Message from ${senderName} (${telegramUserId}): ${text.substring(0, 100)}`);
+  const botToken = process.env.TELEGRAM_BOT_TOKEN!;
 
   // --- Rate limit check ---
-  const botToken = process.env.TELEGRAM_BOT_TOKEN!;
   const rateCheck = checkRateLimit(telegramUserId);
   if (!rateCheck.allowed) {
     console.log(`[Telegram] Rate limited user ${telegramUserId}`);
     await telegram.sendMessage(botToken, telegramChatId, rateCheck.message!);
     return;
   }
+
+  // --- Resolve message text (with multi-modal processing) ---
+  let text: string = message.text || '';
+  let mediaProcessed = false;
+
+  // Voice message → transcribe
+  if (message.voice) {
+    await telegram.sendChatAction(botToken, telegramChatId);
+    const fileId = message.voice.file_id;
+    const file = await telegram.downloadFile(botToken, fileId);
+    if (file) {
+      text = await media.transcribeAudio(file.buffer, file.mimeType);
+      mediaProcessed = true;
+      console.log(`[Telegram] Voice transcribed (${telegramUserId}): ${text.substring(0, 80)}`);
+    } else {
+      await telegram.sendMessage(botToken, telegramChatId, '⚠️ Não consegui processar o áudio. Tenta enviar uma mensagem de texto.');
+      return;
+    }
+  }
+
+  // Photo → analyze
+  if (message.photo && message.photo.length > 0) {
+    await telegram.sendChatAction(botToken, telegramChatId);
+    // Telegram sends multiple sizes — pick the largest (last in array)
+    const photoInfo = message.photo[message.photo.length - 1];
+    const file = await telegram.downloadFile(botToken, photoInfo.file_id);
+    if (file) {
+      const caption = message.caption || undefined;
+      const description = await media.analyzeImage(file.buffer, file.mimeType, caption);
+      text = caption ? `${caption}\n\n[Imagem analisada]: ${description}` : `[Imagem analisada]: ${description}`;
+      mediaProcessed = true;
+      console.log(`[Telegram] Image analyzed (${telegramUserId})`);
+    } else {
+      await telegram.sendMessage(botToken, telegramChatId, '⚠️ Não consegui processar a imagem.');
+      return;
+    }
+  }
+
+  // Document (PDF or image file) → extract
+  if (message.document) {
+    await telegram.sendChatAction(botToken, telegramChatId);
+    const file = await telegram.downloadFile(botToken, message.document.file_id);
+    if (file) {
+      const caption = message.caption || undefined;
+      const extracted = await media.processDocument(file.buffer, file.mimeType, caption);
+      text = caption ? `${caption}\n\n[Documento processado]: ${extracted}` : `[Documento processado]: ${extracted}`;
+      mediaProcessed = true;
+      console.log(`[Telegram] Document processed (${telegramUserId}): ${file.mimeType}`);
+    } else {
+      await telegram.sendMessage(botToken, telegramChatId, '⚠️ Não consegui processar o documento.');
+      return;
+    }
+  }
+
+  if (!text) return;
+
+  console.log(`[Telegram] Message from ${senderName} (${telegramUserId})${mediaProcessed ? ' [media]' : ''}: ${text.substring(0, 100)}`);
 
   // --- Determine which org this bot belongs to ---
   let org = await store.getOrgByTelegramToken(botToken);
@@ -88,7 +150,7 @@ async function processUpdate(update: TelegramUpdate): Promise<void> {
   }
 
   // --- Determine user role ---
-  const role = await resolveRole(telegramUserId, org.id);
+  const role = await resolveRole(telegramUserId, org);
 
   // --- Get or create customer ---
   const customer = await store.getOrCreateCustomer(
@@ -144,7 +206,7 @@ async function processCallbackQuery(callbackQuery: TelegramCallbackQuery): Promi
   }
 
   // --- Determine user role ---
-  const role = await resolveRole(telegramUserId, org.id);
+  const role = await resolveRole(telegramUserId, org);
 
   // --- Get or create customer ---
   const customer = await store.getOrCreateCustomer(
@@ -206,16 +268,20 @@ async function processAIMessage(
 }
 
 // --- Resolve user role from Telegram ID ---
-async function resolveRole(telegramId: string, orgId: string): Promise<Role> {
-  // Check if dev
+async function resolveRole(telegramId: string, org: any): Promise<Role> {
+  const ownerTgId = await store.getOwnerTelegramId(org.id);
   const devIds = await store.getDevTelegramIds();
-  if (devIds.includes(telegramId)) return 'dev';
+  
+  const isOwner = ownerTgId === telegramId;
+  const isDev = devIds.includes(telegramId);
 
-  // Check if owner (by org's telegram_chat_id)
-  const ownerTgId = await store.getOwnerTelegramId(orgId);
-  if (ownerTgId === telegramId) return 'owner';
+  // If the user is an owner or a dev, allow the preview mode to override their role
+  if (isOwner || isDev) {
+    const preview = org.preview_mode || 'owner';
+    if (preview === 'client') return 'client';
+    return isOwner ? 'owner' : 'dev';
+  }
 
-  // Default: client
   return 'client';
 }
 
