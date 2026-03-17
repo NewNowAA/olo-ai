@@ -4,7 +4,7 @@ import useAuth from '../../hooks/useAuth';
 import * as api from '../../services/api';
 
 interface StockItem {
-  id: string; name: string; stock_quantity: number; stock_min_alert: number; is_available: boolean;
+  id: string; name: string; stock_quantity: number; stock_min: number; active: boolean;
 }
 
 export default function Stock() {
@@ -28,7 +28,7 @@ export default function Stock() {
     return { label: 'OK', color: 'bg-green-100 text-green-700', emoji: '🟢' };
   };
 
-  const alertCount = items.filter(i => i.stock_quantity <= i.stock_min_alert).length;
+  const alertCount = items.filter(i => i.stock_quantity <= i.stock_min).length;
 
   const handleMovement = async () => {
     if (!orgId) return;
@@ -72,12 +72,12 @@ export default function Stock() {
             </thead>
             <tbody className="divide-y divide-gray-100">
               {items.map(item => {
-                const status = getStatus(item.stock_quantity, item.stock_min_alert);
+                const status = getStatus(item.stock_quantity, item.stock_min);
                 return (
                   <tr key={item.id} className="hover:bg-gray-50">
                     <td className="px-4 py-3 font-medium text-gray-900">{item.name}</td>
                     <td className="px-4 py-3 text-right text-gray-900">{item.stock_quantity}</td>
-                    <td className="px-4 py-3 text-right text-gray-500">{item.stock_min_alert}</td>
+                    <td className="px-4 py-3 text-right text-gray-500">{item.stock_min}</td>
                     <td className="px-4 py-3 text-center">
                       <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${status.color}`}>{status.emoji} {status.label}</span>
                     </td>

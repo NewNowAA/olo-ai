@@ -175,6 +175,18 @@ export const TOOL_DECLARATIONS = [
       },
     },
   },
+  {
+    name: 'file_complaint',
+    description: 'Registar uma reclamação ou queixa do cliente. Usa quando o cliente expressa insatisfação, reporta um problema ou quer fazer uma reclamação formal.',
+    parameters: {
+      type: S.OBJECT,
+      properties: {
+        subject: { type: S.STRING, description: 'Assunto ou motivo da reclamação' },
+        details: { type: S.STRING, description: 'Detalhes adicionais sobre a reclamação (opcional)' },
+      },
+      required: ['subject'],
+    },
+  },
 ];
 
 // Get tool declarations filtered by allowed tool names

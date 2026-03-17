@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useParams } from 'react-router-dom';
-import { Send, Bot, User, Wrench, AlertTriangle } from 'lucide-react';
+import { useParams, useNavigate } from 'react-router-dom';
+import { Send, Bot, User, Wrench, X } from 'lucide-react';
 import useAuth from '../../hooks/useAuth';
 import * as api from '../../services/api';
 import type { Message } from '../../types';
@@ -8,23 +8,44 @@ import type { Message } from '../../types';
 export default function ConversationDetail() {
   const { id } = useParams<{ id: string }>();
   const { orgId } = useAuth();
+  const navigate = useNavigate();
   const [messages, setMessages] = useState<Message[]>([]);
+  const [conversation, setConversation] = useState<any>(null);
   const [newMsg, setNewMsg] = useState('');
   const [sending, setSending] = useState(false);
+  const [closing, setClosing] = useState(false);
   const [loading, setLoading] = useState(true);
   const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (!id) return;
-    api.getConversationMessages(id).then(data => {
-      setMessages(data);
+    if (!id || !orgId) return;
+    Promise.all([
+      api.getConversationMessages(id),
+      api.getConversations(orgId).then((convs: any[]) => convs.find(c => c.id === id)),
+    ]).then(([msgs, conv]) => {
+      setMessages(msgs);
+      setConversation(conv || null);
       setLoading(false);
     }).catch(() => setLoading(false));
-  }, [id]);
+  }, [id, orgId]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
+
+  const handleClose = async () => {
+    if (!orgId || !id) return;
+    setClosing(true);
+    try {
+      await api.closeConversation(orgId, id);
+      setConversation((prev: any) => prev ? { ...prev, status: 'closed' } : prev);
+      navigate('/app/conversations');
+    } catch (err) {
+      console.error('Close error:', err);
+    } finally {
+      setClosing(false);
+    }
+  };
 
   const handleSend = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -49,7 +70,29 @@ export default function ConversationDetail() {
 
   return (
     <div className="flex flex-col h-[calc(100vh-120px)]">
-      <h1 className="text-lg font-bold text-gray-900 mb-4">Conversa</h1>
+      <div className="flex items-center justify-between mb-4">
+        <h1 className="text-lg font-bold text-gray-900">Conversa</h1>
+        {conversation?.status !== 'closed' && (
+          <button
+            onClick={handleClose}
+            disabled={closing}
+            className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 transition-colors"
+          >
+            <X size={14} /> Fechar Conversa
+          </button>
+        )}
+      </div>
+
+      {/* Handoff Banner */}
+      {conversation?.status === 'handoff' && (
+        <div className="bg-yellow-50 border border-yellow-300 rounded-lg px-4 py-3 mb-4 flex items-center gap-2">
+          <span className="text-yellow-600 text-lg">🙋</span>
+          <div>
+            <p className="text-sm font-semibold text-yellow-800">Pedido de atendimento humano</p>
+            <p className="text-xs text-yellow-700">O cliente pediu para falar com um humano. Responde abaixo diretamente.</p>
+          </div>
+        </div>
+      )}
 
       {/* Messages */}
       <div className="flex-1 overflow-y-auto space-y-3 pb-4">

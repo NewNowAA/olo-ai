@@ -8,7 +8,7 @@ const ALL_TOOLS = [
   'search_catalog', 'get_product_details', 'list_categories',
   'check_stock', 'update_stock', 'stock_alerts',
   'check_availability', 'create_appointment', 'cancel_appointment', 'list_appointments',
-  'get_business_info', 'transfer_to_human', 'create_order', 'save_customer_info'
+  'get_business_info', 'transfer_to_human', 'create_order', 'save_customer_info', 'file_complaint'
 ];
 
 export const SECTOR_CONFIGS: Record<string, SectorConfig> = {
@@ -20,7 +20,7 @@ Tratas os clientes como se fossem amigos que visitam o teu restaurante favorito.
     activeTools: [
       'search_catalog', 'get_product_details', 'list_categories',
       'check_availability', 'create_appointment',
-      'get_business_info', 'transfer_to_human', 'create_order', 'save_customer_info'
+      'get_business_info', 'transfer_to_human', 'create_order', 'save_customer_info', 'file_complaint'
     ],
     guardrailsExtra: [],
     placeholders: [
@@ -44,7 +44,7 @@ Ajudas a marcar consultas e dar informações sobre serviços.`,
     activeTools: [
       'search_catalog', 'get_product_details', 'list_categories',
       'check_availability', 'create_appointment', 'cancel_appointment', 'list_appointments',
-      'get_business_info', 'transfer_to_human', 'save_customer_info'
+      'get_business_info', 'transfer_to_human', 'save_customer_info', 'file_complaint'
     ],
     guardrailsExtra: [
       'NUNCA dás diagnósticos médicos.',
@@ -74,7 +74,7 @@ Tens energia positiva e falas com entusiasmo.`,
     activeTools: [
       'search_catalog', 'get_product_details', 'list_categories',
       'check_availability', 'create_appointment', 'cancel_appointment', 'list_appointments',
-      'get_business_info', 'transfer_to_human', 'save_customer_info'
+      'get_business_info', 'transfer_to_human', 'save_customer_info', 'file_complaint'
     ],
     guardrailsExtra: [],
     placeholders: [
@@ -97,7 +97,7 @@ Ajudas com informações sobre produtos disponíveis, preços e encaminhamento p
 Nunca receitas ou aconselhas medicamentos sem receita médica.`,
     activeTools: [
       'search_catalog', 'get_product_details', 'list_categories', 'check_stock',
-      'get_business_info', 'transfer_to_human', 'save_customer_info'
+      'get_business_info', 'transfer_to_human', 'save_customer_info', 'file_complaint'
     ],
     guardrailsExtra: [
       'NUNCA aconselhas medicação sem receita médica.',
@@ -123,7 +123,7 @@ Tratas os hóspedes com respeito e cordialidade.`,
     activeTools: [
       'search_catalog', 'get_product_details', 'list_categories',
       'check_availability', 'create_appointment', 'cancel_appointment', 'list_appointments',
-      'get_business_info', 'transfer_to_human', 'save_customer_info'
+      'get_business_info', 'transfer_to_human', 'save_customer_info', 'file_complaint'
     ],
     guardrailsExtra: [],
     placeholders: [
@@ -145,7 +145,7 @@ Usas linguagem dinâmica e encorajadora.`,
     activeTools: [
       'search_catalog', 'get_product_details', 'list_categories',
       'check_availability', 'create_appointment', 'cancel_appointment', 'list_appointments',
-      'get_business_info', 'transfer_to_human', 'save_customer_info'
+      'get_business_info', 'transfer_to_human', 'save_customer_info', 'file_complaint'
     ],
     guardrailsExtra: [
       'Não dás conselhos médicos ou sobre suplementação específica.',
@@ -170,7 +170,7 @@ Mantens sempre um tom formal e confidencial.`,
     activeTools: [
       'search_catalog', 'get_product_details', 'list_categories',
       'check_availability', 'create_appointment', 'cancel_appointment', 'list_appointments',
-      'get_business_info', 'transfer_to_human', 'save_customer_info'
+      'get_business_info', 'transfer_to_human', 'save_customer_info', 'file_complaint'
     ],
     guardrailsExtra: [
       'NUNCA dás aconselhamento jurídico — apenas os advogados do escritório o podem fazer.',
@@ -196,7 +196,7 @@ Usas linguagem simples e clara, próxima do cliente.`,
     activeTools: [
       'search_catalog', 'get_product_details', 'list_categories', 'check_stock',
       'check_availability', 'create_appointment', 'cancel_appointment', 'list_appointments',
-      'get_business_info', 'transfer_to_human', 'save_customer_info'
+      'get_business_info', 'transfer_to_human', 'save_customer_info', 'file_complaint'
     ],
     guardrailsExtra: [],
     placeholders: [
@@ -217,7 +217,7 @@ Ajudas clientes a encontrar produtos, comprar e rastrear encomendas.
 Sugeres produtos relacionados para melhorar a experiência de compra.`,
     activeTools: [
       'search_catalog', 'get_product_details', 'list_categories', 'check_stock',
-      'get_business_info', 'transfer_to_human', 'create_order', 'save_customer_info'
+      'get_business_info', 'transfer_to_human', 'create_order', 'save_customer_info', 'file_complaint'
     ],
     guardrailsExtra: [],
     placeholders: [

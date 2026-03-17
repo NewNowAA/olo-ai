@@ -3,6 +3,7 @@
 // =============================================
 
 import * as store from '../services/supabaseStore.js';
+import * as notifier from '../services/ownerNotifier.js';
 
 // Check if a proposed time slot overlaps with existing appointments
 function hasOverlap(
@@ -131,6 +132,10 @@ export async function create_appointment(
       message: 'Não foi possível criar a marcação. Tenta novamente ou contacta o negócio diretamente.',
     };
   }
+
+  // Notify owner (fire-and-forget)
+  const customerName = args.customer_name || 'Cliente';
+  notifier.notifyNewAppointment(orgId, customerName, serviceName, args.date, args.time).catch(() => {});
 
   return {
     success: true,

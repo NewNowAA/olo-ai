@@ -29,10 +29,10 @@ export async function check_stock(orgId: string, args: { product_name: string })
     found: true,
     name: item.name,
     stock_quantity: item.stock_quantity,
-    stock_min_alert: item.stock_min_alert,
-    is_low: item.stock_quantity <= item.stock_min_alert,
-    available: item.is_available,
-    message: item.stock_quantity <= item.stock_min_alert
+    stock_min: item.stock_min,
+    is_low: item.stock_quantity <= (item.stock_min || 0),
+    available: item.active !== false,
+    message: item.stock_quantity <= (item.stock_min || 0)
       ? `⚠️ Stock baixo: "${item.name}" tem apenas ${item.stock_quantity} unidades.`
       : `"${item.name}" tem ${item.stock_quantity} unidades em stock.`,
   };
@@ -79,7 +79,7 @@ export async function stock_alerts(orgId: string) {
     items: lowStockItems.map(item => ({
       name: item.name,
       stock_quantity: item.stock_quantity,
-      min_alert: item.stock_min_alert,
+      stock_min: item.stock_min,
     })),
     message: `⚠️ ${lowStockItems.length} produto(s) com stock baixo.`,
   };

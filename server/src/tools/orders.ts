@@ -3,6 +3,7 @@
 // =============================================
 
 import * as store from '../services/supabaseStore.js';
+import * as notifier from '../services/ownerNotifier.js';
 
 export async function create_order(
   orgId: string,
@@ -80,6 +81,10 @@ export async function create_order(
       message: 'Erro ao criar o pedido. Tenta novamente.',
     };
   }
+
+  // Notify owner (fire-and-forget)
+  const itemsSummary = resolvedItems.map(i => `${i.quantity}x ${i.name}`).join(', ');
+  notifier.notifyNewOrder(orgId, 'Cliente', itemsSummary, totalAmount).catch(() => {});
 
   let message = `✅ Pedido criado com sucesso!\n\n`;
   message += resolvedItems.map(i => `• ${i.quantity}x ${i.name} — ${i.total_price.toLocaleString()} AOA`).join('\n');

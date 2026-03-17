@@ -3,6 +3,7 @@
 // =============================================
 
 import * as store from '../services/supabaseStore.js';
+import * as notifier from '../services/ownerNotifier.js';
 
 export async function transfer_to_human(
   orgId: string,
@@ -30,6 +31,9 @@ export async function transfer_to_human(
       message: 'Erro ao criar pedido de transferência.',
     };
   }
+
+  // Notify owner (fire-and-forget)
+  notifier.notifyHandoff(orgId, 'Cliente', args.reason).catch(() => {});
 
   return {
     success: true,

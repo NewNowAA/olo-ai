@@ -10,6 +10,7 @@ import * as appointmentTools from '../tools/appointments.js';
 import * as orderTools from '../tools/orders.js';
 import * as businessTools from '../tools/business.js';
 import * as handoffTools from '../tools/handoff.js';
+import * as complaintTools from '../tools/complaints.js';
 
 export interface ToolCallInput {
   name: string;
@@ -98,6 +99,11 @@ export async function executeTool(
         break;
       case 'save_customer_info':
         result = await handoffTools.save_customer_info(orgId, call.args as any, customerId);
+        break;
+
+      // --- Complaints ---
+      case 'file_complaint':
+        result = await complaintTools.file_complaint(orgId, call.args as any, customerId, conversationId);
         break;
 
       default:

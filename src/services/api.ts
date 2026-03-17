@@ -83,6 +83,12 @@ export const sendOwnerMessage = (orgId: string, convId: string, content: string)
     body: JSON.stringify({ content }),
   });
 
+export const closeConversation = (orgId: string, convId: string) =>
+  request<any>(`/orgs/${orgId}/conversations/${convId}/status`, {
+    method: 'PUT',
+    body: JSON.stringify({ status: 'closed' }),
+  });
+
 // --- Appointments ---
 export const getAppointments = (orgId: string, params?: { date?: string; status?: string }) => {
   const qs = new URLSearchParams(params as any).toString();

@@ -52,8 +52,8 @@ export interface CatalogItem {
   currency: string;
   unit: string;
   stock_quantity?: number;
-  stock_min_alert: number;
-  is_available: boolean;
+  stock_min?: number;
+  active?: boolean;
   image_url?: string;
   tags: string[];
   metadata: Record<string, any>;
