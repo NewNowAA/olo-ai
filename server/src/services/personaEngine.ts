@@ -73,6 +73,21 @@ export function buildPersona(
     customerContext += `\n- Total de conversas anteriores: ${customer.total_conversations}`;
   }
 
+  // --- Worker context ---
+  let workerContext = '';
+  if (userContext.role === 'worker') {
+    const perms = userContext.workerPermissions;
+    workerContext = `\nCONTEXTO DO COLABORADOR:`;
+    workerContext += `\n- ID: ${userContext.workerId}`;
+    const permList = [];
+    if (perms?.see_catalog) permList.push('catálogo');
+    if (perms?.see_stock) permList.push('stock');
+    if (perms?.see_appointments) permList.push('marcações');
+    if (perms?.see_customers) permList.push('clientes');
+    workerContext += `\n- Permissões: ${permList.length > 0 ? permList.join(', ') : 'apenas ponto eletrónico'}`;
+    workerContext += `\n- Para registar entrada, usa worker_checkin. Para saída, usa worker_checkout.`;
+  }
+
   // --- Business context ---
   let businessContext = `\nINFO DO NEGÓCIO:
 - Nome: ${businessName}
@@ -106,6 +121,7 @@ export function buildPersona(
     customPrompt,
     businessContext,
     customerContext,
+    workerContext,
     guardrailsText,
   ].filter(Boolean).join('\n');
 
@@ -118,13 +134,23 @@ export function buildPersona(
       'search_catalog', 'get_product_details', 'list_categories',
       'check_stock', 'update_stock', 'stock_alerts',
       'check_availability', 'create_appointment', 'cancel_appointment', 'list_appointments',
-      'get_business_info', 'transfer_to_human', 'create_order', 'save_customer_info'
+      'get_business_info', 'transfer_to_human', 'create_order', 'save_customer_info',
+      'worker_checkin', 'worker_checkout', 'get_my_schedule', 'file_complaint',
     ];
   } else if (userContext.role === 'owner') {
     // Owner also gets management tools
     if (!activeTools.includes('update_stock')) activeTools.push('update_stock');
     if (!activeTools.includes('stock_alerts')) activeTools.push('stock_alerts');
     if (!activeTools.includes('list_appointments')) activeTools.push('list_appointments');
+  } else if (userContext.role === 'worker') {
+    // Worker gets time-clock tools always + conditional tools based on permissions
+    const workerTools = ['worker_checkin', 'worker_checkout', 'get_my_schedule', 'get_business_info'];
+    const perms = userContext.workerPermissions;
+    if (perms?.see_catalog) workerTools.push('search_catalog', 'get_product_details', 'list_categories');
+    if (perms?.see_stock) workerTools.push('check_stock');
+    if (perms?.see_appointments) workerTools.push('check_availability', 'list_appointments');
+    if (perms?.see_customers) workerTools.push('save_customer_info');
+    activeTools = workerTools;
   }
 
   return {

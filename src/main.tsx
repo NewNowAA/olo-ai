@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
 import './index.css';
 import App from './App';
+import { ToastProvider } from './contexts/ToastContext';
 
 // Prevent AbortError from Supabase WebSocket disconnects from crashing the app
 window.addEventListener('unhandledrejection', (event) => {
@@ -17,6 +18,8 @@ window.addEventListener('unhandledrejection', (event) => {
 const root = createRoot(document.getElementById('root')!);
 root.render(
   <BrowserRouter>
-    <App />
+    <ToastProvider>
+      <App />
+    </ToastProvider>
   </BrowserRouter>
 );

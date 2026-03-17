@@ -20,6 +20,8 @@ const NAV_ITEMS = [
   { to: '/app/appointments', label: 'Agenda', icon: CalendarDays },
   { to: '/app/customers', label: 'Clientes', icon: Users },
   { to: '/app/hours', label: 'Horário', icon: Clock },
+  { to: '/app/workers', label: 'Colaboradores', icon: Users },
+  { to: '/app/attendance', label: 'Ponto', icon: Clock },
   { to: '/app/settings', label: 'Definições', icon: Settings },
 ];
 

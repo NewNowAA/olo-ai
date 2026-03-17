@@ -84,10 +84,16 @@ export function checkToolPolicy(
     return { allowed: false, reason: `Tool "${toolName}" não está disponível para este tipo de negócio.` };
   }
 
-  // Owner-only tools
+  // Owner/dev-only tools (workers and clients cannot use)
   const ownerOnlyTools = ['update_stock', 'stock_alerts'];
-  if (ownerOnlyTools.includes(toolName) && role === 'client') {
+  if (ownerOnlyTools.includes(toolName) && role !== 'owner' && role !== 'dev') {
     return { allowed: false, reason: `Esta função está disponível apenas para o gestor do negócio.` };
+  }
+
+  // Worker-only tools (clients and owners don't need these)
+  const workerOnlyTools = ['worker_checkin', 'worker_checkout', 'get_my_schedule'];
+  if (workerOnlyTools.includes(toolName) && role !== 'worker' && role !== 'dev') {
+    return { allowed: false, reason: `Esta função está disponível apenas para colaboradores.` };
   }
 
   return { allowed: true };

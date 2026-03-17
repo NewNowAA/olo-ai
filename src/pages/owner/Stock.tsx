@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Package, AlertTriangle, ArrowUpDown } from 'lucide-react';
 import useAuth from '../../hooks/useAuth';
 import * as api from '../../services/api';
+import { useToast } from '../../contexts/ToastContext';
 
 interface StockItem {
   id: string; name: string; stock_quantity: number; stock_min: number; active: boolean;
@@ -9,6 +10,7 @@ interface StockItem {
 
 export default function Stock() {
   const { orgId } = useAuth();
+  const toast = useToast();
   const [items, setItems] = useState<StockItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
@@ -37,8 +39,10 @@ export default function Stock() {
       const data = await api.getCatalog(orgId);
       setItems(data.filter((i: any) => i.stock_quantity !== null));
       setShowModal(false);
+      toast.success('Movimento registado com sucesso');
     } catch (err) {
       console.error('Movement error:', err);
+      toast.error('Erro ao registar movimento');
     }
   };
 

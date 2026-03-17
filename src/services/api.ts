@@ -140,3 +140,22 @@ export const createQuickReply = (orgId: string, data: any) =>
 // --- Feedbacks ---
 export const sendFeedback = (data: { message: string, url?: string, org_id?: string | null }) =>
   request<any>(`/feedbacks`, { method: 'POST', body: JSON.stringify(data) });
+
+// --- Workers ---
+export const getWorkers = (orgId: string) =>
+  request<any[]>(`/orgs/${orgId}/workers`);
+
+export const createWorker = (orgId: string, data: any) =>
+  request<any>(`/orgs/${orgId}/workers`, { method: 'POST', body: JSON.stringify(data) });
+
+export const updateWorker = (orgId: string, workerId: string, data: any) =>
+  request<any>(`/orgs/${orgId}/workers/${workerId}`, { method: 'PUT', body: JSON.stringify(data) });
+
+export const deleteWorker = (orgId: string, workerId: string) =>
+  request<void>(`/orgs/${orgId}/workers/${workerId}`, { method: 'DELETE' });
+
+// --- Work Sessions ---
+export const getWorkSessions = (orgId: string, params?: { worker_id?: string; date_from?: string }) => {
+  const qs = params ? new URLSearchParams(params as any).toString() : '';
+  return request<any[]>(`/orgs/${orgId}/work-sessions${qs ? '?' + qs : ''}`);
+};

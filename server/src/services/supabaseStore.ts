@@ -471,3 +471,149 @@ export async function logSetupNotification(orgId: string, message: string): Prom
     console.error('Failed to log setup notification:', err);
   }
 }
+
+// --- Workers ---
+export async function getWorkerByTelegramId(orgId: string, telegramId: string): Promise<any | null> {
+  const { data } = await getSupabase()
+    .from('workers')
+    .select('*')
+    .eq('org_id', orgId)
+    .eq('telegram_id', telegramId)
+    .eq('is_active', true)
+    .single();
+  return data || null;
+}
+
+export async function getWorkers(orgId: string): Promise<any[]> {
+  const { data } = await getSupabase()
+    .from('workers')
+    .select('*')
+    .eq('org_id', orgId)
+    .order('name');
+  return data || [];
+}
+
+export async function createWorker(data: { org_id: string; name: string; telegram_id?: string; permissions?: any }): Promise<any | null> {
+  const { data: row, error } = await getSupabase()
+    .from('workers')
+    .insert(data)
+    .select()
+    .single();
+  if (error) { console.error('createWorker error:', error); return null; }
+  return row;
+}
+
+export async function updateWorker(workerId: string, updates: any): Promise<boolean> {
+  const { error } = await getSupabase()
+    .from('workers')
+    .update({ ...updates, updated_at: new Date().toISOString() })
+    .eq('id', workerId);
+  return !error;
+}
+
+export async function deleteWorker(workerId: string): Promise<boolean> {
+  const { error } = await getSupabase()
+    .from('workers')
+    .update({ is_active: false })
+    .eq('id', workerId);
+  return !error;
+}
+
+// --- Work Sessions ---
+export async function getOpenWorkSession(workerId: string): Promise<any | null> {
+  const { data } = await getSupabase()
+    .from('work_sessions')
+    .select('*')
+    .eq('worker_id', workerId)
+    .is('check_out', null)
+    .order('check_in', { ascending: false })
+    .limit(1)
+    .single();
+  return data || null;
+}
+
+export async function createWorkSession(orgId: string, workerId: string): Promise<any | null> {
+  const { data, error } = await getSupabase()
+    .from('work_sessions')
+    .insert({ org_id: orgId, worker_id: workerId, check_in: new Date().toISOString() })
+    .select()
+    .single();
+  if (error) { console.error('createWorkSession error:', error); return null; }
+  return data;
+}
+
+export async function closeWorkSession(sessionId: string, notes?: string): Promise<boolean> {
+  const { error } = await getSupabase()
+    .from('work_sessions')
+    .update({ check_out: new Date().toISOString(), notes: notes || null })
+    .eq('id', sessionId);
+  return !error;
+}
+
+export async function getWorkSessions(orgId: string, workerId?: string, dateFrom?: string): Promise<any[]> {
+  let query = getSupabase()
+    .from('work_sessions')
+    .select('*, workers(name)')
+    .eq('org_id', orgId)
+    .order('check_in', { ascending: false })
+    .limit(100);
+  if (workerId) query = query.eq('worker_id', workerId);
+  if (dateFrom) query = query.gte('check_in', dateFrom);
+  const { data } = await query;
+  return data || [];
+}
+
+// --- Stock Reservations ---
+export async function createStockReservation(data: {
+  org_id: string;
+  catalog_item_id: string;
+  order_id?: string;
+  quantity: number;
+  expires_at: string;
+}): Promise<any | null> {
+  const { data: row, error } = await getSupabase()
+    .from('stock_reservations')
+    .insert(data)
+    .select()
+    .single();
+  if (error) { console.error('createStockReservation error:', error); return null; }
+  // Increment reserved_quantity (fallback: manual increment if RPC not available)
+  const { error: rpcError } = await getSupabase().rpc('increment_reserved', { item_id: data.catalog_item_id, qty: data.quantity });
+  if (rpcError) {
+    const { data: catalogItem } = await getSupabase()
+      .from('catalog_items')
+      .select('reserved_quantity')
+      .eq('id', data.catalog_item_id)
+      .single();
+    const current = catalogItem?.reserved_quantity || 0;
+    await getSupabase().from('catalog_items').update({ reserved_quantity: current + data.quantity }).eq('id', data.catalog_item_id);
+  }
+  return row;
+}
+
+export async function releaseStockReservation(reservationId: string): Promise<void> {
+  const { data: res } = await getSupabase()
+    .from('stock_reservations')
+    .select('catalog_item_id, quantity')
+    .eq('id', reservationId)
+    .single();
+  if (!res) return;
+  await getSupabase().from('stock_reservations').update({ released: true }).eq('id', reservationId);
+  // Decrement reserved_quantity
+  const { data: item } = await getSupabase().from('catalog_items').select('reserved_quantity').eq('id', res.catalog_item_id).single();
+  const current = item?.reserved_quantity || 0;
+  const newQty = Math.max(0, current - res.quantity);
+  await getSupabase().from('catalog_items').update({ reserved_quantity: newQty }).eq('id', res.catalog_item_id);
+}
+
+export async function releaseExpiredReservations(): Promise<void> {
+  const { data: expired } = await getSupabase()
+    .from('stock_reservations')
+    .select('id, catalog_item_id, quantity')
+    .eq('released', false)
+    .lt('expires_at', new Date().toISOString());
+  if (!expired || expired.length === 0) return;
+  for (const res of expired) {
+    await releaseStockReservation(res.id);
+  }
+}

@@ -3,7 +3,7 @@
 // =============================================
 
 import { Router, Request, Response } from 'express';
-import { TelegramUpdate, TelegramCallbackQuery, UserContext, Role } from '../types/index.js';
+import { TelegramUpdate, TelegramCallbackQuery, UserContext, Role, WorkerPermissions } from '../types/index.js';
 import * as store from '../services/supabaseStore.js';
 import * as telegram from '../services/telegramGateway.js';
 import * as assistantEngine from '../services/assistantEngine.js';
@@ -16,21 +16,17 @@ const router = Router();
 export { processUpdate };
 
 // --- Webhook endpoint ---
-router.post('/webhook', async (req: Request, res: Response) => {
+router.post('/webhook/:orgId?', async (req: Request, res: Response) => {
   try {
     const update: TelegramUpdate = req.body;
-
-    // Respond immediately to Telegram (they timeout at 60s)
     res.status(200).json({ ok: true });
-
-    // Process in background
-    await processUpdate(update).catch(err => {
+    const urlOrgId = (req.params as any).orgId;
+    await processUpdate(update, urlOrgId).catch(err => {
       console.error('[Telegram] Error processing update:', err);
     });
-
   } catch (error) {
     console.error('[Telegram] Webhook error:', error);
-    res.status(200).json({ ok: true }); // Always return 200 to Telegram
+    res.status(200).json({ ok: true });
   }
 });
 
@@ -50,7 +46,7 @@ router.post('/set-webhook', async (req: Request, res: Response) => {
 });
 
 // --- Process a Telegram Update ---
-async function processUpdate(update: TelegramUpdate): Promise<void> {
+async function processUpdate(update: TelegramUpdate, urlOrgId?: string): Promise<void> {
   // Handle callback queries (inline button presses)
   if (update.callback_query) {
     await processCallbackQuery(update.callback_query);
@@ -67,7 +63,30 @@ async function processUpdate(update: TelegramUpdate): Promise<void> {
   const telegramChatId = String(message.chat.id);
   const telegramUserId = String(message.from.id);
   const senderName = [message.from.first_name, message.from.last_name].filter(Boolean).join(' ');
-  const botToken = process.env.TELEGRAM_BOT_TOKEN!;
+
+  // --- Determine which org and bot token ---
+  let org: any = null;
+  let botToken: string;
+
+  if (urlOrgId) {
+    // Multi-bot mode: load org by ID from URL
+    org = await store.getOrganization(urlOrgId);
+    botToken = org?.telegram_bot_token || process.env.TELEGRAM_BOT_TOKEN!;
+  } else {
+    // Legacy / polling mode: use env token
+    botToken = process.env.TELEGRAM_BOT_TOKEN!;
+    org = await store.getOrgByTelegramToken(botToken);
+    if (!org) {
+      const { data } = await store.getSupabase().from('organizations').select('*').limit(1).single();
+      org = data;
+    }
+  }
+
+  if (!org) {
+    await telegram.sendMessage(process.env.TELEGRAM_BOT_TOKEN!, telegramChatId,
+      '⚠️ Nenhuma organização configurada. Contacte o administrador.');
+    return;
+  }
 
   // --- Rate limit check ---
   const rateCheck = checkRateLimit(telegramUserId);
@@ -134,23 +153,9 @@ async function processUpdate(update: TelegramUpdate): Promise<void> {
 
   console.log(`[Telegram] Message from ${senderName} (${telegramUserId})${mediaProcessed ? ' [media]' : ''}: ${text.substring(0, 100)}`);
 
-  // --- Determine which org this bot belongs to ---
-  let org = await store.getOrgByTelegramToken(botToken);
-
-  // Fallback: use the first org (single-tenant mode for MVP)
-  if (!org) {
-    const { data } = await store.getSupabase().from('organizations').select('*').limit(1).single();
-    org = data;
-  }
-
-  if (!org) {
-    await telegram.sendMessage(botToken, telegramChatId,
-      '⚠️ Nenhuma organização configurada. Contacte o administrador.');
-    return;
-  }
-
   // --- Determine user role ---
-  const role = await resolveRole(telegramUserId, org);
+  const roleResult = await resolveRole(telegramUserId, org);
+  const role = roleResult.role;
 
   // --- Get or create customer ---
   const customer = await store.getOrCreateCustomer(
@@ -161,6 +166,8 @@ async function processUpdate(update: TelegramUpdate): Promise<void> {
     role,
     orgId: org.id,
     customerId: customer?.id,
+    workerId: roleResult.workerId,
+    workerPermissions: roleResult.workerPermissions,
     telegramId: telegramUserId,
     channel: 'telegram',
   };
@@ -206,7 +213,8 @@ async function processCallbackQuery(callbackQuery: TelegramCallbackQuery): Promi
   }
 
   // --- Determine user role ---
-  const role = await resolveRole(telegramUserId, org);
+  const roleResult = await resolveRole(telegramUserId, org);
+  const role = roleResult.role;
 
   // --- Get or create customer ---
   const customer = await store.getOrCreateCustomer(
@@ -217,6 +225,8 @@ async function processCallbackQuery(callbackQuery: TelegramCallbackQuery): Promi
     role,
     orgId: org.id,
     customerId: customer?.id,
+    workerId: roleResult.workerId,
+    workerPermissions: roleResult.workerPermissions,
     telegramId: telegramUserId,
     channel: 'telegram',
   };
@@ -268,21 +278,24 @@ async function processAIMessage(
 }
 
 // --- Resolve user role from Telegram ID ---
-async function resolveRole(telegramId: string, org: any): Promise<Role> {
-  const ownerTgId = await store.getOwnerTelegramId(org.id);
+async function resolveRole(telegramId: string, org: any): Promise<{ role: Role; workerId?: string; workerPermissions?: WorkerPermissions }> {
   const devIds = await store.getDevTelegramIds();
-  
-  const isOwner = ownerTgId === telegramId;
-  const isDev = devIds.includes(telegramId);
+  if (devIds.includes(telegramId)) return { role: 'dev' };
 
-  // If the user is an owner or a dev, allow the preview mode to override their role
-  if (isOwner || isDev) {
+  const ownerTgId = await store.getOwnerTelegramId(org.id);
+  if (ownerTgId === telegramId) {
     const preview = org.preview_mode || 'owner';
-    if (preview === 'client') return 'client';
-    return isOwner ? 'owner' : 'dev';
+    if (preview === 'client') return { role: 'client' };
+    return { role: 'owner' };
   }
 
-  return 'client';
+  // Check if this is a registered worker
+  const worker = await store.getWorkerByTelegramId(org.id, telegramId);
+  if (worker) {
+    return { role: 'worker', workerId: worker.id, workerPermissions: worker.permissions };
+  }
+
+  return { role: 'client' };
 }
 
 // --- Split long messages ---

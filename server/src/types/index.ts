@@ -4,7 +4,7 @@
 
 // --- Enums ---
 
-export type Role = 'dev' | 'owner' | 'client';
+export type Role = 'dev' | 'owner' | 'worker' | 'client';
 export type Sector = 'restaurante' | 'clinica' | 'salao' | 'farmacia' | 'hotel' | 'academia' | 'advogado' | 'oficina' | 'loja' | 'generico';
 export type Channel = 'telegram' | 'whatsapp';
 export type ConversationStatus = 'active' | 'closed' | 'handoff';
@@ -156,6 +156,34 @@ export interface HandoffRequest {
   resolved_at?: string;
 }
 
+export interface WorkerPermissions {
+  see_catalog: boolean;
+  see_stock: boolean;
+  see_appointments: boolean;
+  see_customers: boolean;
+}
+
+export interface Worker {
+  id: string;
+  org_id: string;
+  name: string;
+  telegram_id?: string;
+  permissions: WorkerPermissions;
+  is_active: boolean;
+  created_at: string;
+}
+
+export interface WorkSession {
+  id: string;
+  org_id: string;
+  worker_id: string;
+  check_in: string;
+  check_out?: string;
+  notes?: string;
+  created_at: string;
+  workers?: { name: string };
+}
+
 // --- Engine Context Types ---
 
 export interface UserContext {
@@ -163,6 +191,8 @@ export interface UserContext {
   orgId: string;
   userId?: string; // Supabase auth user id (for owners/devs)
   customerId?: string; // customers id (for clients)
+  workerId?: string;
+  workerPermissions?: WorkerPermissions;
   telegramId?: string;
   whatsappId?: string;
   channel: Channel;
