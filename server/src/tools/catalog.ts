@@ -26,7 +26,7 @@ export async function search_catalog(orgId: string, args: { query?: string; cate
       price: item.price,
       currency: item.currency,
       category: (item as any).catalog_categories?.name || 'Sem categoria',
-      available: item.is_available,
+      available: item.active,
       stock: item.stock_quantity,
     })),
   };
@@ -51,7 +51,7 @@ export async function get_product_details(orgId: string, args: { product_name: s
     currency: item.currency,
     unit: item.unit,
     category: (item as any).catalog_categories?.name || 'Sem categoria',
-    available: item.is_available,
+    available: item.active,
     stock: item.stock_quantity !== null ? item.stock_quantity : 'Não controlado',
     tags: item.tags,
   };

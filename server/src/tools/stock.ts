@@ -4,7 +4,7 @@
 
 import * as store from '../services/supabaseStore.js';
 
-export async function check_stock(orgId: string, args: { product_name: string }) {
+export async function check_stock(orgId: string, args: { product_name: string }, role: string = 'client') {
   const items = await store.searchCatalog(orgId, args.product_name, undefined, 5);
 
   if (items.length === 0) {
@@ -25,16 +25,46 @@ export async function check_stock(orgId: string, args: { product_name: string })
     };
   }
 
+  // Owners, devs, and workers see exact numbers
+  if (role === 'owner' || role === 'dev' || role === 'worker') {
+    return {
+      found: true,
+      name: item.name,
+      stock_quantity: item.stock_quantity,
+      stock_min: item.stock_min,
+      is_low: item.stock_quantity <= (item.stock_min || 0),
+      available: item.active !== false,
+      message: item.stock_quantity <= (item.stock_min || 0)
+        ? `⚠️ Stock baixo: "${item.name}" tem apenas ${item.stock_quantity} unidades.`
+        : `"${item.name}" tem ${item.stock_quantity} unidades em stock.`,
+    };
+  }
+
+  // Clients get qualitative availability only
+  const qty = item.stock_quantity;
+  const min = item.stock_min || 0;
+  let label: string;
+  let available: boolean;
+
+  if (qty <= 0) {
+    label = 'Esgotado';
+    available = false;
+  } else if (qty <= min || qty <= 3) {
+    label = 'Últimas unidades';
+    available = true;
+  } else {
+    label = 'Disponível';
+    available = true;
+  }
+
   return {
     found: true,
     name: item.name,
-    stock_quantity: item.stock_quantity,
-    stock_min: item.stock_min,
-    is_low: item.stock_quantity <= (item.stock_min || 0),
-    available: item.active !== false,
-    message: item.stock_quantity <= (item.stock_min || 0)
-      ? `⚠️ Stock baixo: "${item.name}" tem apenas ${item.stock_quantity} unidades.`
-      : `"${item.name}" tem ${item.stock_quantity} unidades em stock.`,
+    availability_label: label,
+    available,
+    message: available
+      ? `"${item.name}" está ${label.toLowerCase()}.`
+      : `"${item.name}" está esgotado de momento.`,
   };
 }
 

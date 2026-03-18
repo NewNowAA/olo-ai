@@ -365,11 +365,13 @@ router.put('/orgs/:orgId/conversations/:convId/status', async (req: Request<{ or
 
     if (error) { res.status(500).json({ error: error.message }); return; }
 
-    // Logic for post-service feedback: if closed and on telegram, ask for rating
+    // Post-service feedback: if closed and on telegram, ask for rating
     if (status === 'closed' && conv.channel === 'telegram' && conv.organizations?.telegram_bot_token && conv.customers?.telegram_id) {
-       import('../services/telegramGateway.js').then(tg => {
-         tg.sendMessage(conv.organizations.telegram_bot_token, conv.customers.telegram_id, 'Como foi o teu atendimento? Responde com 1 a 5 ⭐');
-       });
+      telegramGateway.sendMessage(
+        conv.organizations.telegram_bot_token,
+        conv.customers.telegram_id,
+        'Como foi o teu atendimento? 😊\n\nResponde com um número de 1 a 5 ⭐'
+      ).catch(err => console.error('[Feedback] Failed to send feedback request:', err));
     }
 
     res.json(conv);

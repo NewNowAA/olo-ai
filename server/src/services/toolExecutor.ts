@@ -11,6 +11,7 @@ import * as orderTools from '../tools/orders.js';
 import * as businessTools from '../tools/business.js';
 import * as handoffTools from '../tools/handoff.js';
 import * as complaintTools from '../tools/complaints.js';
+import * as workerTools from '../tools/worker.js';
 
 export interface ToolCallInput {
   name: string;
@@ -60,7 +61,7 @@ export async function executeTool(
 
       // --- Stock ---
       case 'check_stock':
-        result = await stockTools.check_stock(orgId, call.args as any);
+        result = await stockTools.check_stock(orgId, call.args as any, userContext.role);
         break;
       case 'update_stock':
         result = await stockTools.update_stock(orgId, call.args as any);
@@ -104,6 +105,17 @@ export async function executeTool(
       // --- Complaints ---
       case 'file_complaint':
         result = await complaintTools.file_complaint(orgId, call.args as any, customerId, conversationId);
+        break;
+
+      // --- Worker Time Clock ---
+      case 'worker_checkin':
+        result = await workerTools.worker_checkin(orgId, userContext.workerId!);
+        break;
+      case 'worker_checkout':
+        result = await workerTools.worker_checkout(orgId, userContext.workerId!, call.args as any);
+        break;
+      case 'get_my_schedule':
+        result = await workerTools.get_my_schedule(orgId, userContext.workerId!, call.args as any);
         break;
 
       default:

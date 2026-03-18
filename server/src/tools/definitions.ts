@@ -187,6 +187,36 @@ export const TOOL_DECLARATIONS = [
       required: ['subject'],
     },
   },
+
+  // --- Worker Time Clock ---
+  {
+    name: 'worker_checkin',
+    description: 'Registar entrada (início de turno) do colaborador. Usa quando o colaborador diz "cheguei", "entrada", "iniciar turno", "bom dia a trabalhar", ou similar.',
+    parameters: {
+      type: S.OBJECT,
+      properties: {},
+    },
+  },
+  {
+    name: 'worker_checkout',
+    description: 'Registar saída (fim de turno) do colaborador. Usa quando o colaborador diz "saí", "saída", "fim de turno", "vou embora", ou similar.',
+    parameters: {
+      type: S.OBJECT,
+      properties: {
+        notes: { type: S.STRING, description: 'Notas ou observações sobre o turno (opcional)' },
+      },
+    },
+  },
+  {
+    name: 'get_my_schedule',
+    description: 'Ver o histórico de entradas e saídas do colaborador. Usa quando o colaborador pergunta "quantas horas trabalhei?", "ver meu ponto", "histórico de turnos".',
+    parameters: {
+      type: S.OBJECT,
+      properties: {
+        days: { type: S.NUMBER, description: 'Número de dias para trás (padrão: 7, máximo: 30)' },
+      },
+    },
+  },
 ];
 
 // Get tool declarations filtered by allowed tool names

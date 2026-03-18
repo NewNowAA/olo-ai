@@ -153,6 +153,35 @@ async function processUpdate(update: TelegramUpdate, urlOrgId?: string): Promise
 
   console.log(`[Telegram] Message from ${senderName} (${telegramUserId})${mediaProcessed ? ' [media]' : ''}: ${text.substring(0, 100)}`);
 
+  // --- Feedback rating detection (1-5 reply to post-service request) ---
+  if (/^[1-5]$/.test(text.trim())) {
+    const customer = await store.getOrCreateCustomer(org.id, 'telegram', telegramUserId, senderName);
+    if (customer) {
+      const { data: closedConv } = await store.getSupabase()
+        .from('conversations')
+        .select('id, satisfaction_rating')
+        .eq('organization_id', org.id)
+        .eq('customer_id', customer.id)
+        .eq('status', 'closed')
+        .is('satisfaction_rating', null)
+        .gte('updated_at', new Date(Date.now() - 86400000).toISOString())
+        .order('updated_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (closedConv) {
+        const rating = parseInt(text.trim(), 10);
+        await store.getSupabase()
+          .from('conversations')
+          .update({ satisfaction_rating: rating })
+          .eq('id', closedConv.id);
+        const stars = '⭐'.repeat(rating);
+        await telegram.sendMessage(botToken, telegramChatId, `Obrigado pelo teu feedback! ${stars}`);
+        return;
+      }
+    }
+  }
+
   // --- Determine user role ---
   const roleResult = await resolveRole(telegramUserId, org);
   const role = roleResult.role;

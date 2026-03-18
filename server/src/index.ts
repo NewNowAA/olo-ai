@@ -8,6 +8,7 @@ import cors from 'cors';
 import telegramRoutes, { processUpdate } from './routes/telegramRoutes.js';
 import apiRoutes from './routes/apiRoutes.js';
 import { startPolling } from './services/telegramPoller.js';
+import * as store from './services/supabaseStore.js';
 
 const app = express();
 const PORT = process.env.SERVER_PORT || 3001;
@@ -89,6 +90,16 @@ app.listen(PORT, () => {
       console.error('[Polling] Failed to start:', err);
     });
   }
+
+  // --- Reservation cleanup timer (every 5 minutes) ---
+  setInterval(async () => {
+    try {
+      await store.releaseExpiredReservations();
+    } catch (err) {
+      console.error('[ReservationTimer] Error:', err);
+    }
+  }, 5 * 60 * 1000);
+  console.log('⏰ Reservation cleanup timer started (every 5min).');
 });
 
 export default app;
