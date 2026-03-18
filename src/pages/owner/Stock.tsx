@@ -3,6 +3,7 @@ import { Package, AlertTriangle, ArrowUpDown } from 'lucide-react';
 import useAuth from '../../hooks/useAuth';
 import * as api from '../../services/api';
 import { useToast } from '../../contexts/ToastContext';
+import { SkeletonTable } from '../../components/ui/Skeleton';
 
 interface StockItem {
   id: string; name: string; stock_quantity: number; stock_min: number; active: boolean;
@@ -61,7 +62,7 @@ export default function Stock() {
         </div>
       )}
 
-      {loading ? <p className="text-gray-500 text-sm">A carregar...</p> : items.length === 0 ? (
+      {loading ? <SkeletonTable rows={5} cols={4} /> : items.length === 0 ? (
         <div className="text-center py-12 text-gray-400"><Package size={48} className="mx-auto mb-3 opacity-40" /><p>Sem produtos com stock</p></div>
       ) : (
         <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">

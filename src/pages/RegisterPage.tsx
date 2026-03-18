@@ -11,7 +11,7 @@ export default function RegisterPage() {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [role, setRole] = useState<'owner' | 'client'>('owner');
+  const [role] = useState<'owner' | 'client'>('owner');
   const [businessName, setBusinessName] = useState('');
   const [sector, setSector] = useState<Sector>('generico');
   const [error, setError] = useState('');
@@ -26,7 +26,6 @@ export default function RegisterPage() {
 
     try {
       await signUp(email, password, name, role, businessName || undefined, sector);
-      // Backend automatically confirms email and authenticates user, so we can redirect immediately
       navigate('/');
     } catch (err: any) {
       setError(err.message || 'Erro ao criar conta');

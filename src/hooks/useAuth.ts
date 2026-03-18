@@ -115,15 +115,11 @@ export function useAuth() {
         throw new Error(result.error || 'Erro ao criar conta');
     }
 
-    // Backend creates user, but client needs to be signed in
-    const { error: signInError } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-    });
-
+    // Auto sign-in after registration (email confirmation bypassed)
+    const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
     if (signInError) {
-         console.error('Sign in after registration failed:', signInError);
-         throw new Error('Conta criada, mas falha ao fazer login automático.');
+      console.error('Sign in after registration failed:', signInError);
+      throw new Error('Conta criada, mas falha ao fazer login automático.');
     }
 
     return { userId: result.userId, orgId: result.orgId };

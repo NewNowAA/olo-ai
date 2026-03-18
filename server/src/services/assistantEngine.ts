@@ -76,10 +76,9 @@ export async function handleMessage(
   // --- Smart Logic (Fast Paths without LLM) ---
   if (conversationId) {
     // A) First Contact Message
+    // NOTE: user message was already saved above, so history has exactly 1 message for a first contact
     const history = await store.getConversationMessages(conversationId, 1);
-    if (history.length === 0) {
-      await store.saveMessage(conversationId, 'user', messageText, { org_id: org.id });
-
+    if (history.length <= 1) {
       let greeting = org.first_contact_message;
       if (!greeting) {
         greeting = `Olá! Bem-vindo ao atendimento de ${org.business_name || 'nosso estabelecimento'}. Como posso ajudar hoje?`;
@@ -127,7 +126,6 @@ export async function handleMessage(
         // Only send if we haven't sent it recently (last 2 messages)
         const sentRecently = history.slice(-2).some(m => m.role === 'assistant' && m.content === outOfHoursMsg);
         if (!sentRecently) {
-          await store.saveMessage(conversationId, 'user', messageText, { org_id: org.id });
           await store.saveMessage(conversationId, 'assistant', outOfHoursMsg, { org_id: org.id });
           return { text: outOfHoursMsg, toolCalls: [], tokensUsed: 0, conversationId };
         }
@@ -143,7 +141,6 @@ export async function handleMessage(
         (qr.trigger_words || []).some((word: string) => txtLower.includes(word.toLowerCase()))
       );
       if (matched) {
-        await store.saveMessage(conversationId, 'user', messageText, { org_id: org.id });
         await store.saveMessage(conversationId, 'assistant', matched.response, { org_id: org.id });
         return { text: matched.response, toolCalls: [], tokensUsed: 0, conversationId };
       }

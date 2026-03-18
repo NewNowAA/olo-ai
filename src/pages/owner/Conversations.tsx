@@ -4,6 +4,7 @@ import { MessageSquare, Clock } from 'lucide-react';
 import useAuth from '../../hooks/useAuth';
 import * as api from '../../services/api';
 import type { Conversation, ConversationStatus } from '../../types';
+import { SkeletonTable } from '../../components/ui/Skeleton';
 
 const STATUS_BADGES: Record<ConversationStatus, string> = {
   active: 'bg-green-100 text-green-700',
@@ -47,7 +48,7 @@ export default function Conversations() {
       </div>
 
       {loading ? (
-        <p className="text-gray-500 text-sm">A carregar...</p>
+        <SkeletonTable rows={6} cols={3} />
       ) : filtered.length === 0 ? (
         <div className="text-center py-12 text-gray-400">
           <MessageSquare size={48} className="mx-auto mb-3 opacity-40" />

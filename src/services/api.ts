@@ -159,3 +159,6 @@ export const getWorkSessions = (orgId: string, params?: { worker_id?: string; da
   const qs = params ? new URLSearchParams(params as any).toString() : '';
   return request<any[]>(`/orgs/${orgId}/work-sessions${qs ? '?' + qs : ''}`);
 };
+
+export const createWorkSession = (orgId: string, data: { worker_id: string; check_in: string; check_out?: string; notes?: string }) =>
+  request<any>(`/orgs/${orgId}/work-sessions`, { method: 'POST', body: JSON.stringify(data) });

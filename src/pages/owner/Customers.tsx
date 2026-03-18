@@ -3,6 +3,7 @@ import { Users as UsersIcon, Plus } from 'lucide-react';
 import useAuth from '../../hooks/useAuth';
 import * as api from '../../services/api';
 import type { Customer } from '../../types';
+import { SkeletonTable } from '../../components/ui/Skeleton';
 
 export default function Customers() {
   const { orgId } = useAuth();
@@ -39,7 +40,7 @@ export default function Customers() {
         </button>
       </div>
 
-      {loading ? <p className="text-gray-500 text-sm">A carregar...</p> : customers.length === 0 ? (
+      {loading ? <SkeletonTable rows={5} cols={5} /> : customers.length === 0 ? (
         <div className="text-center py-12 text-gray-400"><UsersIcon size={48} className="mx-auto mb-3 opacity-40" /><p>Nenhum cliente registado</p></div>
       ) : (
         <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
@@ -56,7 +57,9 @@ export default function Customers() {
             <tbody className="divide-y divide-gray-100">
               {customers.map(c => (
                 <tr key={c.id} className="hover:bg-gray-50">
-                  <td className="px-4 py-3 font-medium text-gray-900">{c.name || 'Anónimo'}</td>
+                  <td className="px-4 py-3 font-medium text-gray-900">
+                    {c.name || (c.telegram_id ? <span className="text-gray-400">Telegram {c.telegram_id}</span> : <span className="text-gray-400 italic">Sem nome</span>)}
+                  </td>
                   <td className="px-4 py-3 text-gray-500 hidden md:table-cell">{c.telegram_id ? '📱 Telegram' : c.whatsapp_id ? '📞 WhatsApp' : 'Manual'}</td>
                   <td className="px-4 py-3 text-gray-500 hidden sm:table-cell">{c.phone || '—'}</td>
                   <td className="px-4 py-3 text-right text-gray-900 hidden sm:table-cell">{c.total_conversations}</td>

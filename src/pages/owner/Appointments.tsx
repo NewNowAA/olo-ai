@@ -3,6 +3,7 @@ import { CalendarDays, Check, X, CheckCircle, Plus } from 'lucide-react';
 import useAuth from '../../hooks/useAuth';
 import * as api from '../../services/api';
 import type { Appointment, AppointmentStatus } from '../../types';
+import { SkeletonTable } from '../../components/ui/Skeleton';
 
 const STATUS_MAP: Record<AppointmentStatus, { label: string; color: string }> = {
   pending: { label: 'Pendente', color: 'bg-yellow-100 text-yellow-700' },
@@ -111,7 +112,7 @@ export default function Appointments() {
           <button key={f.key} onClick={() => setFilter(f.key as any)} className={`px-3 py-1.5 rounded-lg text-sm font-medium ${filter === f.key ? 'bg-blue-100 text-blue-700' : 'bg-white text-gray-600 border border-gray-200'}`}>{f.label}</button>
         ))}
       </div>
-      {loading ? <p className="text-gray-500 text-sm">A carregar...</p> : filtered.length === 0 ? (
+      {loading ? <SkeletonTable rows={6} cols={5} /> : filtered.length === 0 ? (
         <div className="text-center py-12 text-gray-400"><CalendarDays size={48} className="mx-auto mb-3 opacity-40" /><p>Sem marcações</p></div>
       ) : (
         <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">

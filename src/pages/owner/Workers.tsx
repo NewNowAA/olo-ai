@@ -3,6 +3,7 @@ import { Users, Plus, Trash2, Edit2, Check, X } from 'lucide-react';
 import useAuth from '../../hooks/useAuth';
 import * as api from '../../services/api';
 import { useToast } from '../../contexts/ToastContext';
+import { SkeletonTable } from '../../components/ui/Skeleton';
 
 const DEFAULT_PERMISSIONS = {
   see_catalog: true,
@@ -96,7 +97,7 @@ export default function Workers() {
     });
   };
 
-  if (loading) return <div className="text-gray-500">A carregar...</div>;
+  if (loading) return <SkeletonTable rows={5} cols={4} />;
 
   return (
     <div className="max-w-2xl">

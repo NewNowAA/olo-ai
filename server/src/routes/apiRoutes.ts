@@ -33,7 +33,7 @@ router.post('/public/register', async (req: Request, res: Response) => {
   try {
     const { email, password, name, role, businessName, sector } = req.body;
     
-    // 1. Create auth user in Supabase using Admin API (bypasses rate limits and email confirmation)
+    // 1. Create auth user — email_confirm: true bypasses email confirmation for now
     const { data: authData, error: authError } = await store.getSupabase().auth.admin.createUser({
         email: email,
         password: password,
@@ -788,6 +788,77 @@ router.post('/orgs/:orgId/preview-mode', async (req: Request<{ orgId: string }>,
     }
 
     res.json({ mode });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// --- Workers ---
+router.get('/orgs/:orgId/workers', async (req: Request<{ orgId: string }>, res: Response) => {
+  try {
+    const workers = await store.getWorkers(req.params.orgId);
+    res.json(workers);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.post('/orgs/:orgId/workers', async (req: Request<{ orgId: string }>, res: Response) => {
+  try {
+    const worker = await store.createWorker({ ...req.body, org_id: req.params.orgId });
+    if (!worker) { res.status(500).json({ error: 'Falha ao criar colaborador' }); return; }
+    res.json(worker);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.put('/orgs/:orgId/workers/:workerId', async (req: Request<{ orgId: string; workerId: string }>, res: Response) => {
+  try {
+    const ok = await store.updateWorker(req.params.workerId, req.body);
+    if (!ok) { res.status(500).json({ error: 'Falha ao atualizar colaborador' }); return; }
+    res.json({ success: true });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.delete('/orgs/:orgId/workers/:workerId', async (req: Request<{ orgId: string; workerId: string }>, res: Response) => {
+  try {
+    const ok = await store.deleteWorker(req.params.workerId);
+    if (!ok) { res.status(500).json({ error: 'Falha ao remover colaborador' }); return; }
+    res.json({ success: true });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// --- Work Sessions ---
+router.get('/orgs/:orgId/work-sessions', async (req: Request<{ orgId: string }>, res: Response) => {
+  try {
+    const { worker_id, date_from } = req.query;
+    const sessions = await store.getWorkSessions(
+      req.params.orgId,
+      worker_id as string | undefined,
+      date_from as string | undefined
+    );
+    res.json(sessions);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.post('/orgs/:orgId/work-sessions', async (req: Request<{ orgId: string }>, res: Response) => {
+  try {
+    const { worker_id, check_in, check_out, notes } = req.body;
+    if (!worker_id || !check_in) {
+      res.status(400).json({ error: 'worker_id and check_in are required' });
+      return;
+    }
+    const session = await store.createManualWorkSession(
+      req.params.orgId, worker_id, check_in, check_out || undefined, notes || undefined
+    );
+    res.json({ success: true, session });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }

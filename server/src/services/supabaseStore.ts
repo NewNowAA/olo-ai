@@ -542,6 +542,18 @@ export async function createWorkSession(orgId: string, workerId: string): Promis
   return data;
 }
 
+export async function createManualWorkSession(
+  orgId: string, workerId: string, checkIn: string, checkOut?: string, notes?: string
+): Promise<any> {
+  const { data, error } = await getSupabase()
+    .from('work_sessions')
+    .insert({ org_id: orgId, worker_id: workerId, check_in: checkIn, check_out: checkOut || null, notes: notes || null })
+    .select()
+    .single();
+  if (error) { console.error('createManualWorkSession error:', error); throw error; }
+  return data;
+}
+
 export async function closeWorkSession(sessionId: string, notes?: string): Promise<boolean> {
   const { error } = await getSupabase()
     .from('work_sessions')

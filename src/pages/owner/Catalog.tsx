@@ -3,6 +3,7 @@ import { Plus, Pencil, Trash2, Package } from 'lucide-react';
 import useAuth from '../../hooks/useAuth';
 import * as api from '../../services/api';
 import type { CatalogItem } from '../../types';
+import { SkeletonTable } from '../../components/ui/Skeleton';
 
 export default function Catalog() {
   const { orgId } = useAuth();
@@ -98,7 +99,7 @@ export default function Catalog() {
         </div>
       )}
 
-      {loading ? <p className="text-gray-500 text-sm">A carregar...</p> : filtered.length === 0 ? (
+      {loading ? <SkeletonTable rows={6} cols={4} /> : filtered.length === 0 ? (
         <div className="text-center py-12 text-gray-400">
           <Package size={48} className="mx-auto mb-3 opacity-40" />
           <p>Nenhum produto no catálogo</p>
