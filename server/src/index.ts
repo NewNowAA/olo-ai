@@ -11,7 +11,7 @@ import { startPolling } from './services/telegramPoller.js';
 import * as store from './services/supabaseStore.js';
 
 const app = express();
-const PORT = process.env.SERVER_PORT || 3001;
+const PORT = process.env.PORT || process.env.SERVER_PORT || 3001;
 
 // --- Middleware ---
 app.use((req, res, next) => {
