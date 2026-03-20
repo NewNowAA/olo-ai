@@ -77,7 +77,7 @@ export async function handleMessage(
   if (conversationId) {
     // A) First Contact Message
     // NOTE: user message was already saved above, so history has exactly 1 message for a first contact
-    const history = await store.getConversationMessages(conversationId, 1);
+    const history = await store.getConversationMessages(conversationId, 2);
     if (history.length <= 1) {
       let greeting = org.first_contact_message;
       if (!greeting) {
