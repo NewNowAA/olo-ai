@@ -4,7 +4,7 @@
 
 import 'dotenv/config';
 import express from 'express';
-import cors from 'cors';
+
 import telegramRoutes, { processUpdate } from './routes/telegramRoutes.js';
 import apiRoutes from './routes/apiRoutes.js';
 import { startPolling } from './services/telegramPoller.js';
@@ -13,17 +13,22 @@ import * as store from './services/supabaseStore.js';
 const app = express();
 const PORT = process.env.PORT || process.env.SERVER_PORT || 3001;
 
+// --- CORS (must be first — before any other middleware) ---
+app.use((req, res, next) => {
+  res.header('Access-Control-Allow-Origin', '*');
+  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, PATCH, OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  if (req.method === 'OPTIONS') {
+    return res.sendStatus(200);
+  }
+  next();
+});
+
 // --- Middleware ---
 app.use((req, res, next) => {
   console.log(`\n\n[ROUTER DUMP] 🔥 Hit: ${req.method} ${req.url}`);
   next();
 });
-app.use(cors({
-  origin: '*',
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
-}));
-app.options('*', cors()); // handle preflight for all routes
 app.use(express.json());
 
 // --- Request logging ---
