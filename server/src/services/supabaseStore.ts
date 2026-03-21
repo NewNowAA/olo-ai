@@ -148,17 +148,22 @@ export async function getConversationMessages(
   conversationId: string,
   limit: number = 20
 ): Promise<Message[]> {
+  // Fetch the most recent N messages (DESC) and then reverse to chronological order.
+  // This ensures we always have the latest context, not the oldest messages.
   const { data, error } = await getSupabase()
     .from('messages')
     .select('*')
     .eq('conversation_id', conversationId)
-    .order('created_at', { ascending: true })
+    .order('created_at', { ascending: false })
     .limit(limit);
 
   if (error) { console.error('getConversationMessages error:', error); return []; }
 
+  // Reverse to chronological order (oldest first) for conversation flow
+  const chronological = (data || []).reverse();
+
   // Map DB schema → internal Message type (sender_role → role)
-  return (data || []).map((m: any) => ({
+  return chronological.map((m: any) => ({
     ...m,
     role: m.sender_role === 'client' ? 'user'
         : m.sender_role === 'assistant' ? 'assistant'
