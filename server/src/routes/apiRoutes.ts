@@ -3,6 +3,7 @@
 // =============================================
 
 import { Router, Request, Response } from 'express';
+import { randomUUID } from 'crypto';
 import * as store from '../services/supabaseStore.js';
 import * as placeholderManager from '../services/placeholderManager.js';
 import * as telegramGateway from '../services/telegramGateway.js';
@@ -86,7 +87,7 @@ router.post('/public/register', async (req: Request, res: Response) => {
     }
 
     // Generate link token for Telegram deep link
-    const linkToken = crypto.randomUUID();
+    const linkToken = randomUUID();
 
     // 3. Create user profile in public.profiles table (Use upsert to handle potential triggers)
     const { error: userError } = await store.getSupabase()
