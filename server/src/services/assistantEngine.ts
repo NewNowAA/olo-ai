@@ -332,5 +332,9 @@ export async function handleStart(
   org: Organization,
   customer: Customer | null
 ): Promise<string> {
+  // Close any active conversation so the next message starts fresh
+  if (customer) {
+    await store.closeActiveConversation(org.id, customer.id, userContext.channel as 'telegram' | 'whatsapp');
+  }
   return getGreeting(org, customer?.name || undefined);
 }

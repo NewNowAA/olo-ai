@@ -142,6 +142,21 @@ export async function getOrCreateConversation(
   return newConv;
 }
 
+// --- Close active conversation (used by /start to reset context) ---
+export async function closeActiveConversation(
+  orgId: string,
+  customerId: string,
+  channel: 'telegram' | 'whatsapp'
+): Promise<void> {
+  await getSupabase()
+    .from('conversations')
+    .update({ status: 'closed' })
+    .eq('organization_id', orgId)
+    .eq('customer_id', customerId)
+    .eq('channel', channel)
+    .in('status', ['open', 'active']);
+}
+
 // --- Messages ---
 // DB: organization_id (NOT NULL), sender_role, direction, message_type (all NOT NULL)
 export async function getConversationMessages(
