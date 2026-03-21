@@ -8,6 +8,8 @@ import * as store from '../services/supabaseStore.js';
 import * as placeholderManager from '../services/placeholderManager.js';
 import * as telegramGateway from '../services/telegramGateway.js';
 import { SECTOR_TEMPLATES } from '../config/sectors.js';
+import { startPolling, stopPolling } from '../services/telegramPoller.js';
+import { processUpdate } from './telegramRoutes.js';
 
 const router = Router();
 
@@ -233,12 +235,20 @@ router.post('/orgs/:orgId/setup-telegram', async (req: Request<{ orgId: string }
       }
     }
 
+    // 3. (Re)start polling with the new token if not using webhook
+    if (webhookStatus === 'polling') {
+      stopPolling();
+      startPolling(bot_token, processUpdate).catch(err => {
+        console.error('[Setup] Failed to start polling with new token:', err);
+      });
+    }
+
     res.json({
       ...data,
       webhook_status: webhookStatus,
       message: webhookStatus === 'webhook'
         ? 'Bot conectado via webhook.'
-        : 'Token guardado. Bot a usar modo polling (desenvolvimento local).',
+        : 'Token guardado. Bot a usar modo polling.',
     });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
