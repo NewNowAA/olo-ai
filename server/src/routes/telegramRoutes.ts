@@ -73,12 +73,16 @@ async function processUpdate(update: TelegramUpdate, urlOrgId?: string): Promise
     org = await store.getOrganization(urlOrgId);
     botToken = org?.telegram_bot_token || process.env.TELEGRAM_BOT_TOKEN!;
   } else {
-    // Legacy / polling mode: use env token
+    // Legacy / polling mode: find org by env token, fallback to first org
     botToken = process.env.TELEGRAM_BOT_TOKEN!;
     org = await store.getOrgByTelegramToken(botToken);
     if (!org) {
       const { data } = await store.getSupabase().from('organizations').select('*').limit(1).single();
       org = data;
+    }
+    // Always use the org's saved token for replies (may differ from env var)
+    if (org?.telegram_bot_token) {
+      botToken = org.telegram_bot_token;
     }
   }
 
