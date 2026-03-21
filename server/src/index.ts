@@ -5,6 +5,14 @@
 import 'dotenv/config';
 import express from 'express';
 
+// --- Catch unhandled rejections/exceptions before they kill the process ---
+process.on('uncaughtException', (err) => {
+  console.error('[FATAL] Uncaught Exception:', err);
+});
+process.on('unhandledRejection', (reason) => {
+  console.error('[FATAL] Unhandled Rejection:', reason);
+});
+
 import telegramRoutes, { processUpdate } from './routes/telegramRoutes.js';
 import apiRoutes from './routes/apiRoutes.js';
 import { startPolling } from './services/telegramPoller.js';
