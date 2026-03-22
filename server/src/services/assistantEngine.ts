@@ -96,7 +96,7 @@ export async function handleMessage(
       const now = new Date();
       // Adjust to Angola Time (UTC+1)
       const localTime = new Date(now.toLocaleString('en-US', { timeZone: 'Africa/Luanda' }));
-      const dayOfWeek = localTime.getDay() === 0 ? 6 : localTime.getDay() - 1; // Map Sunday=0..Saturday=6 to Monday=0..Sunday=6
+      const dayOfWeek = localTime.getDay(); // 0=Sunday..6=Saturday, matches DB convention
       const todayHours = hours.find(h => h.day_of_week === dayOfWeek);
       
       let isClosed = true;
@@ -115,20 +115,14 @@ export async function handleMessage(
       }
 
       if (isClosed) {
-        const history = await store.getConversationMessages(conversationId, 5);
-        
         let outOfHoursMsg = org.absence_message;
         if (!outOfHoursMsg) {
           outOfHoursMsg = 'Estamos fechados de momento, mas deixe a sua mensagem e responderemos assim que possível.';
           await store.logSetupNotification(org.id, 'Dica: Personalize a sua mensagem de ausência para um toque mais humano.');
         }
-
-        // Only send if we haven't sent it recently (last 2 messages)
-        const sentRecently = history.slice(-2).some(m => m.role === 'assistant' && m.content === outOfHoursMsg);
-        if (!sentRecently) {
-          await store.saveMessage(conversationId, 'assistant', outOfHoursMsg, { org_id: org.id });
-          return { text: outOfHoursMsg, toolCalls: [], tokensUsed: 0, conversationId };
-        }
+        // Don't save absence messages to conversation history — they are static
+        // responses that would pollute the AI context when the business reopens.
+        return { text: outOfHoursMsg, toolCalls: [], tokensUsed: 0, conversationId };
       }
     }
 
