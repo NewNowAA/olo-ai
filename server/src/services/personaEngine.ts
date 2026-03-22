@@ -93,6 +93,7 @@ export function buildPersona(
   const angolaTime = new Date(now.toLocaleString('en-US', { timeZone: 'Africa/Luanda' }));
   const dateStr = angolaTime.toLocaleDateString('pt-PT', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
   const timeStr = angolaTime.toLocaleTimeString('pt-PT', { hour: '2-digit', minute: '2-digit' });
+
   const dateContext = `\nDATA E HORA ATUAL (Luanda, Angola): ${dateStr} às ${timeStr}`;
 
   // --- Business context ---

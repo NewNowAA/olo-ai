@@ -89,41 +89,44 @@ export async function handleMessage(
       return { text: greeting, toolCalls: [], tokensUsed: 0, conversationId };
     }
 
-    // B) Absence Message (Outside Business Hours)
-    // Only apply absence message to clients. Owners and devs should not be blocked.
-    if (userContext.role === 'client') {
-      const hours = await store.getBusinessHours(org.id);
-      const now = new Date();
-      // Adjust to Angola Time (UTC+1)
-      const localTime = new Date(now.toLocaleString('en-US', { timeZone: 'Africa/Luanda' }));
-      const dayOfWeek = localTime.getDay(); // 0=Sunday..6=Saturday, matches DB convention
-      const todayHours = hours.find(h => h.day_of_week === dayOfWeek);
-      
-      let isClosed = true;
-      if (todayHours && !todayHours.is_closed) {
-        const hh = localTime.getHours().toString().padStart(2, '0');
-        const mm = localTime.getMinutes().toString().padStart(2, '0');
-        const hm = `${hh}:${mm}`;
-        
-        // Supabase time type is typically HH:MM:SS. We substring to match our HH:MM.
-        const openHm = todayHours.open_time.substring(0, 5);
-        const closeHm = todayHours.close_time.substring(0, 5);
+    // B) Absence Message + Business Status Injection
+    const hours = await store.getBusinessHours(org.id);
+    const now = new Date();
+    const localTime = new Date(now.toLocaleString('en-US', { timeZone: 'Africa/Luanda' }));
+    const dayOfWeek = localTime.getDay(); // 0=Sunday..6=Saturday, matches DB convention
+    const todayHours = hours.find(h => h.day_of_week === dayOfWeek);
+    const hh = localTime.getHours().toString().padStart(2, '0');
+    const mm = localTime.getMinutes().toString().padStart(2, '0');
+    const hm = `${hh}:${mm}`;
 
-        if (hm >= openHm && hm <= closeHm) {
-          isClosed = false;
-        }
+    let isClosed = true;
+    let businessStatusNote = '';
+    if (todayHours && !todayHours.is_closed) {
+      const openHm = todayHours.open_time.substring(0, 5);
+      const closeHm = todayHours.close_time.substring(0, 5);
+      if (hm >= openHm && hm <= closeHm) {
+        isClosed = false;
+        businessStatusNote = `\n[ESTADO DO NEGÓCIO: ABERTO agora (${hm}). Horário hoje: ${openHm}–${closeHm}. Ignora qualquer menção anterior de "fechado" no histórico.]`;
+      } else {
+        businessStatusNote = `\n[ESTADO DO NEGÓCIO: FECHADO agora (${hm}). Horário hoje: ${openHm}–${closeHm}.]`;
       }
+    } else {
+      businessStatusNote = `\n[ESTADO DO NEGÓCIO: FECHADO (não opera hoje).]`;
+    }
 
-      if (isClosed) {
-        let outOfHoursMsg = org.absence_message;
-        if (!outOfHoursMsg) {
-          outOfHoursMsg = 'Estamos fechados de momento, mas deixe a sua mensagem e responderemos assim que possível.';
-          await store.logSetupNotification(org.id, 'Dica: Personalize a sua mensagem de ausência para um toque mais humano.');
-        }
-        // Don't save absence messages to conversation history — they are static
-        // responses that would pollute the AI context when the business reopens.
-        return { text: outOfHoursMsg, toolCalls: [], tokensUsed: 0, conversationId };
+    // Inject business status into system prompt so AI always has accurate info
+    persona.systemPrompt += businessStatusNote;
+
+    // Only block clients outside hours (owners/devs can always interact)
+    if (isClosed && userContext.role === 'client') {
+      let outOfHoursMsg = org.absence_message;
+      if (!outOfHoursMsg) {
+        outOfHoursMsg = 'Estamos fechados de momento, mas deixe a sua mensagem e responderemos assim que possível.';
+        await store.logSetupNotification(org.id, 'Dica: Personalize a sua mensagem de ausência para um toque mais humano.');
       }
+      // Don't save absence messages to conversation history — they would
+      // pollute the AI context when the business reopens.
+      return { text: outOfHoursMsg, toolCalls: [], tokensUsed: 0, conversationId };
     }
 
     // C) Quick Replies
