@@ -85,8 +85,8 @@ app.listen(PORT, () => {
 ╚══════════════════════════════════════════╝
   `);
 
-  // Validate env vars
-  const required = ['GEMINI_API_KEY', 'SUPABASE_URL', 'SUPABASE_SERVICE_ROLE_KEY', 'TELEGRAM_BOT_TOKEN'];
+  // Validate env vars (TELEGRAM_BOT_TOKEN is optional — loaded from DB per org)
+  const required = ['GEMINI_API_KEY', 'SUPABASE_URL', 'SUPABASE_SERVICE_ROLE_KEY'];
   const missing = required.filter(key => !process.env[key]);
   if (missing.length > 0) {
     console.warn(`⚠️  Missing env vars: ${missing.join(', ')}`);
@@ -95,18 +95,34 @@ app.listen(PORT, () => {
     console.log('✅ All required environment variables configured.');
   }
 
-  // --- Auto-start Telegram polling in development ---
-  // In production with a valid WEBHOOK_BASE_URL, webhooks are used instead.
+  // --- Auto-start Telegram polling ---
+  // Token source priority: env var → first org in DB with a token configured
   const webhookUrl = process.env.WEBHOOK_BASE_URL || '';
-  const botToken = process.env.TELEGRAM_BOT_TOKEN;
-  const isDev = process.env.NODE_ENV !== 'production';
   const hasValidWebhook = webhookUrl.startsWith('https://') && !webhookUrl.includes('localhost');
 
-  if (botToken && (isDev || !hasValidWebhook)) {
-    console.log('📡 Dev mode: starting Telegram polling (no webhook needed)...');
-    startPolling(botToken, processUpdate).catch(err => {
-      console.error('[Polling] Failed to start:', err);
-    });
+  if (!hasValidWebhook) {
+    (async () => {
+      try {
+        let botToken = process.env.TELEGRAM_BOT_TOKEN;
+        if (!botToken) {
+          const { data: firstOrg } = await store.getSupabase()
+            .from('organizations')
+            .select('telegram_bot_token')
+            .not('telegram_bot_token', 'is', null)
+            .limit(1)
+            .single();
+          botToken = firstOrg?.telegram_bot_token;
+        }
+        if (botToken) {
+          console.log('📡 Starting Telegram polling...');
+          await startPolling(botToken, processUpdate);
+        } else {
+          console.log('ℹ️  No bot token found. Connect a bot in Settings to start.');
+        }
+      } catch (err) {
+        console.error('[Polling] Failed to start:', err);
+      }
+    })();
   }
 
   // --- Reservation cleanup timer (every 5 minutes) ---
