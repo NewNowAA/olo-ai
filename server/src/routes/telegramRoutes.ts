@@ -84,6 +84,7 @@ async function processUpdate(update: TelegramUpdate, urlOrgId?: string): Promise
     if (org?.telegram_bot_token) {
       botToken = org.telegram_bot_token;
     }
+    console.log(`[Telegram] Using bot token: ...${botToken?.slice(-8)} for org: ${org?.id || 'none'}`);
   }
 
   if (!org) {
