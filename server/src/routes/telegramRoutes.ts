@@ -77,10 +77,16 @@ async function processUpdate(update: TelegramUpdate, urlOrgId?: string): Promise
     botToken = process.env.TELEGRAM_BOT_TOKEN!;
     org = await store.getOrgByTelegramToken(botToken);
     if (!org) {
-      const { data } = await store.getSupabase().from('organizations').select('*').limit(1).single();
+      // Fallback: first org that has a bot token (same filter as startup polling)
+      const { data } = await store.getSupabase()
+        .from('organizations')
+        .select('*')
+        .not('telegram_bot_token', 'is', null)
+        .limit(1)
+        .single();
       org = data;
     }
-    // Always use the org's saved token for replies (may differ from env var)
+    // Always use the org's saved token for replies
     if (org?.telegram_bot_token) {
       botToken = org.telegram_bot_token;
     }
