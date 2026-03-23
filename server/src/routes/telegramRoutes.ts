@@ -228,7 +228,7 @@ async function processUpdate(update: TelegramUpdate, urlOrgId?: string): Promise
 
 // --- Process Callback Query (inline button press) ---
 async function processCallbackQuery(callbackQuery: TelegramCallbackQuery): Promise<void> {
-  const botToken = process.env.TELEGRAM_BOT_TOKEN!;
+  let botToken = process.env.TELEGRAM_BOT_TOKEN || '';
   const telegramChatId = String(callbackQuery.message?.chat.id || callbackQuery.from.id);
   const telegramUserId = String(callbackQuery.from.id);
   const callbackData = callbackQuery.data || '';
@@ -236,15 +236,24 @@ async function processCallbackQuery(callbackQuery: TelegramCallbackQuery): Promi
 
   console.log(`[Telegram] Callback from ${senderName} (${telegramUserId}): ${callbackData}`);
 
-  // Answer the callback query (removes the loading spinner on the button)
-  await telegram.answerCallbackQuery(botToken, callbackQuery.id);
-
   // --- Determine which org this bot belongs to ---
   let org = await store.getOrgByTelegramToken(botToken);
   if (!org) {
-    const { data } = await store.getSupabase().from('organizations').select('*').limit(1).single();
+    const { data } = await store.getSupabase()
+      .from('organizations')
+      .select('*')
+      .not('telegram_bot_token', 'is', null)
+      .limit(1)
+      .single();
     org = data;
   }
+  // Always use the org's saved token for replies
+  if (org?.telegram_bot_token) {
+    botToken = org.telegram_bot_token;
+  }
+
+  // Answer the callback query (removes the loading spinner on the button)
+  await telegram.answerCallbackQuery(botToken, callbackQuery.id);
 
   if (!org) {
     await telegram.sendMessage(botToken, telegramChatId,

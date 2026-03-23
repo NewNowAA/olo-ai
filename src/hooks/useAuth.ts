@@ -53,9 +53,11 @@ export function useAuth() {
   useEffect(() => {
     const init = async () => {
       try {
-        const { data: { user: authUser } } = await supabase.auth.getUser();
-        if (authUser) {
-          const profile = await resolveProfile(authUser);
+        // getSession() reads from localStorage — no network call, instant
+        // Prevents "A carregar..." from hanging when Supabase auth is slow
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session?.user) {
+          const profile = await resolveProfile(session.user);
           setUser(profile);
         }
       } catch {
