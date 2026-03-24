@@ -17,6 +17,17 @@ export default defineConfig(({ mode }) => {
       },
     },
     plugins: [react()],
+    build: {
+      rollupOptions: {
+        output: {
+          manualChunks: {
+            'vendor-react': ['react', 'react-dom', 'react-router-dom'],
+            'vendor-supabase': ['@supabase/supabase-js'],
+            'vendor-motion': ['framer-motion'],
+          },
+        },
+      },
+    },
     define: {
       // 'process.env.API_KEY': JSON.stringify(env.GEMINI_API_KEY), // Removed to prevent Netlify secrets error
       // 'process.env.GEMINI_API_KEY': JSON.stringify(env.GEMINI_API_KEY), // Removed to prevent Netlify secrets error

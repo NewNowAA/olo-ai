@@ -131,12 +131,15 @@ export async function sendMessageWithButtons(
   const body: any = {
     chat_id: chatId,
     text,
-    parse_mode: options?.parseMode || 'Markdown',
     disable_web_page_preview: true,
     reply_markup: {
       inline_keyboard: keyboard,
     },
   };
+  // Only set parse_mode if explicitly provided (avoids Markdown parse errors)
+  if (options?.parseMode) {
+    body.parse_mode = options.parseMode;
+  }
 
   try {
     const response = await fetch(url, {
@@ -148,9 +151,9 @@ export async function sendMessageWithButtons(
     const data = await response.json();
     if (!data.ok) {
       console.error('Telegram sendMessageWithButtons error:', data.description);
-      // If Markdown parsing fails, retry without parse_mode
-      if (data.description?.includes("can't parse")) {
-        return sendMessageWithButtons(botToken, chatId, text, buttons, { parseMode: undefined } as any);
+      // If Markdown parsing fails, retry as plain text (no parse_mode)
+      if (data.description?.includes("can't parse") && options?.parseMode) {
+        return sendMessageWithButtons(botToken, chatId, text, buttons, {});
       }
     }
     return data;

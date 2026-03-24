@@ -88,7 +88,7 @@ export async function create_order(
 
   let message = `✅ Pedido criado com sucesso!\n\n`;
   message += resolvedItems.map(i => `• ${i.quantity}x ${i.name} — ${i.total_price.toLocaleString()} AOA`).join('\n');
-  message += `\n\n**Total: ${totalAmount.toLocaleString()} AOA**`;
+  message += `\n\nTotal: ${totalAmount.toLocaleString()} AOA`;
   if (args.delivery_type) message += `\nTipo: ${args.delivery_type}`;
 
   if (notFound.length > 0) {
