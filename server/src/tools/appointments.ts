@@ -30,9 +30,8 @@ export async function check_availability(orgId: string, args: { date: string; se
     .map(a => ({ start: a.time_start, end: a.time_end }));
 
   // Get business hours for this day
-  // DB stores 0=Monday..6=Sunday, JS Date uses 0=Sunday..6=Saturday
-  const jsDay = new Date(args.date + 'T12:00:00').getDay(); // use noon to avoid TZ drift
-  const dbDay = jsDay === 0 ? 6 : jsDay - 1; // convert JS Sunday=0 → DB Sunday=6
+  // DB stores 0=Sunday..6=Saturday, same as JS Date.getDay()
+  const dbDay = new Date(args.date + 'T12:00:00').getDay(); // use noon to avoid TZ drift
   const allHours = await store.getBusinessHours(orgId);
   const dayHours = allHours.find(h => h.day_of_week === dbDay);
 
