@@ -23,7 +23,7 @@ export async function create_order(
   }
 
   // Resolve items from catalog
-  const resolvedItems: { name: string; quantity: number; unit_price: number; total_price: number; catalog_item_id?: string }[] = [];
+  const resolvedItems: { name: string; quantity: number; unit_price: number; subtotal: number; catalog_item_id?: string }[] = [];
   let totalAmount = 0;
   const notFound: string[] = [];
 
@@ -37,7 +37,7 @@ export async function create_order(
         name: catalogItem.name,
         quantity: item.quantity,
         unit_price: catalogItem.price,
-        total_price: total,
+        subtotal: total,
         catalog_item_id: catalogItem.id,
       });
       totalAmount += total;
@@ -61,7 +61,7 @@ export async function create_order(
       customer_id: customerId,
       conversation_id: conversationId,
       status: 'pending',
-      total_amount: totalAmount,
+      total: totalAmount,
       currency: 'AOA',
       notes: args.notes,
       delivery_type: args.delivery_type || 'takeaway',
@@ -71,7 +71,6 @@ export async function create_order(
       name: item.name,
       quantity: item.quantity,
       unit_price: item.unit_price,
-      total_price: item.total_price,
     }))
   );
 
@@ -87,7 +86,7 @@ export async function create_order(
   notifier.notifyNewOrder(orgId, 'Cliente', itemsSummary, totalAmount).catch(() => {});
 
   let message = `✅ Pedido criado com sucesso!\n\n`;
-  message += resolvedItems.map(i => `• ${i.quantity}x ${i.name} — ${i.total_price.toLocaleString()} AOA`).join('\n');
+  message += resolvedItems.map(i => `• ${i.quantity}x ${i.name} — ${i.subtotal.toLocaleString()} AOA`).join('\n');
   message += `\n\nTotal: ${totalAmount.toLocaleString()} AOA`;
   if (args.delivery_type) message += `\nTipo: ${args.delivery_type}`;
 
