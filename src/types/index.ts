@@ -117,11 +117,13 @@ export interface Order {
   customer_id?: string;
   conversation_id?: string;
   status: OrderStatus;
-  total_amount: number;
+  total: number;
   currency: string;
   notes?: string;
   delivery_type: 'takeaway' | 'delivery' | 'dine_in';
   created_at: string;
+  customers?: { name?: string; phone?: string };
+  olo_order_items?: { id: string; name: string; quantity: number; unit_price: number }[];
 }
 
 export interface BusinessHour {

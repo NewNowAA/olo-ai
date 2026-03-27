@@ -101,6 +101,21 @@ export const createAppointment = (orgId: string, data: any) =>
 export const updateAppointment = (orgId: string, id: string, data: any) =>
   request<any>(`/orgs/${orgId}/appointments/${id}`, { method: 'PUT', body: JSON.stringify(data) });
 
+export const deleteAppointment = (orgId: string, id: string) =>
+  request<any>(`/orgs/${orgId}/appointments/${id}`, { method: 'DELETE' });
+
+// --- Orders ---
+export const getOrders = (orgId: string, params?: { status?: string }) => {
+  const qs = params?.status ? `?status=${params.status}` : '';
+  return request<any[]>(`/org/${orgId}/orders${qs}`);
+};
+
+export const updateOrder = (orgId: string, id: string, data: any) =>
+  request<any>(`/orgs/${orgId}/orders/${id}`, { method: 'PUT', body: JSON.stringify(data) });
+
+export const deleteOrder = (orgId: string, id: string) =>
+  request<any>(`/orgs/${orgId}/orders/${id}`, { method: 'DELETE' });
+
 // --- Customers ---
 export const getCustomers = (orgId: string) =>
   request<any[]>(`/org/${orgId}/customers`);

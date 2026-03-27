@@ -548,18 +548,69 @@ router.post('/orgs/:orgId/appointments', async (req: Request<{ orgId: string }>,
   }
 });
 
-// --- Update appointment status ---
+// --- Update appointment ---
 router.put('/orgs/:orgId/appointments/:id', async (req: Request<{ orgId: string; id: string }>, res: Response) => {
   try {
-    const { data, error } = await store.getSupabase()
-      .from('appointments')
-      .update(req.body)
-      .eq('id', req.params.id)
-      .eq('org_id', req.params.orgId)
-      .select()
-      .single();
-    if (error) { res.status(500).json({ error: error.message }); return; }
-    res.json(data);
+    const ok = await store.updateAppointment(req.params.id, req.body);
+    if (!ok) { res.status(500).json({ error: 'Failed to update appointment' }); return; }
+    const appts = await store.getAppointments(req.params.orgId);
+    const updated = appts.find((a: any) => a.id === req.params.id);
+    res.json(updated || { id: req.params.id });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// --- Delete appointment ---
+router.delete('/orgs/:orgId/appointments/:id', async (req: Request<{ orgId: string; id: string }>, res: Response) => {
+  try {
+    const ok = await store.deleteAppointment(req.params.id);
+    if (!ok) { res.status(500).json({ error: 'Failed to delete appointment' }); return; }
+    res.json({ success: true });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// --- List orders ---
+router.get('/org/:orgId/orders', async (req: Request<{ orgId: string }>, res: Response) => {
+  try {
+    const { status } = req.query;
+    const orders = await store.getOrders(req.params.orgId, status as string | undefined);
+    res.json(orders);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// --- Update order ---
+router.put('/orgs/:orgId/orders/:id', async (req: Request<{ orgId: string; id: string }>, res: Response) => {
+  try {
+    const { status, notes, delivery_type } = req.body;
+    if (status) {
+      const ok = await store.updateOrderStatus(req.params.id, status);
+      if (!ok) { res.status(500).json({ error: 'Failed to update order' }); return; }
+    }
+    // Update notes/delivery_type if provided
+    if (notes !== undefined || delivery_type !== undefined) {
+      const updates: any = {};
+      if (notes !== undefined) updates.notes = notes;
+      if (delivery_type !== undefined) updates.delivery_type = delivery_type;
+      updates.updated_at = new Date().toISOString();
+      await store.getSupabase().from('olo_orders').update(updates).eq('id', req.params.id);
+    }
+    res.json({ success: true });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// --- Delete order ---
+router.delete('/orgs/:orgId/orders/:id', async (req: Request<{ orgId: string; id: string }>, res: Response) => {
+  try {
+    const ok = await store.deleteOrder(req.params.id);
+    if (!ok) { res.status(500).json({ error: 'Failed to delete order' }); return; }
+    res.json({ success: true });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }

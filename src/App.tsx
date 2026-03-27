@@ -24,6 +24,7 @@ import AgentConfig from './pages/owner/AgentConfig';
 import Catalog from './pages/owner/Catalog';
 import Stock from './pages/owner/Stock';
 import Appointments from './pages/owner/Appointments';
+import Orders from './pages/owner/Orders';
 import Customers from './pages/owner/Customers';
 import BusinessHours from './pages/owner/BusinessHours';
 import OwnerSettings from './pages/owner/Settings';
@@ -95,6 +96,7 @@ const App: React.FC = () => {
         <Route path="agent" element={<AgentConfig />} />
         <Route path="catalog" element={<Catalog />} />
         <Route path="stock" element={<Stock />} />
+        <Route path="orders" element={<Orders />} />
         <Route path="appointments" element={<Appointments />} />
         <Route path="customers" element={<Customers />} />
         <Route path="hours" element={<BusinessHours />} />

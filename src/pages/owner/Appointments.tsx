@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { CalendarDays, Check, X, CheckCircle, Plus } from 'lucide-react';
+import { CalendarDays, Check, X, CheckCircle, Plus, Pencil, Trash2 } from 'lucide-react';
 import useAuth from '../../hooks/useAuth';
 import * as api from '../../services/api';
 import type { Appointment, AppointmentStatus } from '../../types';
@@ -19,6 +19,9 @@ export default function Appointments() {
   const [filter, setFilter] = useState<'all' | 'today' | 'week' | AppointmentStatus>('all');
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [editAppt, setEditAppt] = useState<Appointment | null>(null);
+  const [editForm, setEditForm] = useState({ date: '', time_start: '', service_name: '', notes: '' });
   const [catalogItems, setCatalogItems] = useState<any[]>([]);
   const [newAppointment, setNewAppointment] = useState({
     customer_name: '',
@@ -52,6 +55,35 @@ export default function Appointments() {
     } catch (err) { console.error(err); }
   };
 
+  const handleDelete = async (id: string) => {
+    if (!orgId) return;
+    try {
+      await api.deleteAppointment(orgId, id);
+      setItems(prev => prev.filter(a => a.id !== id));
+    } catch (err) { console.error(err); }
+    setDeletingId(null);
+  };
+
+  const openEdit = (appt: Appointment) => {
+    setEditForm({
+      date: appt.date,
+      time_start: appt.time_start,
+      service_name: (appt as any).service_name || '',
+      notes: appt.notes || '',
+    });
+    setEditAppt(appt);
+  };
+
+  const handleSaveEdit = async () => {
+    if (!orgId || !editAppt) return;
+    try {
+      await api.updateAppointment(orgId, editAppt.id, editForm);
+      const refreshed = await api.getAppointments(orgId);
+      setItems(refreshed);
+      setEditAppt(null);
+    } catch (err) { console.error(err); }
+  };
+
   const handleCreateAppointment = async () => {
     if (!orgId) return;
     try {
@@ -71,7 +103,7 @@ export default function Appointments() {
         source: 'dashboard'
       };
       
-      const saved = await api.createAppointment(orgId, payload);
+      await api.createAppointment(orgId, payload);
       // Refresh list to get all joins correctly
       const refreshed = await api.getAppointments(orgId);
       setItems(refreshed);
@@ -134,20 +166,62 @@ export default function Appointments() {
                   <td className="px-4 py-3 text-gray-900">{a.date} {a.time_start}</td>
                   <td className="px-4 py-3 text-center"><span className={`px-2 py-0.5 rounded-full text-xs font-medium ${STATUS_MAP[a.status]?.color}`}>{STATUS_MAP[a.status]?.label}</span></td>
                   <td className="px-4 py-3">
-                    {a.status === 'pending' && (
-                      <div className="flex gap-1 justify-end">
-                        <button onClick={() => handleAction(a.id, 'confirmed')} className="p-1 text-green-600 hover:bg-green-50 rounded" title="Confirmar"><Check size={16} /></button>
-                        <button onClick={() => handleAction(a.id, 'cancelled')} className="p-1 text-red-600 hover:bg-red-50 rounded" title="Cancelar"><X size={16} /></button>
+                    {deletingId === a.id ? (
+                      <div className="flex gap-1 items-center justify-end text-xs">
+                        <span className="text-gray-500">Eliminar?</span>
+                        <button onClick={() => handleDelete(a.id)} className="px-2 py-0.5 bg-red-600 text-white rounded text-xs">Sim</button>
+                        <button onClick={() => setDeletingId(null)} className="px-2 py-0.5 bg-gray-200 text-gray-700 rounded text-xs">Não</button>
                       </div>
-                    )}
-                    {a.status === 'confirmed' && (
-                      <button onClick={() => handleAction(a.id, 'completed')} className="p-1 text-blue-600 hover:bg-blue-50 rounded" title="Concluir"><CheckCircle size={16} /></button>
+                    ) : (
+                      <div className="flex gap-1 justify-end">
+                        {a.status === 'pending' && (
+                          <>
+                            <button onClick={() => handleAction(a.id, 'confirmed')} className="p-1 text-green-600 hover:bg-green-50 rounded" title="Confirmar"><Check size={15} /></button>
+                            <button onClick={() => handleAction(a.id, 'cancelled')} className="p-1 text-red-600 hover:bg-red-50 rounded" title="Cancelar"><X size={15} /></button>
+                          </>
+                        )}
+                        {a.status === 'confirmed' && (
+                          <button onClick={() => handleAction(a.id, 'completed')} className="p-1 text-blue-600 hover:bg-blue-50 rounded" title="Concluir"><CheckCircle size={15} /></button>
+                        )}
+                        <button onClick={() => openEdit(a)} className="p-1 text-gray-500 hover:bg-gray-100 rounded" title="Editar"><Pencil size={15} /></button>
+                        <button onClick={() => setDeletingId(a.id)} className="p-1 text-red-400 hover:bg-red-50 rounded" title="Eliminar"><Trash2 size={15} /></button>
+                      </div>
                     )}
                   </td>
                 </tr>
               ))}
             </tbody>
           </table>
+        </div>
+      )}
+
+      {editAppt && (
+        <div className="fixed inset-0 bg-black/30 z-50 flex items-center justify-center p-4" onClick={() => setEditAppt(null)}>
+          <div className="bg-white rounded-lg border border-gray-200 p-6 w-full max-w-sm space-y-4 shadow-xl" onClick={e => e.stopPropagation()}>
+            <h2 className="text-lg font-semibold text-gray-900">Editar Marcação</h2>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Data</label>
+                <input type="date" value={editForm.date} onChange={e => setEditForm(f => ({ ...f, date: e.target.value }))} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Hora</label>
+                <input type="time" value={editForm.time_start} onChange={e => setEditForm(f => ({ ...f, time_start: e.target.value }))} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" />
+              </div>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Serviço</label>
+              <input type="text" value={editForm.service_name} onChange={e => setEditForm(f => ({ ...f, service_name: e.target.value }))} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" placeholder="Ex: Consulta, Corte de cabelo..." />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Notas</label>
+              <textarea value={editForm.notes} onChange={e => setEditForm(f => ({ ...f, notes: e.target.value }))} rows={2} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm resize-none" placeholder="Notas adicionais..." />
+            </div>
+            <div className="flex justify-end gap-2 pt-2 border-t border-gray-100">
+              <button onClick={() => setEditAppt(null)} className="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg">Cancelar</button>
+              <button onClick={handleSaveEdit} className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700">Guardar</button>
+            </div>
+          </div>
         </div>
       )}
 

@@ -409,6 +409,61 @@ export async function createOrder(orderData: any, items: any[]): Promise<any> {
   return order;
 }
 
+export async function getOrders(orgId: string, status?: string): Promise<any[]> {
+  let q = getSupabase()
+    .from('olo_orders')
+    .select('*, customers(name, phone), olo_order_items(id, name, quantity, unit_price)')
+    .eq('org_id', orgId);
+
+  if (status) q = q.eq('status', status);
+
+  const { data, error } = await q.order('created_at', { ascending: false });
+  if (error) { console.error('getOrders error:', error); return []; }
+  return data || [];
+}
+
+export async function updateOrderStatus(orderId: string, status: string): Promise<boolean> {
+  const { error } = await getSupabase()
+    .from('olo_orders')
+    .update({ status, updated_at: new Date().toISOString() })
+    .eq('id', orderId);
+  if (error) { console.error('updateOrderStatus error:', error); }
+  return !error;
+}
+
+export async function deleteOrder(orderId: string): Promise<boolean> {
+  // Delete items first (in case no cascade)
+  await getSupabase().from('olo_order_items').delete().eq('order_id', orderId);
+  const { error } = await getSupabase().from('olo_orders').delete().eq('id', orderId);
+  if (error) { console.error('deleteOrder error:', error); }
+  return !error;
+}
+
+export async function deleteAppointment(appointmentId: string): Promise<boolean> {
+  const { error } = await getSupabase()
+    .from('appointments')
+    .delete()
+    .eq('id', appointmentId);
+  if (error) { console.error('deleteAppointment error:', error); }
+  return !error;
+}
+
+export async function updateAppointment(appointmentId: string, updates: any): Promise<boolean> {
+  // If date + time_start provided, rebuild datetime
+  if (updates.date && updates.time_start) {
+    updates.datetime = `${updates.date}T${updates.time_start}:00`;
+    updates.end_time = new Date(new Date(updates.datetime).getTime() + 60 * 60 * 1000).toISOString();
+    delete updates.date;
+    delete updates.time_start;
+  }
+  const { error } = await getSupabase()
+    .from('appointments')
+    .update(updates)
+    .eq('id', appointmentId);
+  if (error) { console.error('updateAppointment error:', error); }
+  return !error;
+}
+
 // --- Stock ---
 export async function updateStock(itemId: string, quantity: number): Promise<boolean> {
   const { error } = await getSupabase()

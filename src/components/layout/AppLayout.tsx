@@ -6,7 +6,7 @@ import React, { useState } from 'react';
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard, MessageSquare, Bot, Package, Archive,
-  CalendarDays, Users, Clock, Settings, LogOut, Menu, X
+  CalendarDays, Users, Clock, Settings, LogOut, Menu, X, ShoppingBag
 } from 'lucide-react';
 import useAuth from '../../hooks/useAuth';
 import { FeedbackButton } from './FeedbackButton';
@@ -17,6 +17,7 @@ const NAV_ITEMS = [
   { to: '/app/agent', label: 'Agente IA', icon: Bot },
   { to: '/app/catalog', label: 'Catálogo', icon: Package },
   { to: '/app/stock', label: 'Stock', icon: Archive },
+  { to: '/app/orders', label: 'Pedidos', icon: ShoppingBag },
   { to: '/app/appointments', label: 'Agenda', icon: CalendarDays },
   { to: '/app/customers', label: 'Clientes', icon: Users },
   { to: '/app/hours', label: 'Horário', icon: Clock },
