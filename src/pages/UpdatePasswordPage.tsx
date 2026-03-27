@@ -18,9 +18,17 @@ export default function UpdatePasswordPage() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    // onAuthStateChange will fire PASSWORD_RECOVERY when the token in the URL is valid
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
-      if (event === 'PASSWORD_RECOVERY') setReady(true);
+    // Supabase processes the recovery token from the URL hash before this component
+    // mounts, so PASSWORD_RECOVERY may already have fired. Check getSession() first.
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session) setReady(true);
+    });
+
+    // Also listen in case we catch it in time, or if INITIAL_SESSION fires with a session
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'PASSWORD_RECOVERY' || (event === 'INITIAL_SESSION' && session)) {
+        setReady(true);
+      }
     });
     return () => subscription.unsubscribe();
   }, []);
