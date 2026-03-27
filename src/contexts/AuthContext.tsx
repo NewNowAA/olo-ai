@@ -38,15 +38,18 @@ export function useAuthContext(): AuthContextType {
 
 async function resolveProfile(authUser: User): Promise<AuthUser | null> {
   try {
+    // maybeSingle() returns null (not an error) when 0 rows found
     const { data: profile } = await supabase
       .from('profiles')
       .select('organization_id, role, full_name')
       .eq('id', authUser.id)
-      .single();
+      .maybeSingle();
 
-    if (!profile) return null;
+    // Fall back to user_metadata stored in JWT (no extra DB call)
+    const dbRole = profile?.role || authUser.user_metadata?.role;
+    const orgId = profile?.organization_id || authUser.user_metadata?.org_id || '';
+    const name = profile?.full_name || authUser.user_metadata?.name || authUser.email;
 
-    const dbRole = profile.role || authUser.user_metadata?.role;
     let role: Role = 'client';
     if (dbRole === 'system_admin' || dbRole === 'dev') role = 'dev';
     else if (dbRole === 'admin' || dbRole === 'owner') role = 'owner';
@@ -55,11 +58,22 @@ async function resolveProfile(authUser: User): Promise<AuthUser | null> {
       id: authUser.id,
       email: authUser.email || '',
       role,
-      orgId: profile.organization_id || '',
-      name: profile.full_name || authUser.email,
+      orgId,
+      name,
     };
   } catch {
-    return null;
+    // Last resort: build minimal profile from JWT user_metadata
+    const dbRole = authUser.user_metadata?.role;
+    let role: Role = 'client';
+    if (dbRole === 'dev') role = 'dev';
+    else if (dbRole === 'admin' || dbRole === 'owner') role = 'owner';
+    return {
+      id: authUser.id,
+      email: authUser.email || '',
+      role,
+      orgId: authUser.user_metadata?.org_id || '',
+      name: authUser.user_metadata?.name || authUser.email,
+    };
   }
 }
 
@@ -68,33 +82,45 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const init = async () => {
-      try {
-        // getSession reads from localStorage — instant, no network call
-        const { data: { session } } = await supabase.auth.getSession();
+    let mounted = true;
+
+    // Safety net: never leave the app stuck in loading beyond 6 seconds
+    const safetyTimeout = setTimeout(() => {
+      if (mounted) setLoading(false);
+    }, 6000);
+
+    // Supabase v2 best practice: use onAuthStateChange as the single source of truth.
+    // INITIAL_SESSION fires immediately from localStorage on every page load (no network needed).
+    // This replaces the old getSession() + onAuthStateChange dual approach which could hang
+    // when getSession() tried to refresh an expired token over a slow network.
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (!mounted) return;
+
+      if (event === 'INITIAL_SESSION' || event === 'SIGNED_IN') {
         if (session?.user) {
           const profile = await resolveProfile(session.user);
-          setUser(profile);
+          if (mounted) setUser(profile);
+        } else {
+          if (mounted) setUser(null);
         }
-      } catch {
-        setUser(null);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    init();
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if (event === 'SIGNED_IN' && session?.user) {
-        const profile = await resolveProfile(session.user);
-        setUser(profile);
+        clearTimeout(safetyTimeout);
+        if (mounted) setLoading(false);
       } else if (event === 'SIGNED_OUT') {
-        setUser(null);
+        if (mounted) setUser(null);
+        clearTimeout(safetyTimeout);
+        if (mounted) setLoading(false);
+      } else if (event === 'TOKEN_REFRESHED' && session?.user) {
+        // Re-resolve profile silently on token refresh (doesn't change loading state)
+        const profile = await resolveProfile(session.user);
+        if (mounted) setUser(profile);
       }
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      mounted = false;
+      clearTimeout(safetyTimeout);
+      subscription.unsubscribe();
+    };
   }, []);
 
   const signIn = useCallback(async (email: string, password: string): Promise<AuthUser | null> => {
