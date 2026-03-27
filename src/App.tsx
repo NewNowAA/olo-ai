@@ -9,6 +9,7 @@ import useAuth from './hooks/useAuth';
 // Auth pages
 import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
+import UpdatePasswordPage from './pages/UpdatePasswordPage';
 
 // Layouts
 import { AuthGuard } from './components/auth/AuthGuard';
@@ -71,6 +72,7 @@ const App: React.FC = () => {
       <Route path="/register" element={
         isAuthenticated ? <Navigate to={getHomeRoute()} replace /> : <RegisterPage />
       } />
+      <Route path="/update-password" element={<UpdatePasswordPage />} />
 
       {/* Dev routes */}
       <Route path="/dev" element={
