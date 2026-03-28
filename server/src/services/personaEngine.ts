@@ -9,6 +9,7 @@ import { Organization, UserContext, Customer } from '../types/index.js';
 import { getBasePrompt, getRolePrompt } from '../config/prompts.js';
 import { getSectorConfig } from '../config/sectors.js';
 import * as store from './supabaseStore.js';
+import { TIMEZONE } from '../config/constants.js';
 
 export interface PersonaResult {
   systemPrompt: string;
@@ -90,7 +91,7 @@ export function buildPersona(
 
   // --- Date/Time context ---
   const now = new Date();
-  const angolaTime = new Date(now.toLocaleString('en-US', { timeZone: 'Africa/Luanda' }));
+  const angolaTime = new Date(now.toLocaleString('en-US', { timeZone: TIMEZONE }));
   const dateStr = angolaTime.toLocaleDateString('pt-PT', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
   const timeStr = angolaTime.toLocaleTimeString('pt-PT', { hour: '2-digit', minute: '2-digit' });
 

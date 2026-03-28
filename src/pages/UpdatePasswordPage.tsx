@@ -2,35 +2,30 @@
 // Olo.AI — Update Password Page
 // =============================================
 // Handles the password reset link from email.
-// Supabase sets the session from the URL token,
-// then we let the user choose a new password.
+// AuthContext (root-level) already processes the
+// recovery token from the URL hash and sets the
+// session. We simply read from useAuth() here —
+// no extra onAuthStateChange listener needed.
 
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../services/supabase/client';
+import useAuth from '../hooks/useAuth';
 
 export default function UpdatePasswordPage() {
+  const { user, loading: authLoading } = useAuth();
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const [ready, setReady] = useState(false);
   const navigate = useNavigate();
 
+  // If auth resolved and still no session, the link is invalid/expired
   useEffect(() => {
-    // onAuthStateChange fires INITIAL_SESSION immediately to each new subscriber
-    // with the current session — so if Supabase already processed the recovery
-    // token from the URL hash, we'll catch it here. Also catch PASSWORD_RECOVERY
-    // in case it fires after we subscribe.
-    // NOTE: do NOT also call getSession() here — both would try to acquire the
-    // same navigator.locks lock and one would time out after 10s.
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      if (event === 'PASSWORD_RECOVERY' || (event === 'INITIAL_SESSION' && session)) {
-        setReady(true);
-      }
-    });
-    return () => subscription.unsubscribe();
-  }, []);
+    if (!authLoading && !user) {
+      navigate('/login');
+    }
+  }, [authLoading, user, navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -55,7 +50,7 @@ export default function UpdatePasswordPage() {
     }
   };
 
-  if (!ready) {
+  if (authLoading || !user) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
         <div className="text-center text-gray-400">

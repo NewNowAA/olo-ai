@@ -3,6 +3,7 @@
 // =============================================
 
 import * as store from '../services/supabaseStore.js';
+import { TIMEZONE } from '../config/constants.js';
 
 export async function worker_checkin(orgId: string, workerId: string) {
   if (!workerId) {
@@ -13,7 +14,7 @@ export async function worker_checkin(orgId: string, workerId: string) {
   const openSession = await store.getOpenWorkSession(workerId);
   if (openSession) {
     const checkInTime = new Date(openSession.check_in).toLocaleTimeString('pt-PT', {
-      hour: '2-digit', minute: '2-digit', timeZone: 'Africa/Luanda',
+      hour: '2-digit', minute: '2-digit', timeZone: TIMEZONE,
     });
     return {
       success: false,
@@ -29,7 +30,7 @@ export async function worker_checkin(orgId: string, workerId: string) {
   }
 
   const checkInTime = new Date(session.check_in).toLocaleTimeString('pt-PT', {
-    hour: '2-digit', minute: '2-digit', timeZone: 'Africa/Luanda',
+    hour: '2-digit', minute: '2-digit', timeZone: TIMEZONE,
   });
 
   return {
@@ -60,10 +61,10 @@ export async function worker_checkout(orgId: string, workerId: string, args: { n
   }
 
   const checkInTime = new Date(openSession.check_in).toLocaleTimeString('pt-PT', {
-    hour: '2-digit', minute: '2-digit', timeZone: 'Africa/Luanda',
+    hour: '2-digit', minute: '2-digit', timeZone: TIMEZONE,
   });
   const checkOutTime = new Date().toLocaleTimeString('pt-PT', {
-    hour: '2-digit', minute: '2-digit', timeZone: 'Africa/Luanda',
+    hour: '2-digit', minute: '2-digit', timeZone: TIMEZONE,
   });
 
   const durationMs = Date.now() - new Date(openSession.check_in).getTime();
@@ -106,10 +107,10 @@ export async function get_my_schedule(orgId: string, workerId: string, args: { d
     const durationMins = checkOut ? Math.round((checkOut.getTime() - checkIn.getTime()) / 60000) : null;
     if (durationMins) totalMins += durationMins;
     return {
-      date: checkIn.toLocaleDateString('pt-PT', { weekday: 'short', day: '2-digit', month: '2-digit', timeZone: 'Africa/Luanda' }),
-      check_in: checkIn.toLocaleTimeString('pt-PT', { hour: '2-digit', minute: '2-digit', timeZone: 'Africa/Luanda' }),
+      date: checkIn.toLocaleDateString('pt-PT', { weekday: 'short', day: '2-digit', month: '2-digit', timeZone: TIMEZONE }),
+      check_in: checkIn.toLocaleTimeString('pt-PT', { hour: '2-digit', minute: '2-digit', timeZone: TIMEZONE }),
       check_out: checkOut
-        ? checkOut.toLocaleTimeString('pt-PT', { hour: '2-digit', minute: '2-digit', timeZone: 'Africa/Luanda' })
+        ? checkOut.toLocaleTimeString('pt-PT', { hour: '2-digit', minute: '2-digit', timeZone: TIMEZONE })
         : 'Em curso',
       duration: durationMins ? `${Math.floor(durationMins / 60)}h ${durationMins % 60}min` : '—',
     };

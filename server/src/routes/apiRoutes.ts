@@ -13,9 +13,6 @@ import { processUpdate } from './telegramRoutes.js';
 
 const router = Router();
 
-// In-memory sessions for multi-step AI conversations
-export const conversationSessions = new Map<string, string>();
-
 // --- Health check ---
 router.get('/health', (_req: Request, res: Response) => {
   res.json({
@@ -176,7 +173,7 @@ router.post('/public/check-phone', async (req: Request, res: Response) => {
 });
 
 // --- Get organization info ---
-router.get('/org/:orgId', async (req: Request<{ orgId: string }>, res: Response) => {
+router.get('/orgs/:orgId', async (req: Request<{ orgId: string }>, res: Response) => {
   const org = await store.getOrganization(req.params.orgId);
   if (!org) {
     res.status(404).json({ error: 'Organization not found' });
@@ -256,7 +253,7 @@ router.post('/orgs/:orgId/setup-telegram', async (req: Request<{ orgId: string }
 });
 
 // --- Get setup progress ---
-router.get('/org/:orgId/setup', async (req: Request<{ orgId: string }>, res: Response) => {
+router.get('/orgs/:orgId/setup', async (req: Request<{ orgId: string }>, res: Response) => {
   const org = await store.getOrganization(req.params.orgId);
   if (!org) {
     res.status(404).json({ error: 'Organization not found' });
@@ -329,7 +326,7 @@ router.get('/orgs/:orgId/stats', async (req: Request<{ orgId: string }>, res: Re
 });
 
 // --- List conversations ---
-router.get('/org/:orgId/conversations', async (req: Request<{ orgId: string }>, res: Response) => {
+router.get('/orgs/:orgId/conversations', async (req: Request<{ orgId: string }>, res: Response) => {
   const { data, error } = await store.getSupabase()
     .from('conversations')
     .select('*, customers(name, telegram_id)')
@@ -392,7 +389,7 @@ router.put('/orgs/:orgId/conversations/:convId/status', async (req: Request<{ or
 });
 
 // --- List catalog items ---
-router.get('/org/:orgId/catalog', async (req: Request<{ orgId: string }>, res: Response) => {
+router.get('/orgs/:orgId/catalog', async (req: Request<{ orgId: string }>, res: Response) => {
   try {
     const { data, error } = await store.getSupabase()
       .from('catalog_items')
@@ -514,7 +511,7 @@ router.post('/orgs/:orgId/stock/movement', async (req: Request<{ orgId: string }
 });
 
 // --- Stock alerts ---
-router.get('/org/:orgId/stock-alerts', async (req: Request<{ orgId: string }>, res: Response) => {
+router.get('/orgs/:orgId/stock-alerts', async (req: Request<{ orgId: string }>, res: Response) => {
   const alerts = await store.getStockAlerts(req.params.orgId);
   res.json({
     count: alerts.length,
@@ -523,7 +520,7 @@ router.get('/org/:orgId/stock-alerts', async (req: Request<{ orgId: string }>, r
 });
 
 // --- List appointments ---
-router.get('/org/:orgId/appointments', async (req: Request<{ orgId: string }>, res: Response) => {
+router.get('/orgs/:orgId/appointments', async (req: Request<{ orgId: string }>, res: Response) => {
   try {
     const { date, status } = req.query;
     const appointments = await store.getAppointments(
@@ -573,7 +570,7 @@ router.delete('/orgs/:orgId/appointments/:id', async (req: Request<{ orgId: stri
 });
 
 // --- List orders ---
-router.get('/org/:orgId/orders', async (req: Request<{ orgId: string }>, res: Response) => {
+router.get('/orgs/:orgId/orders', async (req: Request<{ orgId: string }>, res: Response) => {
   try {
     const { status } = req.query;
     const orders = await store.getOrders(req.params.orgId, status as string | undefined);
@@ -617,7 +614,7 @@ router.delete('/orgs/:orgId/orders/:id', async (req: Request<{ orgId: string; id
 });
 
 // --- List customers ---
-router.get('/org/:orgId/customers', async (req: Request<{ orgId: string }>, res: Response) => {
+router.get('/orgs/:orgId/customers', async (req: Request<{ orgId: string }>, res: Response) => {
   const { data, error } = await store.getSupabase()
     .from('customers')
     .select('*')

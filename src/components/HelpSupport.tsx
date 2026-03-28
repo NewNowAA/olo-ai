@@ -1,8 +1,10 @@
 import React, { useState } from 'react';
 import { ChevronDown, ChevronUp, Mail, MessageCircle, Phone, Send, CheckCircle2, AlertCircle } from 'lucide-react';
 import { supabase } from '../services';
+import useAuth from '../hooks/useAuth';
 
 const HelpSupport: React.FC = () => {
+  const { user } = useAuth();
   const [openFaq, setOpenFaq] = useState<number | null>(0);
   
   const [formData, setFormData] = useState({
@@ -22,8 +24,6 @@ const HelpSupport: React.FC = () => {
     setSubmitStatus('idle');
 
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-
       const { error } = await supabase
         .from('support_tickets')
         .insert([{

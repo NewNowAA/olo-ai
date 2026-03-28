@@ -23,7 +23,7 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
 }
 
 export const getOrg = (orgId: string) =>
-  request<any>(`/org/${orgId}`);
+  request<any>(`/orgs/${orgId}`);
 
 export const updateOrg = (orgId: string, data: any) =>
   request<any>(`/orgs/${orgId}`, { method: 'PUT', body: JSON.stringify(data) });
@@ -38,7 +38,7 @@ export const setPreviewMode = (orgId: string, mode: 'owner' | 'client') =>
   request<{ mode: 'owner' | 'client' }>(`/orgs/${orgId}/preview-mode`, { method: 'POST', body: JSON.stringify({ mode }) });
 
 export const getOrgSetupProgress = (orgId: string) =>
-  request<any>(`/org/${orgId}/setup`);
+  request<any>(`/orgs/${orgId}/setup`);
 
 // --- Dashboard Stats ---
 export const getStats = (orgId: string) =>
@@ -46,7 +46,7 @@ export const getStats = (orgId: string) =>
 
 // --- Catalog ---
 export const getCatalog = (orgId: string) =>
-  request<any[]>(`/org/${orgId}/catalog`);
+  request<any[]>(`/orgs/${orgId}/catalog`);
 
 export const createCatalogItem = (orgId: string, data: any) =>
   request<any>(`/orgs/${orgId}/catalog`, { method: 'POST', body: JSON.stringify(data) });
@@ -72,7 +72,7 @@ export const registerStockMovement = (orgId: string, data: any) =>
 
 // --- Conversations ---
 export const getConversations = (orgId: string) =>
-  request<any[]>(`/org/${orgId}/conversations`);
+  request<any[]>(`/orgs/${orgId}/conversations`);
 
 export const getConversationMessages = (convId: string) =>
   request<any[]>(`/conversations/${convId}/messages`);
@@ -92,7 +92,7 @@ export const closeConversation = (orgId: string, convId: string) =>
 // --- Appointments ---
 export const getAppointments = (orgId: string, params?: { date?: string; status?: string }) => {
   const qs = new URLSearchParams(params as any).toString();
-  return request<any[]>(`/org/${orgId}/appointments${qs ? '?' + qs : ''}`);
+  return request<any[]>(`/orgs/${orgId}/appointments${qs ? '?' + qs : ''}`);
 };
 
 export const createAppointment = (orgId: string, data: any) =>
@@ -107,7 +107,7 @@ export const deleteAppointment = (orgId: string, id: string) =>
 // --- Orders ---
 export const getOrders = (orgId: string, params?: { status?: string }) => {
   const qs = params?.status ? `?status=${params.status}` : '';
-  return request<any[]>(`/org/${orgId}/orders${qs}`);
+  return request<any[]>(`/orgs/${orgId}/orders${qs}`);
 };
 
 export const updateOrder = (orgId: string, id: string, data: any) =>
@@ -118,7 +118,7 @@ export const deleteOrder = (orgId: string, id: string) =>
 
 // --- Customers ---
 export const getCustomers = (orgId: string) =>
-  request<any[]>(`/org/${orgId}/customers`);
+  request<any[]>(`/orgs/${orgId}/customers`);
 
 export const createCustomer = (orgId: string, data: any) =>
   request<any>(`/orgs/${orgId}/customers`, { method: 'POST', body: JSON.stringify(data) });
@@ -132,7 +132,7 @@ export const updateBusinessHours = (orgId: string, hours: any[]) =>
 
 // --- Stock Alerts ---
 export const getStockAlerts = (orgId: string) =>
-  request<any>(`/org/${orgId}/stock-alerts`);
+  request<any>(`/orgs/${orgId}/stock-alerts`);
 
 // --- Admin (Dev only) ---
 export const getAdminStats = () =>

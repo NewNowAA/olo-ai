@@ -18,6 +18,7 @@ import { executeTool } from './toolExecutor.js';
 import { getToolDeclarations } from '../tools/definitions.js';
 import * as store from './supabaseStore.js';
 import { checkInputPolicy, checkOutputPolicy, checkConversationLimits, applySlidingWindow, LIMITS } from './policyGuard.js';
+import { TIMEZONE } from '../config/constants.js';
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
 
@@ -92,7 +93,7 @@ export async function handleMessage(
     // B) Absence Message + Business Status Injection
     const hours = await store.getBusinessHours(org.id);
     const now = new Date();
-    const localTime = new Date(now.toLocaleString('en-US', { timeZone: 'Africa/Luanda' }));
+    const localTime = new Date(now.toLocaleString('en-US', { timeZone: TIMEZONE }));
     const dayOfWeek = localTime.getDay(); // 0=Sunday..6=Saturday, matches DB convention
     const todayHours = hours.find(h => h.day_of_week === dayOfWeek);
     const hh = localTime.getHours().toString().padStart(2, '0');
