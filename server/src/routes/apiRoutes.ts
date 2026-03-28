@@ -498,9 +498,8 @@ router.post('/orgs/:orgId/stock/movement', async (req: Request<{ orgId: string }
       .insert({
         org_id: req.params.orgId,
         catalog_item_id,
-        movement_type: type === 'in' ? 'restock' : 'sale',
-        quantity_change: delta,
-        quantity_after: newQty,
+        type: type === 'in' ? 'in' : 'out',
+        quantity: Math.abs(delta),
         reason: reason || null,
       });
 
@@ -620,9 +619,8 @@ router.put('/orgs/:orgId/orders/:id', async (req: Request<{ orgId: string; id: s
           .insert({
             org_id: req.params.orgId,
             catalog_item_id: item.catalog_item_id,
-            movement_type: status === 'delivered' ? 'sale' : 'return',
-            quantity_change: delta,
-            quantity_after: newQty,
+            type: status === 'delivered' ? 'out' : 'in',
+            quantity: Math.abs(delta),
             reason: `Pedido marcado como ${status}`,
           });
       }

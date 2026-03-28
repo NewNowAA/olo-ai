@@ -25,7 +25,6 @@ export interface Organization {
   setup_progress: number;
   telegram_bot_token?: string;
   telegram_chat_id?: string;
-  currency_default: string;
 }
 
 export interface CatalogCategory {
@@ -44,13 +43,13 @@ export interface CatalogItem {
   description?: string;
   price: number;
   currency: string;
-  unit: string;
+  stock_unit?: string;
   stock_quantity?: number;
-  stock_min_alert: number;
+  stock_min?: number;
   is_available: boolean;
+  active?: boolean;
   image_url?: string;
-  tags: string[];
-  metadata: Record<string, any>;
+  tags?: string[];
   catalog_categories?: { name: string };
 }
 
@@ -100,14 +99,13 @@ export interface Appointment {
   id: string;
   org_id: string;
   customer_id?: string;
-  service_id?: string;
-  professional_name?: string;
-  date: string;
-  time_start: string;
-  time_end?: string;
+  service_name?: string;
+  date?: string;
+  time_start?: string;
+  datetime?: string;
+  end_time?: string;
   status: AppointmentStatus;
   notes?: string;
-  source: 'bot' | 'dashboard' | 'phone';
   customers?: { name?: string; phone?: string };
 }
 
