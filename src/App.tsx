@@ -32,6 +32,8 @@ import OwnerSettings from './pages/owner/Settings';
 import Onboarding from './pages/owner/Onboarding';
 import Workers from './pages/owner/Workers';
 import Attendance from './pages/owner/Attendance';
+import Operations from './pages/owner/Operations';
+import Team from './pages/owner/Team';
 
 // Dev pages
 import DevDashboard from './pages/dev/DevDashboard';
@@ -106,6 +108,8 @@ const App: React.FC = () => {
         <Route path="onboarding" element={<Onboarding />} />
         <Route path="workers" element={<Workers />} />
         <Route path="attendance" element={<Attendance />} />
+        <Route path="operations" element={<Operations />} />
+        <Route path="team" element={<Team />} />
       </Route>
 
       {/* Client routes */}

@@ -6,9 +6,14 @@ import App from './App';
 import { ToastProvider } from './contexts/ToastContext';
 import { AuthProvider } from './contexts/AuthContext';
 
-// Prevent AbortError from Supabase WebSocket disconnects from crashing the app
+// Prevent Supabase internal errors from crashing the app
 window.addEventListener('unhandledrejection', (event) => {
-  if (event.reason?.name === 'AbortError') {
+  const msg = event.reason?.message || '';
+  if (
+    event.reason?.name === 'AbortError' ||
+    msg.includes('LockManager') ||
+    msg.includes('navigator.locks')
+  ) {
     event.preventDefault();
     return;
   }

@@ -422,13 +422,21 @@ export async function getOrders(orgId: string, status?: string): Promise<any[]> 
   return data || [];
 }
 
-export async function updateOrderStatus(orderId: string, status: string): Promise<boolean> {
+export async function updateOrder(
+  orderId: string,
+  updates: { status?: string; notes?: string; delivery_type?: string }
+): Promise<boolean> {
   const { error } = await getSupabase()
     .from('olo_orders')
-    .update({ status, updated_at: new Date().toISOString() })
+    .update(updates)
     .eq('id', orderId);
-  if (error) { console.error('updateOrderStatus error:', error); }
+  if (error) { console.error('updateOrder error:', error); }
   return !error;
+}
+
+// Alias kept for bot tool compatibility
+export async function updateOrderStatus(orderId: string, status: string): Promise<boolean> {
+  return updateOrder(orderId, { status });
 }
 
 export async function deleteOrder(orderId: string): Promise<boolean> {

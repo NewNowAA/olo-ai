@@ -7,7 +7,7 @@ export type Sector = 'restaurante' | 'clinica' | 'salao' | 'farmacia' | 'hotel' 
 export type Channel = 'telegram' | 'whatsapp';
 export type ConversationStatus = 'active' | 'closed' | 'handoff';
 export type AppointmentStatus = 'pending' | 'confirmed' | 'cancelled' | 'completed' | 'no_show';
-export type OrderStatus = 'pending' | 'confirmed' | 'preparing' | 'ready' | 'delivered' | 'cancelled';
+export type OrderStatus = 'pending' | 'confirmed' | 'preparing' | 'ready' | 'delivered' | 'cancelled' | 'returned';
 
 export interface Organization {
   id: string;

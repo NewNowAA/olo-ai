@@ -12,6 +12,7 @@ const STATUS_MAP: Record<OrderStatus, { label: string; color: string }> = {
   ready:     { label: 'Pronto',     color: 'bg-purple-100 text-purple-700' },
   delivered: { label: 'Entregue',   color: 'bg-green-100 text-green-700' },
   cancelled: { label: 'Cancelado',  color: 'bg-red-100 text-red-700' },
+  returned:  { label: 'Devolvido',  color: 'bg-gray-100 text-gray-600' },
 };
 
 const DELIVERY_MAP: Record<string, string> = {
@@ -93,6 +94,7 @@ export default function Orders() {
           { key: 'ready',     label: 'Prontos' },
           { key: 'delivered', label: 'Entregues' },
           { key: 'cancelled', label: 'Cancelados' },
+          { key: 'returned',  label: 'Devolvidos' },
         ] as { key: FilterKey; label: string }[]).map(f => (
           <button
             key={f.key}

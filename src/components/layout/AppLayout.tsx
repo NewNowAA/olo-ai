@@ -6,24 +6,22 @@ import React, { useState } from 'react';
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard, MessageSquare, Bot, Package, Archive,
-  CalendarDays, Users, Clock, Settings, LogOut, Menu, X, ShoppingBag
+  Users, Clock, Settings, LogOut, Menu, X, Layers, UserCog
 } from 'lucide-react';
 import useAuth from '../../hooks/useAuth';
 import { FeedbackButton } from './FeedbackButton';
 
 const NAV_ITEMS = [
-  { to: '/app/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-  { to: '/app/conversations', label: 'Conversas', icon: MessageSquare },
-  { to: '/app/agent', label: 'Agente IA', icon: Bot },
-  { to: '/app/catalog', label: 'Catálogo', icon: Package },
-  { to: '/app/stock', label: 'Stock', icon: Archive },
-  { to: '/app/orders', label: 'Pedidos', icon: ShoppingBag },
-  { to: '/app/appointments', label: 'Agenda', icon: CalendarDays },
-  { to: '/app/customers', label: 'Clientes', icon: Users },
-  { to: '/app/hours', label: 'Horário', icon: Clock },
-  { to: '/app/workers', label: 'Colaboradores', icon: Users },
-  { to: '/app/attendance', label: 'Ponto', icon: Clock },
-  { to: '/app/settings', label: 'Definições', icon: Settings },
+  { to: '/app/dashboard',    label: 'Dashboard',  icon: LayoutDashboard },
+  { to: '/app/conversations',label: 'Conversas',  icon: MessageSquare },
+  { to: '/app/agent',        label: 'Agente IA',  icon: Bot },
+  { to: '/app/catalog',      label: 'Catálogo',   icon: Package },
+  { to: '/app/stock',        label: 'Stock',       icon: Archive },
+  { to: '/app/operations',   label: 'Operações',  icon: Layers },
+  { to: '/app/customers',    label: 'Clientes',    icon: Users },
+  { to: '/app/hours',        label: 'Horário',     icon: Clock },
+  { to: '/app/team',         label: 'Equipa',      icon: UserCog },
+  { to: '/app/settings',     label: 'Definições',  icon: Settings },
 ];
 
 export function AppLayout() {

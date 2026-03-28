@@ -20,7 +20,6 @@ export const supabase = createClient(
     SUPABASE_ANON_KEY || '',
     {
         auth: {
-            storageKey: 'olo-ai-auth',
             autoRefreshToken: true,
             persistSession: true,
             detectSessionInUrl: true,

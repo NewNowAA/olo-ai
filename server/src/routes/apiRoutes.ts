@@ -584,18 +584,50 @@ router.get('/orgs/:orgId/orders', async (req: Request<{ orgId: string }>, res: R
 router.put('/orgs/:orgId/orders/:id', async (req: Request<{ orgId: string; id: string }>, res: Response) => {
   try {
     const { status, notes, delivery_type } = req.body;
-    if (status) {
-      const ok = await store.updateOrderStatus(req.params.id, status);
+    const updates: Record<string, any> = {};
+    if (status !== undefined) updates.status = status;
+    if (notes !== undefined) updates.notes = notes;
+    if (delivery_type !== undefined) updates.delivery_type = delivery_type;
+
+    if (Object.keys(updates).length > 0) {
+      const ok = await store.updateOrder(req.params.id, updates);
       if (!ok) { res.status(500).json({ error: 'Failed to update order' }); return; }
     }
-    // Update notes/delivery_type if provided
-    if (notes !== undefined || delivery_type !== undefined) {
-      const updates: any = {};
-      if (notes !== undefined) updates.notes = notes;
-      if (delivery_type !== undefined) updates.delivery_type = delivery_type;
-      updates.updated_at = new Date().toISOString();
-      await store.getSupabase().from('olo_orders').update(updates).eq('id', req.params.id);
+
+    // Auto stock movement when order is delivered or returned
+    if (status === 'delivered' || status === 'returned') {
+      const { data: items } = await store.getSupabase()
+        .from('olo_order_items')
+        .select('catalog_item_id, quantity')
+        .eq('order_id', req.params.id)
+        .not('catalog_item_id', 'is', null);
+
+      for (const item of (items || [])) {
+        const { data: ci } = await store.getSupabase()
+          .from('catalog_items')
+          .select('stock_quantity')
+          .eq('id', item.catalog_item_id)
+          .single();
+        if (!ci) continue;
+        const delta = status === 'delivered' ? -item.quantity : item.quantity;
+        const newQty = Math.max(0, (ci.stock_quantity || 0) + delta);
+        await store.getSupabase()
+          .from('catalog_items')
+          .update({ stock_quantity: newQty })
+          .eq('id', item.catalog_item_id);
+        await store.getSupabase()
+          .from('stock_movements')
+          .insert({
+            org_id: req.params.orgId,
+            catalog_item_id: item.catalog_item_id,
+            movement_type: status === 'delivered' ? 'sale' : 'return',
+            quantity_change: delta,
+            quantity_after: newQty,
+            reason: `Pedido marcado como ${status}`,
+          });
+      }
     }
+
     res.json({ success: true });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
